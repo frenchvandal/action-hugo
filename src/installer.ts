@@ -3,9 +3,9 @@ import { info, addPath } from '@actions/core';
 import { downloadTool, extractZip, extractTar, cacheDir } from '@actions/tool-cache';
 
 export async function hugoExec(): Promise<string> {
-  info(`Hugo version: ${GitHubRelease.tag_name}`);
-  info(`Downloading ${GitHubRelease.downloadUrl} …`);
-
+  //info(`Hugo version: ${GitHubRelease.tag_name}`);
+  //info(`Downloading ${GitHubRelease.downloadUrl} …`);
+  info(`Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`);
   const downloadPath: string = await downloadTool(await GitHubRelease.getRelease());
 
   let extractedFolder: string;
