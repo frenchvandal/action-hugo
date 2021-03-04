@@ -17,7 +17,7 @@ export class GitHubRelease {
   private static releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
   private static version: string = getInput('version');
   private static extended: string = getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
-  private static platform: string | undefined = process.env.OS_RUNNER;
+  private static platform: string | undefined = process.env.RUNNER_OS;
   private static extension: string = process.platform === 'win32' ? '.zip' : '.tar.gz';
 
   private static _http: HttpClient = new HttpClient(
