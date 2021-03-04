@@ -1,7 +1,9 @@
 {
   "search.exclude": {
     "**/dist": true,
-    "**/lib": true
+    "**/lib": true,
+    "**/node_modules": true
   },
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "git.ignoreLimitWarning": true
 }

@@ -43,7 +43,7 @@ GitHubRelease.executable = process.platform === 'win32' ? 'hugo.exe' : 'hugo';
 GitHubRelease.releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
 GitHubRelease.version = core_1.getInput('version');
 GitHubRelease.extended = core_1.getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
-GitHubRelease.platform = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+GitHubRelease.platform = process.env.OS_RUNNER;
 GitHubRelease.extension = process.platform === 'win32' ? '.zip' : '.tar.gz';
 GitHubRelease._http = new http_client_1.HttpClient(`Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`);
 //# sourceMappingURL=github.js.map

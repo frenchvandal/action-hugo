@@ -2,7 +2,7 @@ import { HttpClient } from '@actions/http-client';
 import { clean } from 'semver';
 import { getInput } from '@actions/core';
 
-interface releaseJson {
+interface ReleaseJson {
   tag_name: string;
 }
 
@@ -17,8 +17,7 @@ export class GitHubRelease {
   private static releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
   private static version: string = getInput('version');
   private static extended: string = getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
-  private static platform: string =
-    process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+  private static platform: string | undefined = process.env.OS_RUNNER;
   private static extension: string = process.platform === 'win32' ? '.zip' : '.tar.gz';
 
   private static _http: HttpClient = new HttpClient(
@@ -26,8 +25,8 @@ export class GitHubRelease {
   );
 
   static async getRelease(): Promise<string> {
-    const release: releaseJson | null = (
-      await GitHubRelease._http.getJson<releaseJson>(`${GitHubRelease.releaseUrl}${GitHubRelease.version}`)
+    const release: ReleaseJson | null = (
+      await GitHubRelease._http.getJson<ReleaseJson>(`${GitHubRelease.releaseUrl}${GitHubRelease.version}`)
     ).result;
 
     if (release === null) {
