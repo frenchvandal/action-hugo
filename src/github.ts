@@ -6,7 +6,9 @@ interface releaseJson {
   tag_name: string;
 }
 
-export class gitHubRelease {
+export const IS_WINDOWS: boolean = process.platform === 'win32';
+
+export class GitHubRelease {
   static tag_name: string;
   static semver: string | null;
   static downloadUrl: string;
@@ -25,16 +27,16 @@ export class gitHubRelease {
 
   static async getRelease(): Promise<string> {
     const release: releaseJson | null = (
-      await gitHubRelease._http.getJson<releaseJson>(`${gitHubRelease.releaseUrl}${gitHubRelease.version}`)
+      await GitHubRelease._http.getJson<releaseJson>(`${GitHubRelease.releaseUrl}${GitHubRelease.version}`)
     ).result;
 
     if (release === null) {
-      throw new Error(`No release found for version ${gitHubRelease.releaseUrl}${gitHubRelease.version} …`);
+      throw new Error(`No release found for version ${GitHubRelease.releaseUrl}${GitHubRelease.version} …`);
     } else {
-      gitHubRelease.tag_name = release.tag_name;
-      gitHubRelease.semver = clean(gitHubRelease.tag_name);
-      gitHubRelease.downloadUrl = `${gitHubRelease.releaseUrl}download/${gitHubRelease.tag_name}/hugo_${gitHubRelease.extended}${gitHubRelease.semver}_${gitHubRelease.platform}-64bit${gitHubRelease.extension}`;
-      return gitHubRelease.downloadUrl;
+      GitHubRelease.tag_name = release.tag_name;
+      GitHubRelease.semver = clean(GitHubRelease.tag_name);
+      GitHubRelease.downloadUrl = `${GitHubRelease.releaseUrl}download/${GitHubRelease.tag_name}/hugo_${GitHubRelease.extended}${GitHubRelease.semver}_${GitHubRelease.platform}-64bit${GitHubRelease.extension}`;
+      return GitHubRelease.downloadUrl;
     }
   }
 }

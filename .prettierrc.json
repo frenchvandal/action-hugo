@@ -7,5 +7,19 @@
 "trailingComma": "all",
 "bracketSpacing": true,
 "arrowParens": "avoid",
-"parser": "typescript"
+"parser": "typescript",
+"overrides": [
+    {
+      "files": "*.json",
+      "options": { "parser": "json" }
+    },
+    {
+        "files": "*.md",
+        "options": { "parser": "markdown" }
+      },
+      {
+        "files": ["*.yml", "*.yaml"],
+        "options": { "parser": "yaml" }
+      }
+  ]
 }

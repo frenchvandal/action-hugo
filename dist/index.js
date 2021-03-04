@@ -17,34 +17,35 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.gitHubRelease = void 0;
+exports.GitHubRelease = exports.IS_WINDOWS = void 0;
 const http_client_1 = __nccwpck_require__(9925);
 const semver_1 = __nccwpck_require__(1383);
 const core_1 = __nccwpck_require__(2186);
-class gitHubRelease {
+exports.IS_WINDOWS = process.platform === 'win32';
+class GitHubRelease {
     static getRelease() {
         return __awaiter(this, void 0, void 0, function* () {
-            const release = (yield gitHubRelease._http.getJson(`${gitHubRelease.releaseUrl}${gitHubRelease.version}`)).result;
+            const release = (yield GitHubRelease._http.getJson(`${GitHubRelease.releaseUrl}${GitHubRelease.version}`)).result;
             if (release === null) {
-                throw new Error(`No release found for version ${gitHubRelease.releaseUrl}${gitHubRelease.version} …`);
+                throw new Error(`No release found for version ${GitHubRelease.releaseUrl}${GitHubRelease.version} …`);
             }
             else {
-                gitHubRelease.tag_name = release.tag_name;
-                gitHubRelease.semver = semver_1.clean(gitHubRelease.tag_name);
-                gitHubRelease.downloadUrl = `${gitHubRelease.releaseUrl}download/${gitHubRelease.tag_name}/hugo_${gitHubRelease.extended}${gitHubRelease.semver}_${gitHubRelease.platform}-64bit${gitHubRelease.extension}`;
-                return gitHubRelease.downloadUrl;
+                GitHubRelease.tag_name = release.tag_name;
+                GitHubRelease.semver = semver_1.clean(GitHubRelease.tag_name);
+                GitHubRelease.downloadUrl = `${GitHubRelease.releaseUrl}download/${GitHubRelease.tag_name}/hugo_${GitHubRelease.extended}${GitHubRelease.semver}_${GitHubRelease.platform}-64bit${GitHubRelease.extension}`;
+                return GitHubRelease.downloadUrl;
             }
         });
     }
 }
-exports.gitHubRelease = gitHubRelease;
-gitHubRelease.executable = process.platform === 'win32' ? 'hugo.exe' : 'hugo';
-gitHubRelease.releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
-gitHubRelease.version = core_1.getInput('version');
-gitHubRelease.extended = core_1.getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
-gitHubRelease.platform = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
-gitHubRelease.extension = process.platform === 'win32' ? '.zip' : '.tar.gz';
-gitHubRelease._http = new http_client_1.HttpClient(`Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`);
+exports.GitHubRelease = GitHubRelease;
+GitHubRelease.executable = process.platform === 'win32' ? 'hugo.exe' : 'hugo';
+GitHubRelease.releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
+GitHubRelease.version = core_1.getInput('version');
+GitHubRelease.extended = core_1.getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
+GitHubRelease.platform = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
+GitHubRelease.extension = process.platform === 'win32' ? '.zip' : '.tar.gz';
+GitHubRelease._http = new http_client_1.HttpClient(`Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`);
 //# sourceMappingURL=github.js.map
 
 /***/ }),
@@ -68,25 +69,24 @@ exports.hugoExec = void 0;
 const github_1 = __nccwpck_require__(5928);
 const core_1 = __nccwpck_require__(2186);
 const tool_cache_1 = __nccwpck_require__(7784);
-const IS_WINDOWS = process.platform === 'win32';
 function hugoExec() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
-        core_1.info(`Hugo version: ${github_1.gitHubRelease.tag_name}`);
-        core_1.info(`Downloading ${github_1.gitHubRelease.downloadUrl} …`);
-        const downloadPath = yield tool_cache_1.downloadTool(yield github_1.gitHubRelease.getRelease());
+        core_1.info(`Hugo version: ${github_1.GitHubRelease.tag_name}`);
+        core_1.info(`Downloading ${github_1.GitHubRelease.downloadUrl} …`);
+        const downloadPath = yield tool_cache_1.downloadTool(yield github_1.GitHubRelease.getRelease());
         let extractedFolder;
-        if (IS_WINDOWS) {
+        if (github_1.IS_WINDOWS) {
             extractedFolder = yield tool_cache_1.extractZip(downloadPath);
         }
         else {
             extractedFolder = yield tool_cache_1.extractTar(downloadPath);
         }
-        const semver = (_a = github_1.gitHubRelease === null || github_1.gitHubRelease === void 0 ? void 0 : github_1.gitHubRelease.semver) !== null && _a !== void 0 ? _a : github_1.gitHubRelease.tag_name.replace(/^v/, '');
+        const semver = (_a = github_1.GitHubRelease === null || github_1.GitHubRelease === void 0 ? void 0 : github_1.GitHubRelease.semver) !== null && _a !== void 0 ? _a : github_1.GitHubRelease.tag_name.replace(/^v/, '');
         const cachedPath = yield tool_cache_1.cacheDir(extractedFolder, 'hugo', semver);
         core_1.addPath(cachedPath);
-        core_1.info(`Running ${github_1.gitHubRelease.executable} …`);
-        return github_1.gitHubRelease.executable;
+        core_1.info(`Running ${github_1.GitHubRelease.executable} …`);
+        return github_1.GitHubRelease.executable;
     });
 }
 exports.hugoExec = hugoExec;
