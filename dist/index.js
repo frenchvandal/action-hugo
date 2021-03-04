@@ -43,7 +43,7 @@ GitHubRelease.executable = process.platform === 'win32' ? 'hugo.exe' : 'hugo';
 GitHubRelease.releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
 GitHubRelease.version = core_1.getInput('version');
 GitHubRelease.extended = core_1.getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
-GitHubRelease.platform = process.env.OS_RUNNER;
+GitHubRelease.platform = process.env.RUNNER_OS;
 GitHubRelease.extension = process.platform === 'win32' ? '.zip' : '.tar.gz';
 GitHubRelease._http = new http_client_1.HttpClient(`Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`);
 //# sourceMappingURL=github.js.map
@@ -72,7 +72,7 @@ const tool_cache_1 = __nccwpck_require__(7784);
 function hugoExec() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
-        core_1.info(`${process.env.OS_RUNNER})`);
+        core_1.info(`${process.env.RUNNER_OS}`);
         const downloadPath = yield tool_cache_1.downloadTool(yield github_1.GitHubRelease.getRelease());
         let extractedFolder;
         if (github_1.IS_WINDOWS) {
