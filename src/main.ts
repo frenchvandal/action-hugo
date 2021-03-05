@@ -10,9 +10,9 @@ import { restoreCache, saveCache } from '@actions/cache';
     const cacheKey = await restoreCache(paths, key);
     info(`cacheKey: ${cacheKey}`);
 
-    await exec(`${await hugoExec()} ${getInput('args')}`);
+    //await exec(`${await hugoExec()} ${getInput('args')}`);
 
-    //await exec('/opt/hostedtoolcache/hugo/0.81.0/x64/hugo');
+    await exec('/opt/hostedtoolcache/hugo/0.81.0/x64/hugo');
 
     const cacheId = await saveCache(paths, key);
     info(`cacheId: ${cacheId}`);
