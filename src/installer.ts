@@ -1,6 +1,6 @@
-import { IS_WINDOWS, GitHubRelease } from './github';
-import { info, addPath } from '@actions/core';
-import { downloadTool, extractZip, extractTar, cacheDir } from '@actions/tool-cache';
+import { GitHubRelease, IS_WINDOWS } from './github';
+import { addPath, info } from '@actions/core';
+import { cacheDir, downloadTool, extractTar, extractZip } from '@actions/tool-cache';
 
 export async function hugoExec(): Promise<string> {
   //info(`Hugo version: ${GitHubRelease.tag_name}`);

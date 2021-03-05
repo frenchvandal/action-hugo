@@ -25,6 +25,7 @@
   "author": "frenchvandal",
   "license": "MIT",
   "dependencies": {
+    "@actions/cache": "^1.0.6",
     "@actions/core": "^1.2.6",
     "@actions/exec": "^1.0.4",
     "@actions/http-client": "^1.0.9",
