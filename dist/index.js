@@ -25,8 +25,8 @@ const cache_1 = __nccwpck_require__(7799);
         const paths = ['/opt/hostedtoolcache/hugo/0.81.0/x64/'];
         const key = '/hugo/0.81.0/x64/';
         const cacheKey = yield cache_1.restoreCache(paths, key);
+        core_1.info(`cacheId: ${cacheKey}`);
         yield exec_1.exec('/opt/hostedtoolcache/hugo/0.81.0/x64/hugo');
-        const cacheId = yield cache_1.saveCache(paths, key);
     }
     catch (e) {
         core_1.setFailed(`Action failed with error: ${e.message}`);
