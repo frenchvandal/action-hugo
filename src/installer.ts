@@ -5,7 +5,10 @@ import { downloadTool, extractZip, extractTar, cacheDir } from '@actions/tool-ca
 export async function hugoExec(): Promise<string> {
   //info(`Hugo version: ${GitHubRelease.tag_name}`);
   //info(`Downloading ${GitHubRelease.downloadUrl} …`);
-  info(`${process.env.RUNNER_OS}`);
+  info(`runner.os: ${process.env.RUNNER_OS}`);
+  info(`runner.tool_cache: ${process.env.RUNNER_TOOL_CACHE}`);
+  info(`github.action: ${process.env.GITHUB_ACTION}`);
+
   const downloadPath: string = await downloadTool(await GitHubRelease.getRelease());
 
   let extractedFolder: string;

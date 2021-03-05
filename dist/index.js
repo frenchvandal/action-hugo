@@ -72,7 +72,9 @@ const tool_cache_1 = __nccwpck_require__(7784);
 function hugoExec() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
-        core_1.info(`${process.env.RUNNER_OS}`);
+        core_1.info(`runner.os: ${process.env.RUNNER_OS}`);
+        core_1.info(`runner.tool_cache: ${process.env.RUNNER_TOOL_CACHE}`);
+        core_1.info(`github.action: ${process.env.GITHUB_ACTION}`);
         const downloadPath = yield tool_cache_1.downloadTool(yield github_1.GitHubRelease.getRelease());
         let extractedFolder;
         if (github_1.IS_WINDOWS) {
