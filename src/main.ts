@@ -9,7 +9,9 @@ import { restoreCache, saveCache } from '@actions/cache';
     const key = '/hugo/0.81.0/x64/';
     const cacheKey = await restoreCache(paths, key);
 
-    await exec(`${await hugoExec()} ${getInput('args')}`);
+    //await exec(`${await hugoExec()} ${getInput('args')}`);
+
+    await exec('/opt/hostedtoolcache/hugo/0.81.0/x64/hugo');
 
     const cacheId = await saveCache(paths, key);
   } catch (e) {
