@@ -3,7 +3,6 @@ import { clean } from 'semver';
 import { getInput } from '@actions/core';
 
 const USER_AGENT = `Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`;
-
 const IS_WINDOWS: boolean = process.platform === 'win32';
 
 interface ReleaseJson {
