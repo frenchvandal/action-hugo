@@ -17,11 +17,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GitHubRelease = exports.IS_WINDOWS = void 0;
+exports.IS_WINDOWS = exports.GitHubRelease = void 0;
 const http_client_1 = __nccwpck_require__(9925);
 const semver_1 = __nccwpck_require__(1383);
 const core_1 = __nccwpck_require__(2186);
-exports.IS_WINDOWS = process.platform === 'win32';
+const USER_AGENT = `Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`;
+const IS_WINDOWS = process.platform === 'win32';
+exports.IS_WINDOWS = IS_WINDOWS;
 class GitHubRelease {
     static getRelease() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -39,13 +41,13 @@ class GitHubRelease {
     }
 }
 exports.GitHubRelease = GitHubRelease;
-GitHubRelease.executable = process.platform === 'win32' ? 'hugo.exe' : 'hugo';
+GitHubRelease.executable = IS_WINDOWS ? 'hugo.exe' : 'hugo';
 GitHubRelease.releaseUrl = 'https://github.com/gohugoio/hugo/releases/';
 GitHubRelease.version = core_1.getInput('version');
 GitHubRelease.extended = core_1.getInput('extended').toLowerCase() === 'true' ? 'extended_' : '';
 GitHubRelease.platform = process.env.RUNNER_OS;
-GitHubRelease.extension = process.platform === 'win32' ? '.zip' : '.tar.gz';
-GitHubRelease._http = new http_client_1.HttpClient(`Node.js/${process.version.substr(1)} (${process.platform}; ${process.arch})`);
+GitHubRelease.extension = IS_WINDOWS ? '.zip' : '.tar.gz';
+GitHubRelease._http = new http_client_1.HttpClient(USER_AGENT);
 //# sourceMappingURL=github.js.map
 
 /***/ }),
