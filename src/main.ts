@@ -27,9 +27,8 @@ function getArch(): string {
     case 'x64':
       return '64bit';
     case 'arm64':
-      return process.arch.toUpperCase();
     case 'arm':
-      return 'ARM32';
+      return process.arch.toUpperCase();
     default:
       throw new Error(`${process.arch} is not supported`);
   }
