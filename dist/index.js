@@ -29,12 +29,24 @@ var Tool;
     Tool["Owner"] = "gohugoio";
     Tool["Repo"] = "hugo";
 })(Tool || (Tool = {}));
-const releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases/`;
+const releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases`;
 function getRelease(userAgent, version) {
     return __awaiter(this, void 0, void 0, function* () {
         const http = new http_client_1.HttpClient(userAgent);
-        return (yield http.getJson(`${releaseUrl}${version}`)).result;
+        return (yield http.getJson(`${releaseUrl}/${version}`)).result;
     });
+}
+function getArch() {
+    switch (process.arch) {
+        case 'x64':
+            return '64bit';
+        case 'arm64':
+            return process.arch.toUpperCase();
+        case 'arm':
+            return 'ARM32';
+        default:
+            throw new Error(`${process.arch} is not supported`);
+    }
 }
 function getOS() {
     if (process.env['RUNNER_OS']) {
@@ -67,7 +79,7 @@ const version = core_1.getInput('version');
 const args = core_1.getInput('args');
 const isWindows = process.platform === 'win32';
 const osPlatform = getOS();
-const osArch = process.arch;
+const osArch = getArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
@@ -81,7 +93,7 @@ function getHugoExec(semver, downloadUrl) {
         else {
             extractedFolder = yield tool_cache_1.extractTar(downloadPath);
         }
-        const cachedPath = yield tool_cache_1.cacheDir(extractedFolder, `${Tool.Repo}${extended}`, semver);
+        const cachedPath = yield tool_cache_1.cacheDir(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
         core_1.addPath(cachedPath);
         core_1.info(`Running ${executable} …`);
         return executable;
@@ -97,15 +109,14 @@ function getHugoExec(semver, downloadUrl) {
         const tagName = hugoRelease.tag_name;
         const semver = (_a = semver_1.clean(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
         const path = [path_1.join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
-        const key = `${Tool.Repo}${extended}-${semver}`;
+        const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
         const cacheKey = yield cache_1.restoreCache(path, key);
-        core_1.info(`Cache path: ${path[0]}`);
         if (cacheKey) {
             core_1.addPath(path[0]);
             yield exec_1.exec(`${executable} ${args}`);
         }
         else {
-            const downloadUrl = `${releaseUrl}download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-64bit${extension}`;
+            const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
             yield exec_1.exec(`${yield getHugoExec(semver, downloadUrl)} ${core_1.getInput('args')}`);
             try {
                 const cacheId = yield cache_1.saveCache(path, key);
