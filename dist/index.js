@@ -97,9 +97,10 @@ function hugoExec(semver, downloadUrl) {
         const tagName = hugoRelease.tag_name;
         const semver = (_a = semver_1.clean(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
         const path = path_1.join(cacheDirectory, `${Tool.Repo}${extended}`, semver, process.arch);
-        const paths = Array.from(path);
+        const paths = [path];
         const key = `${Tool.Repo}${extended}-${semver}`;
         const cacheKey = yield cache_1.restoreCache(paths, key);
+        core_1.info(`Cache path: ${path}`);
         if (cacheKey) {
             core_1.addPath(path);
             yield exec_1.exec(`${executable} ${args}`);

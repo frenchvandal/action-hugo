@@ -86,10 +86,10 @@ async function hugoExec(semver: string, downloadUrl: string): Promise<string> {
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
     const path: string = join(cacheDirectory, `${Tool.Repo}${extended}`, semver, process.arch);
-    const paths: string[] = Array.from(path);
+    const paths: string[] = [path];
     const key = `${Tool.Repo}${extended}-${semver}`;
     const cacheKey: string | undefined = await restoreCache(paths, key);
-
+    info(`Cache path: ${path}`);
     if (cacheKey) {
       addPath(path);
       await exec(`${executable} ${args}`);
