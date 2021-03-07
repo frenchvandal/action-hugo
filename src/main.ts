@@ -58,7 +58,7 @@ const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch
 const executable: string = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension: string = isWindows === true ? '.zip' : '.tar.gz';
 
-async function hugoExec(semver: string, downloadUrl: string): Promise<string> {
+async function getHugoExec(semver: string, downloadUrl: string): Promise<string> {
   const downloadPath: string = await downloadTool(downloadUrl);
 
   let extractedFolder: string;
@@ -68,7 +68,7 @@ async function hugoExec(semver: string, downloadUrl: string): Promise<string> {
     extractedFolder = await extractTar(downloadPath);
   }
 
-  const cachedPath: string = await cacheDir(extractedFolder, Tool.Repo, semver);
+  const cachedPath: string = await cacheDir(extractedFolder, `${Tool.Repo}${extended}`, semver);
 
   addPath(cachedPath);
 
@@ -85,20 +85,19 @@ async function hugoExec(semver: string, downloadUrl: string): Promise<string> {
     }
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
-    const path: string = join(cacheDirectory, `${Tool.Repo}${extended}`, semver, process.arch);
-    const paths: string[] = [path];
+    const path: string[] = [join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
     const key = `${Tool.Repo}${extended}-${semver}`;
-    const cacheKey: string | undefined = await restoreCache(paths, key);
-    info(`Cache path: ${path}`);
+    const cacheKey: string | undefined = await restoreCache(path, key);
+    info(`Cache path: ${path[0]}`);
     if (cacheKey) {
-      addPath(path);
+      addPath(path[0]);
       await exec(`${executable} ${args}`);
     } else {
       const downloadUrl = `${releaseUrl}download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-64bit${extension}`;
-      await exec(`${await hugoExec(semver, downloadUrl)} ${getInput('args')}`);
+      await exec(`${await getHugoExec(semver, downloadUrl)} ${getInput('args')}`);
 
       try {
-        const cacheId = await saveCache(paths, key);
+        const cacheId = await saveCache(path, key);
         info(`cacheId: ${cacheId}`);
       } catch (error) {
         warning(`Saving cache failed with ${error.message}`);
