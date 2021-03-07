@@ -105,7 +105,7 @@ function hugoExec(semver, downloadUrl) {
             yield exec_1.exec(`${executable} ${args}`);
         }
         else {
-            const downloadUrl = `${releaseUrl}download/${tagName}/${Tool.Repo}${extended}_${osPlatform}-64bit${extension}`;
+            const downloadUrl = `${releaseUrl}download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-64bit${extension}`;
             yield exec_1.exec(`${yield hugoExec(semver, downloadUrl)} ${core_1.getInput('args')}`);
             try {
                 const cacheId = yield cache_1.saveCache(paths, key);

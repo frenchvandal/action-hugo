@@ -94,7 +94,7 @@ async function hugoExec(semver: string, downloadUrl: string): Promise<string> {
       addPath(path);
       await exec(`${executable} ${args}`);
     } else {
-      const downloadUrl = `${releaseUrl}download/${tagName}/${Tool.Repo}${extended}_${osPlatform}-64bit${extension}`;
+      const downloadUrl = `${releaseUrl}download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-64bit${extension}`;
       await exec(`${await hugoExec(semver, downloadUrl)} ${getInput('args')}`);
 
       try {
