@@ -22,7 +22,7 @@ async function getRelease(userAgent: string, version: string): Promise<ReleaseJs
   return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
 }
 
-function getArch(): string {
+function getOSArch(): string {
   switch (process.arch) {
     case 'x64':
       return '64bit';
@@ -34,7 +34,7 @@ function getArch(): string {
   }
 }
 
-function getOS(): string {
+function getOSPlatform(): string {
   if (process.env['RUNNER_OS']) {
     return process.env['RUNNER_OS'];
   } else {
@@ -64,8 +64,8 @@ const extended: string = getInput('extended').toLowerCase() === 'true' ? '_exten
 const version: string = getInput('version');
 const args: string = getInput('args');
 const isWindows: boolean = process.platform === 'win32';
-const osPlatform: string = getOS();
-const osArch: string = getArch();
+const osPlatform: string = getOSPlatform();
+const osArch: string = getOSArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable: string = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension: string = isWindows === true ? '.zip' : '.tar.gz';
@@ -91,16 +91,12 @@ async function getHugoExec(semver: string, downloadUrl: string): Promise<string>
 (async (): Promise<void> => {
   try {
     const hugoRelease: ReleaseJson | null = await getRelease(userAgent, version);
-
-    if (!hugoRelease) {
-      throw new Error(`Hugo version ${version} not found`);
-    }
+    if (!hugoRelease) throw new Error(`Hugo version ${version} not found`);
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
     const path: string[] = [join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
     const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
     const cacheKey: string | undefined = await restoreCache(path, key);
-
     if (cacheKey) {
       addPath(path[0]);
       await exec(`${executable} ${args}`);

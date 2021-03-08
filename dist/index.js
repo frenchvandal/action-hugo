@@ -37,7 +37,7 @@ async function getRelease(userAgent, version) {
     const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_3__.HttpClient(userAgent);
     return (await http.getJson(`${releaseUrl}/${version}`)).result;
 }
-function getArch() {
+function getOSArch() {
     switch (process.arch) {
         case 'x64':
             return '64bit';
@@ -48,7 +48,7 @@ function getArch() {
             throw new Error(`${process.arch} is not supported`);
     }
 }
-function getOS() {
+function getOSPlatform() {
     if (process.env['RUNNER_OS']) {
         return process.env['RUNNER_OS'];
     }
@@ -78,8 +78,8 @@ const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extend
 const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version');
 const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args');
 const isWindows = process.platform === 'win32';
-const osPlatform = getOS();
-const osArch = getArch();
+const osPlatform = getOSPlatform();
+const osArch = getOSArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
@@ -101,9 +101,8 @@ async function getHugoExec(semver, downloadUrl) {
     var _a;
     try {
         const hugoRelease = await getRelease(userAgent, version);
-        if (!hugoRelease) {
+        if (!hugoRelease)
             throw new Error(`Hugo version ${version} not found`);
-        }
         const tagName = hugoRelease.tag_name;
         const semver = (_a = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
         const path = [(0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
