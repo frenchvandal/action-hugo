@@ -3,38 +3,39 @@ module.exports =
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 3109:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
+__nccwpck_require__.r(__webpack_exports__);
+/* harmony import */ var _actions_cache__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(7799);
+/* harmony import */ var _actions_cache__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_cache__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(2186);
+/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(1514);
+/* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__nccwpck_require__.n(_actions_exec__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var _actions_http_client__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(9925);
+/* harmony import */ var _actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(7784);
+/* harmony import */ var _actions_tool_cache__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__nccwpck_require__.n(_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__);
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(5622);
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_5__);
+/* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(1383);
+/* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__nccwpck_require__.n(semver__WEBPACK_IMPORTED_MODULE_6__);
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const cache_1 = __nccwpck_require__(7799);
-const core_1 = __nccwpck_require__(2186);
-const exec_1 = __nccwpck_require__(1514);
-const http_client_1 = __nccwpck_require__(9925);
-const tool_cache_1 = __nccwpck_require__(7784);
-const path_1 = __nccwpck_require__(5622);
-const semver_1 = __nccwpck_require__(1383);
+
+
+
+
+
+
 var Tool;
 (function (Tool) {
     Tool["Owner"] = "gohugoio";
     Tool["Repo"] = "hugo";
 })(Tool || (Tool = {}));
 const releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases`;
-function getRelease(userAgent, version) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const http = new http_client_1.HttpClient(userAgent);
-        return (yield http.getJson(`${releaseUrl}/${version}`)).result;
-    });
+async function getRelease(userAgent, version) {
+    const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_3__.HttpClient(userAgent);
+    return (await http.getJson(`${releaseUrl}/${version}`)).result;
 }
 function getArch() {
     switch (process.arch) {
@@ -73,63 +74,60 @@ function getCacheDirectory() {
     }
 }
 const cacheDirectory = getCacheDirectory();
-const extended = core_1.getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
-const version = core_1.getInput('version');
-const args = core_1.getInput('args');
+const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase() === 'true' ? '_extended' : '';
+const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version');
+const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args');
 const isWindows = process.platform === 'win32';
 const osPlatform = getOS();
 const osArch = getArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
-function getHugoExec(semver, downloadUrl) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const downloadPath = yield tool_cache_1.downloadTool(downloadUrl);
-        let extractedFolder;
-        if (isWindows) {
-            extractedFolder = yield tool_cache_1.extractZip(downloadPath);
-        }
-        else {
-            extractedFolder = yield tool_cache_1.extractTar(downloadPath);
-        }
-        const cachedPath = yield tool_cache_1.cacheDir(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
-        core_1.addPath(cachedPath);
-        core_1.info(`Running ${executable} …`);
-        return executable;
-    });
+async function getHugoExec(semver, downloadUrl) {
+    const downloadPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.downloadTool)(downloadUrl);
+    let extractedFolder;
+    if (isWindows) {
+        extractedFolder = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.extractZip)(downloadPath);
+    }
+    else {
+        extractedFolder = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.extractTar)(downloadPath);
+    }
+    const cachedPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.cacheDir)(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(cachedPath);
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Running ${executable} …`);
+    return executable;
 }
-(() => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+(async () => {
     try {
-        const hugoRelease = yield getRelease(userAgent, version);
+        const hugoRelease = await getRelease(userAgent, version);
         if (!hugoRelease) {
             throw new Error(`Hugo version ${version} not found`);
         }
         const tagName = hugoRelease.tag_name;
-        const semver = (_a = semver_1.clean(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
-        const path = [path_1.join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
+        const semver = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName) ?? tagName.replace(/^v/, '');
+        const path = [(0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
         const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
-        const cacheKey = yield cache_1.restoreCache(path, key);
+        const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
-            core_1.addPath(path[0]);
-            yield exec_1.exec(`${executable} ${args}`);
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
+            await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);
         }
         else {
             const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-            yield exec_1.exec(`${yield getHugoExec(semver, downloadUrl)} ${core_1.getInput('args')}`);
+            await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${(0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args')}`);
             try {
-                const cacheId = yield cache_1.saveCache(path, key);
-                core_1.info(`cacheId: ${cacheId}`);
+                const cacheId = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.saveCache)(path, key);
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`cacheId: ${cacheId}`);
             }
             catch (error) {
-                core_1.warning(`Saving cache failed with ${error.message}`);
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.warning)(`Tool caching failed with ${error.message}`);
             }
         }
     }
     catch (error) {
-        core_1.setFailed(`Action failed with error: ${error.message}`);
+        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.setFailed)(`Action failed with error: ${error.message}`);
     }
-}))();
+})();
 //# sourceMappingURL=main.js.map
 
 /***/ }),

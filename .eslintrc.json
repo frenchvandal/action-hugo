@@ -8,7 +8,6 @@
     "project": "./tsconfig.json"
   },
   "rules": {
-    "comma-dangle": ["error", "always-multiline"],
     "prettier/prettier": [
       "error",
       {
@@ -16,7 +15,8 @@
       },
       {
         "comma-dangle": ["error", "always-multiline"]
-      }
+      },
+      { "curly": ["error", "all"] }
     ],
     "eslint-comments/no-use": "off",
     "import/no-namespace": "off",

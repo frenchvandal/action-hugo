@@ -1,0 +1,10 @@
+// For configuration documentation see http://romefrontend.dev/#project-configuration
+name: "action-hugo"
+lint: {
+	ignore: [
+		"dist"
+		"lib"
+		"node_modules"
+]
+}
+root: true

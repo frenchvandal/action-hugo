@@ -112,7 +112,7 @@ async function getHugoExec(semver: string, downloadUrl: string): Promise<string>
         const cacheId = await saveCache(path, key);
         info(`cacheId: ${cacheId}`);
       } catch (error) {
-        warning(`Saving cache failed with ${error.message}`);
+        warning(`Tool caching failed with ${error.message}`);
       }
     }
   } catch (error) {
