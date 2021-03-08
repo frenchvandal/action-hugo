@@ -105,7 +105,9 @@ async function getHugoExec(semver, downloadUrl) {
             throw new Error(`Hugo version ${version} not found`);
         const tagName = hugoRelease.tag_name;
         const semver = (_a = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
-        const path = [(0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
+        const path = [
+            (0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch),
+        ];
         const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
         const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {

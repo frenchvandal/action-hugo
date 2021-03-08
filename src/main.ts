@@ -2,7 +2,12 @@ import { restoreCache, saveCache } from '@actions/cache';
 import { addPath, getInput, info, setFailed, warning } from '@actions/core';
 import { exec } from '@actions/exec';
 import { HttpClient } from '@actions/http-client';
-import { cacheDir, downloadTool, extractTar, extractZip } from '@actions/tool-cache';
+import {
+  cacheDir,
+  downloadTool,
+  extractTar,
+  extractZip,
+} from '@actions/tool-cache';
 import { join } from 'path';
 import { clean } from 'semver';
 
@@ -17,7 +22,10 @@ interface ReleaseJson {
 
 const releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases`;
 
-async function getRelease(userAgent: string, version: string): Promise<ReleaseJson | null> {
+async function getRelease(
+  userAgent: string,
+  version: string,
+): Promise<ReleaseJson | null> {
   const http: HttpClient = new HttpClient(userAgent);
   return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
 }
@@ -60,17 +68,23 @@ function getCacheDirectory(): string {
 }
 
 const cacheDirectory: string = getCacheDirectory();
-const extended: string = getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
+const extended: string =
+  getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
 const version: string = getInput('version');
 const args: string = getInput('args');
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getOSPlatform();
 const osArch: string = getOSArch();
-const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
+const userAgent = `Node.js/${process.version.substr(
+  1,
+)} (${osPlatform}; ${osArch})`;
 const executable: string = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension: string = isWindows === true ? '.zip' : '.tar.gz';
 
-async function getHugoExec(semver: string, downloadUrl: string): Promise<string> {
+async function getHugoExec(
+  semver: string,
+  downloadUrl: string,
+): Promise<string> {
   const downloadPath: string = await downloadTool(downloadUrl);
 
   let extractedFolder: string;
@@ -80,7 +94,12 @@ async function getHugoExec(semver: string, downloadUrl: string): Promise<string>
     extractedFolder = await extractTar(downloadPath);
   }
 
-  const cachedPath: string = await cacheDir(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
+  const cachedPath: string = await cacheDir(
+    extractedFolder,
+    `${Tool.Repo}${extended}`,
+    semver,
+    osArch,
+  );
 
   addPath(cachedPath);
 
@@ -90,11 +109,16 @@ async function getHugoExec(semver: string, downloadUrl: string): Promise<string>
 
 (async (): Promise<void> => {
   try {
-    const hugoRelease: ReleaseJson | null = await getRelease(userAgent, version);
+    const hugoRelease: ReleaseJson | null = await getRelease(
+      userAgent,
+      version,
+    );
     if (!hugoRelease) throw new Error(`Hugo version ${version} not found`);
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
-    const path: string[] = [join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch)];
+    const path: string[] = [
+      join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch),
+    ];
     const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
     const cacheKey: string | undefined = await restoreCache(path, key);
     if (cacheKey) {
@@ -102,7 +126,9 @@ async function getHugoExec(semver: string, downloadUrl: string): Promise<string>
       await exec(`${executable} ${args}`);
     } else {
       const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-      await exec(`${await getHugoExec(semver, downloadUrl)} ${getInput('args')}`);
+      await exec(
+        `${await getHugoExec(semver, downloadUrl)} ${getInput('args')}`,
+      );
 
       try {
         const cacheId = await saveCache(path, key);
