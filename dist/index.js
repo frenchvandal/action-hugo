@@ -92,13 +92,13 @@ async function getHugoExec(semver, downloadUrl) {
     return executable;
 }
 (async () => {
-    var _a, _b;
+    var _a;
     try {
         const hugoRelease = await getRelease(userAgent, version);
         if (!hugoRelease)
-            (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.error)(`Hugo version ${version} not found`);
-        const tagName = (_a = hugoRelease.tag_name) !== null && _a !== void 0 ? _a : 'toto';
-        const semver = (_b = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName)) !== null && _b !== void 0 ? _b : tagName.replace(/^v/, '');
+            throw Error(`Hugo version ${version} not found`);
+        const tagName = hugoRelease.tag_name;
+        const semver = (_a = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
         const path = [
             (0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch),
         ];

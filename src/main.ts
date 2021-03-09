@@ -1,12 +1,5 @@
 import {restoreCache, saveCache} from '@actions/cache';
-import {
-  addPath,
-  getInput,
-  error,
-  info,
-  setFailed,
-  warning,
-} from '@actions/core';
+import {addPath, getInput, info, setFailed, warning} from '@actions/core';
 import {exec} from '@actions/exec';
 import {HttpClient} from '@actions/http-client';
 import {
@@ -115,8 +108,8 @@ async function getHugoExec(
       userAgent,
       version,
     );
-    if (!hugoRelease) error(`Hugo version ${version} not found`);
-    const tagName: string = hugoRelease!.tag_name ?? 'toto';
+    if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
+    const tagName: string = hugoRelease!.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
     const path: string[] = [
       join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch),
