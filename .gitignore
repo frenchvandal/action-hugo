@@ -1,6 +1,7 @@
 /.dev
 node_modules/
 lib
+_save
 
 .yarn/*
 !.yarn/patches
