@@ -1,15 +1,15 @@
-import { restoreCache, saveCache } from '@actions/cache';
-import { addPath, getInput, info, setFailed, warning } from '@actions/core';
-import { exec } from '@actions/exec';
-import { HttpClient } from '@actions/http-client';
+import {restoreCache, saveCache} from '@actions/cache';
+import {addPath, getInput, info, setFailed, warning} from '@actions/core';
+import {exec} from '@actions/exec';
+import {HttpClient} from '@actions/http-client';
 import {
   cacheDir,
   downloadTool,
   extractTar,
   extractZip,
 } from '@actions/tool-cache';
-import { join } from 'path';
-import { clean } from 'semver';
+import {join} from 'path';
+import {clean} from 'semver';
 
 enum Tool {
   Owner = 'gohugoio',
@@ -43,28 +43,23 @@ function getOSArch(): string {
 }
 
 function getOSPlatform(): string {
-  if (process.env['RUNNER_OS']) {
-    return process.env['RUNNER_OS'];
-  } else {
-    switch (process.platform) {
-      case 'linux':
-        return 'Linux';
-      case 'darwin':
-        return 'macOS';
-      case 'win32':
-        return 'Windows';
-      default:
-        throw new Error(`${process.platform} is not supported`);
-    }
+  switch (process.platform) {
+    case 'linux':
+      return 'Linux';
+    case 'darwin':
+      return 'macOS';
+    case 'win32':
+      return 'Windows';
+    default:
+      throw new Error(`${process.platform} is not supported`);
   }
 }
 
 function getCacheDirectory(): string {
-  if (process.env['RUNNER_TOOL_CACHE']) {
-    return process.env['RUNNER_TOOL_CACHE'];
-  } else {
+  const runnerToolCache: string | undefined = process.env['RUNNER_TOOL_CACHE'];
+  if (!runnerToolCache)
     throw new Error('Expected RUNNER_TOOL_CACHE to be defined');
-  }
+  return runnerToolCache;
 }
 
 const cacheDirectory: string = getCacheDirectory();
@@ -73,7 +68,7 @@ const extended: string =
 const version: string = getInput('version');
 const args: string = getInput('args');
 const isWindows: boolean = process.platform === 'win32';
-const osPlatform: string = getOSPlatform();
+const osPlatform: string = process.env['RUNNER_OS'] ?? getOSPlatform();
 const osArch: string = getOSArch();
 const userAgent = `Node.js/${process.version.substr(
   1,

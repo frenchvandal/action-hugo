@@ -20,6 +20,7 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_5__);
 /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(1383);
 /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__nccwpck_require__.n(semver__WEBPACK_IMPORTED_MODULE_6__);
+var _a;
 
 
 
@@ -49,36 +50,29 @@ function getOSArch() {
     }
 }
 function getOSPlatform() {
-    if (process.env['RUNNER_OS']) {
-        return process.env['RUNNER_OS'];
-    }
-    else {
-        switch (process.platform) {
-            case 'linux':
-                return 'Linux';
-            case 'darwin':
-                return 'macOS';
-            case 'win32':
-                return 'Windows';
-            default:
-                throw new Error(`${process.platform} is not supported`);
-        }
+    switch (process.platform) {
+        case 'linux':
+            return 'Linux';
+        case 'darwin':
+            return 'macOS';
+        case 'win32':
+            return 'Windows';
+        default:
+            throw new Error(`${process.platform} is not supported`);
     }
 }
 function getCacheDirectory() {
-    if (process.env['RUNNER_TOOL_CACHE']) {
-        return process.env['RUNNER_TOOL_CACHE'];
-    }
-    else {
+    const runnerToolCache = process.env['RUNNER_TOOL_CACHE'];
+    if (!runnerToolCache)
         throw new Error('Expected RUNNER_TOOL_CACHE to be defined');
-    }
+    return runnerToolCache;
 }
 const cacheDirectory = getCacheDirectory();
 const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase() === 'true' ? '_extended' : '';
 const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version');
 const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args');
 const isWindows = process.platform === 'win32';
-const osPlatform = getOSPlatform();
+const osPlatform = (_a = process.env['RUNNER_OS']) !== null && _a !== void 0 ? _a : getOSPlatform();
 const osArch = getOSArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
