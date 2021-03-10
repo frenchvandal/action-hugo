@@ -109,7 +109,7 @@ async function getHugoExec(
       version,
     );
     if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
-    const tagName: string = hugoRelease!.tag_name;
+    const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
     const path: string[] = [
       join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch),
