@@ -2,8 +2,8 @@ name: 'Hugo GitHub Action'
 description: "GitHub Action for Hugo, the world's fastest framework for building websites"
 author: 'crazy-max'
 branding:
-  color: 'blue'
-  icon: 'package'
+  color: 'orange'
+  icon: 'cloud'
 
 inputs:
   version:
@@ -16,6 +16,7 @@ inputs:
     required: false
   args:
     description: 'Arguments to pass to Hugo'
+    default: 'version'
     required: false
 
 runs:
