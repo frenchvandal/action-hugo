@@ -1,6 +1,10 @@
 {
   "plugins": ["jest", "@typescript-eslint", "prettier"],
-  "extends": ["eslint:recommended", "plugin:github/recommended", "plugin:prettier/recommended"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:github/recommended",
+    "plugin:prettier/recommended"
+  ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": 9,
@@ -16,7 +20,7 @@
       {
         "comma-dangle": ["error", "always-multiline"]
       },
-      { "curly": ["error", "all"] }
+      {"curly": ["error", "all"]}
     ],
     "eslint-comments/no-use": "off",
     "import/no-namespace": "off",
