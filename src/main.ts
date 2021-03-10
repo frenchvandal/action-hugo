@@ -65,8 +65,8 @@ function getCacheDirectory(): string {
 const cacheDirectory: string = getCacheDirectory();
 const extended: string =
   getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
-const version: string = getInput('version');
-const args: string = getInput('args');
+const version: string = getInput('version') || 'latest';
+const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = process.env['RUNNER_OS'] ?? getOSPlatform();
 const osArch: string = getOSArch();
@@ -121,9 +121,7 @@ async function getHugoExec(
       await exec(`${executable} ${args}`);
     } else {
       const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-      await exec(
-        `${await getHugoExec(semver, downloadUrl)} ${getInput('args')}`,
-      );
+      await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
         const cacheId = await saveCache(path, key);

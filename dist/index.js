@@ -69,8 +69,8 @@ function getCacheDirectory() {
 }
 const cacheDirectory = getCacheDirectory();
 const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase() === 'true' ? '_extended' : '';
-const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version');
-const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args');
+const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version') || 'latest';
+const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args') || 'version';
 const isWindows = process.platform === 'win32';
 const osPlatform = (_a = process.env['RUNNER_OS']) !== null && _a !== void 0 ? _a : getOSPlatform();
 const osArch = getOSArch();
@@ -110,7 +110,7 @@ async function getHugoExec(semver, downloadUrl) {
         }
         else {
             const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-            await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${(0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args')}`);
+            await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
             try {
                 const cacheId = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.saveCache)(path, key);
                 (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`cacheId: ${cacheId}`);
