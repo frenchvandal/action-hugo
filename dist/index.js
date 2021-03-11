@@ -20,7 +20,7 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_5__);
 /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(1383);
 /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__nccwpck_require__.n(semver__WEBPACK_IMPORTED_MODULE_6__);
-var _a;
+var _a, _b, _c;
 
 
 
@@ -69,10 +69,10 @@ function getCacheDirectory() {
 }
 const cacheDirectory = getCacheDirectory();
 const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase() === 'true' ? '_extended' : '';
-const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version') || 'latest';
-const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args') || 'version';
+const version = (_a = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version')) !== null && _a !== void 0 ? _a : 'latest';
+const args = (_b = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args')) !== null && _b !== void 0 ? _b : 'version';
 const isWindows = process.platform === 'win32';
-const osPlatform = (_a = process.env['RUNNER_OS']) !== null && _a !== void 0 ? _a : getOSPlatform();
+const osPlatform = (_c = process.env['RUNNER_OS']) !== null && _c !== void 0 ? _c : getOSPlatform();
 const osArch = getOSArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;

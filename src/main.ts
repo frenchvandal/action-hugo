@@ -65,8 +65,8 @@ function getCacheDirectory(): string {
 const cacheDirectory: string = getCacheDirectory();
 const extended: string =
   getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
-const version: string = getInput('version') || 'latest';
-const args: string = getInput('args') || 'version';
+const version: string = getInput('version') ?? 'latest';
+const args: string = getInput('args') ?? 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = process.env['RUNNER_OS'] ?? getOSPlatform();
 const osArch: string = getOSArch();
