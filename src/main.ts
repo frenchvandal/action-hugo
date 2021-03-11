@@ -1,13 +1,8 @@
-import {restoreCache, saveCache} from '@actions/cache';
-import {addPath, getInput, info, setFailed, warning} from '@actions/core';
+import {restoreCache} from '@actions/cache';
+import {addPath, getInput, info, setFailed} from '@actions/core';
 import {exec} from '@actions/exec';
 import {HttpClient} from '@actions/http-client';
-import {
-  cacheDir,
-  downloadTool,
-  extractTar,
-  extractZip,
-} from '@actions/tool-cache';
+import {cacheDir, downloadTool} from '@actions/tool-cache';
 import {join} from 'path';
 import {clean} from 'semver';
 
@@ -84,8 +79,10 @@ async function getHugoExec(
 
   let extractedFolder: string;
   if (isWindows) {
+    const {extractZip} = await import('@actions/tool-cache');
     extractedFolder = await extractZip(downloadPath);
   } else {
+    const {extractTar} = await import('@actions/tool-cache');
     extractedFolder = await extractTar(downloadPath);
   }
 
@@ -124,9 +121,11 @@ async function getHugoExec(
       await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
+        const {saveCache} = await import('@actions/cache');
         const cacheId = await saveCache(path, key);
         info(`cacheId: ${cacheId}`);
       } catch (error) {
+        const {warning} = await import('@actions/core');
         warning(`Tool caching failed with ${error.message}`);
       }
     }

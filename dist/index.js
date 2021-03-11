@@ -81,10 +81,12 @@ async function getHugoExec(semver, downloadUrl) {
     const downloadPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.downloadTool)(downloadUrl);
     let extractedFolder;
     if (isWindows) {
-        extractedFolder = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.extractZip)(downloadPath);
+        const { extractZip } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
+        extractedFolder = await extractZip(downloadPath);
     }
     else {
-        extractedFolder = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.extractTar)(downloadPath);
+        const { extractTar } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
+        extractedFolder = await extractTar(downloadPath);
     }
     const cachedPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_4__.cacheDir)(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
     (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(cachedPath);
@@ -112,11 +114,13 @@ async function getHugoExec(semver, downloadUrl) {
             const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
             try {
-                const cacheId = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.saveCache)(path, key);
+                const { saveCache } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7799, 7));
+                const cacheId = await saveCache(path, key);
                 (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`cacheId: ${cacheId}`);
             }
             catch (error) {
-                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.warning)(`Tool caching failed with ${error.message}`);
+                const { warning } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
+                warning(`Tool caching failed with ${error.message}`);
             }
         }
     }
@@ -62702,6 +62706,29 @@ module.exports = require("zlib");;
 /******/ 				() => module;
 /******/ 			__nccwpck_require__.d(getter, { a: getter });
 /******/ 			return getter;
+/******/ 		};
+/******/ 	})();
+/******/ 	
+/******/ 	/* webpack/runtime/create fake namespace object */
+/******/ 	(() => {
+/******/ 		// create a fake namespace object
+/******/ 		// mode & 1: value is a module id, require it
+/******/ 		// mode & 2: merge all properties of value into the ns
+/******/ 		// mode & 4: return value when already ns object
+/******/ 		// mode & 8|1: behave like require
+/******/ 		__nccwpck_require__.t = function(value, mode) {
+/******/ 			if(mode & 1) value = this(value);
+/******/ 			if(mode & 8) return value;
+/******/ 			if((mode & 4) && typeof value === 'object' && value && value.__esModule) return value;
+/******/ 			var ns = Object.create(null);
+/******/ 			__nccwpck_require__.r(ns);
+/******/ 			var def = {};
+/******/ 			if(mode & 2 && typeof value == 'object' && value) {
+/******/ 				for(const key in value) def[key] = () => value[key];
+/******/ 			}
+/******/ 			def['default'] = () => value;
+/******/ 			__nccwpck_require__.d(ns, def);
+/******/ 			return ns;
 /******/ 		};
 /******/ 	})();
 /******/ 	
