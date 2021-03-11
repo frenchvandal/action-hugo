@@ -2,7 +2,6 @@ import {restoreCache} from '@actions/cache';
 import {addPath, getInput, info, setFailed} from '@actions/core';
 import {exec} from '@actions/exec';
 import {HttpClient} from '@actions/http-client';
-import {cacheDir, downloadTool} from '@actions/tool-cache';
 import {join} from 'path';
 import {clean} from 'semver';
 
@@ -75,6 +74,7 @@ async function getHugoExec(
   semver: string,
   downloadUrl: string,
 ): Promise<string> {
+  const {downloadTool} = await import('@actions/tool-cache');
   const downloadPath: string = await downloadTool(downloadUrl);
 
   let extractedFolder: string;
@@ -86,6 +86,7 @@ async function getHugoExec(
     extractedFolder = await extractTar(downloadPath);
   }
 
+  const {cacheDir} = await import('@actions/tool-cache');
   const cachedPath: string = await cacheDir(
     extractedFolder,
     `${Tool.Repo}${extended}`,
