@@ -1,5 +1,12 @@
 import {restoreCache} from '@actions/cache';
-import {addPath, getInput, info, setFailed} from '@actions/core';
+import {
+  addPath,
+  endGroup,
+  getInput,
+  info,
+  startGroup,
+  setFailed,
+} from '@actions/core';
 import {exec} from '@actions/exec';
 import {downloadTool} from '@actions/tool-cache';
 import {HttpClient} from '@actions/http-client';
@@ -60,8 +67,8 @@ function getCacheDirectory(): string {
 const cacheDirectory: string = getCacheDirectory();
 const extended: string =
   getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
-const version: string = getInput('version') ?? 'latest';
-const args: string = getInput('args') ?? 'version';
+const version: string = getInput('version') || 'latest';
+const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = process.env['RUNNER_OS'] ?? getOSPlatform();
 const osArch: string = getOSArch();
@@ -107,13 +114,18 @@ async function getHugoExec(
       version,
     );
     if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
+
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
-    const path: string[] = [
-      join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch),
-    ];
+
+    startGroup(`Checking cache`);
+    const path: string[] = [];
+    path.push(join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
     const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
+
     const cacheKey: string | undefined = await restoreCache(path, key);
+    endGroup();
+
     if (cacheKey) {
       addPath(path[0]);
       await exec(`${executable} ${args}`);
