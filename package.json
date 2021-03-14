@@ -15,7 +15,13 @@
     "type": "git",
     "url": "git+https://github.com/frenchvandal/action-hugo.git"
   },
-  "keywords": ["actions", "hugo", "build", "package", "website"],
+  "keywords": [
+    "actions",
+    "hugo",
+    "build",
+    "package",
+    "website"
+  ],
   "author": "frenchvandal",
   "license": "MIT",
   "dependencies": {

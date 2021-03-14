@@ -102,17 +102,16 @@ async function getHugoExec(semver, downloadUrl) {
             throw Error(`Hugo version ${version} not found`);
         const tagName = hugoRelease.tag_name;
         const semver = (_a = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName)) !== null && _a !== void 0 ? _a : tagName.replace(/^v/, '');
-        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.startGroup)(`Checking cache`);
         const path = [];
         path.push((0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
         const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
         const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
-        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.endGroup)();
         if (cacheKey) {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);
         }
         else {
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;2;128,0,0mNo cache found for key ${key}`);
             const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
             try {

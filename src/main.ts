@@ -118,18 +118,17 @@ async function getHugoExec(
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
 
-    startGroup(`Checking cache`);
     const path: string[] = [];
     path.push(join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
     const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
 
     const cacheKey: string | undefined = await restoreCache(path, key);
-    endGroup();
 
     if (cacheKey) {
       addPath(path[0]);
       await exec(`${executable} ${args}`);
     } else {
+      info(`\u001b[38;2;128,0,0mNo cache found for key ${key}`);
       const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
       await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
