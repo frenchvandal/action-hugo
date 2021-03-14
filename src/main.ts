@@ -127,6 +127,10 @@ async function getHugoExec(
     if (cacheKey) {
       addPath(path[0]);
       await exec(`${executable} ${args}`);
+    } else {
+      info(`\u001b[38;5;4mNo cache found for key ${key}`);
+      const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
+      await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
         const {saveCache} = await import('@actions/cache');
@@ -134,21 +138,8 @@ async function getHugoExec(
         info(`cacheId: ${cacheId}`);
       } catch (error) {
         const {warning} = await import('@actions/core');
-        warning(`Tool caching failed with ${error.message}`);
+        warning(`Tool caching failed: ${error.message}`);
       }
-    } else {
-      info(`\u001b[38;5;4mNo cache found for key ${key}`);
-      const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-      await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
-
-      /*       try {
-        const {saveCache} = await import('@actions/cache');
-        const cacheId = await saveCache(path, key);
-        info(`cacheId: ${cacheId}`);
-      } catch (error) {
-        const {warning} = await import('@actions/core');
-        warning(`Tool caching failed with ${error.message}`);
-      } */
     }
   } catch (error) {
     setFailed(`Action failed with error: ${error.message}`);
