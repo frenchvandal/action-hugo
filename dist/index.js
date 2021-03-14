@@ -111,7 +111,7 @@ async function getHugoExec(semver, downloadUrl) {
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);
         }
         else {
-            (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mNo cache found for key ${key}`);
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;5mNo cache found for key ${key}`);
             const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
             try {
