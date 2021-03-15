@@ -121,7 +121,7 @@ async function getHugoExec(semver, downloadUrl) {
             }
             catch (error) {
                 const { warning } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
-                warning(`Tool caching failed with ${error.message}`);
+                warning(`Tool caching failed: ${error.message}`);
             }
         }
     }
