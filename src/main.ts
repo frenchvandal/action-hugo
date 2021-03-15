@@ -1,12 +1,5 @@
 import {restoreCache} from '@actions/cache';
-import {
-  addPath,
-  endGroup,
-  getInput,
-  info,
-  startGroup,
-  setFailed,
-} from '@actions/core';
+import {addPath, getInput, info} from '@actions/core';
 import {exec} from '@actions/exec';
 import {downloadTool} from '@actions/tool-cache';
 import {HttpClient} from '@actions/http-client';
@@ -117,7 +110,9 @@ async function getHugoExec(
       await exec(`${executable} ${args}`);
     } else {
       info(`\u001b[38;5;4mNo cache found for key ${key}`);
-      const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
+      const downloadUrl = `${releaseUrl}/download/${tagName}/${
+        Tool.Repo
+      }${extended}_${semver}_${osPlatform}-${osArch()}${extension}`;
       await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
@@ -130,6 +125,7 @@ async function getHugoExec(
       }
     }
   } catch (error) {
+    const {setFailed} = await import('@actions/core');
     setFailed(`Action failed with error: ${error.message}`);
   }
 })();

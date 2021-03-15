@@ -100,7 +100,7 @@ async function getHugoExec(semver, downloadUrl) {
         }
         else {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mNo cache found for key ${key}`);
-            const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
+            const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch()}${extension}`;
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
             try {
                 const { saveCache } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7799, 7));
@@ -114,7 +114,8 @@ async function getHugoExec(semver, downloadUrl) {
         }
     }
     catch (error) {
-        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.setFailed)(`Action failed with error: ${error.message}`);
+        const { setFailed } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
+        setFailed(`Action failed with error: ${error.message}`);
     }
 })();
 //# sourceMappingURL=main.js.map
