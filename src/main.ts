@@ -32,46 +32,32 @@ async function getRelease(
   return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
 }
 
-function getOSArch(): string {
-  switch (process.arch) {
-    case 'x64':
-      return '64bit';
-    case 'arm64':
-    case 'arm':
-      return process.arch.toUpperCase();
-    default:
-      throw new Error(`${process.arch} is not supported`);
-  }
+function getEnvValue(environmentVariable: string): string {
+  const envKey: string | undefined = process.env[`${environmentVariable}`];
+  if (!envKey) throw new Error(`Expected ${environmentVariable} to be defined`);
+  return envKey;
 }
 
-function getOSPlatform(): string {
-  switch (process.platform) {
-    case 'linux':
-      return 'Linux';
-    case 'darwin':
-      return 'macOS';
-    case 'win32':
-      return 'Windows';
-    default:
-      throw new Error(`${process.platform} is not supported`);
-  }
-}
-
-function getCacheDirectory(): string {
-  const runnerToolCache: string | undefined = process.env['RUNNER_TOOL_CACHE'];
-  if (!runnerToolCache)
-    throw new Error('Expected RUNNER_TOOL_CACHE to be defined');
-  return runnerToolCache;
-}
-
-const cacheDirectory: string = getCacheDirectory();
+const cacheDirectory: string = getEnvValue('RUNNER_TOOL_CACHE');
 const extended: string =
   getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
-const osPlatform: string = process.env['RUNNER_OS'] ?? getOSPlatform();
-const osArch: string = getOSArch();
+const osPlatform: string = getEnvValue('RUNNER_OS');
+const osArch = function (): string {
+  switch (process.arch) {
+    case 'x64':
+      return '64bit';
+      break;
+    case 'arm64':
+    case 'arm':
+      return process.arch.toUpperCase();
+      break;
+    default:
+      throw new Error(`${process.arch} is not supported`);
+  }
+};
 const userAgent = `Node.js/${process.version.substr(
   1,
 )} (${osPlatform}; ${osArch})`;
@@ -98,7 +84,7 @@ async function getHugoExec(
     extractedFolder,
     `${Tool.Repo}${extended}`,
     semver,
-    osArch,
+    osArch(),
   );
 
   addPath(cachedPath);
@@ -119,7 +105,9 @@ async function getHugoExec(
     const semver: string = clean(tagName) ?? tagName.replace(/^v/, '');
 
     const path: string[] = [];
-    path.push(join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
+    path.push(
+      join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch()),
+    );
     const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
 
     const cacheKey: string | undefined = await restoreCache(path, key);
