@@ -53,7 +53,7 @@ const osArch = function (): string {
 };
 const userAgent = `Node.js/${process.version.substr(
   1,
-)} (${osPlatform}; ${osArch})`;
+)} (${osPlatform}; ${osArch()})`;
 const executable: string = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension: string = isWindows === true ? '.zip' : '.tar.gz';
 

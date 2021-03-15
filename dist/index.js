@@ -62,7 +62,7 @@ const osArch = function () {
             throw new Error(`${process.arch} is not supported`);
     }
 };
-const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
+const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch()})`;
 const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
 async function getHugoExec(semver, downloadUrl) {
