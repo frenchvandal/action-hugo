@@ -1,10 +1,10 @@
-import {restoreCache} from '@actions/cache';
-import {addPath, getInput, info} from '@actions/core';
-import {exec} from '@actions/exec';
-import {cacheDir, downloadTool} from '@actions/tool-cache';
-import {HttpClient} from '@actions/http-client';
-import {join} from 'path';
-import {clean} from 'semver';
+import { restoreCache } from '@actions/cache';
+import { addPath, getInput, info } from '@actions/core';
+import { exec } from '@actions/exec';
+import { cacheDir, downloadTool } from '@actions/tool-cache';
+import { HttpClient } from '@actions/http-client';
+import { join } from 'path';
+import { clean } from 'semver';
 
 enum Tool {
   Owner = 'gohugoio',
@@ -67,10 +67,10 @@ async function getHugoExec(
 
   let extractedFolder: string;
   if (isWindows) {
-    const {extractZip} = await import('@actions/tool-cache');
+    const { extractZip } = await import('@actions/tool-cache');
     extractedFolder = await extractZip(downloadPath);
   } else {
-    const {extractTar} = await import('@actions/tool-cache');
+    const { extractTar } = await import('@actions/tool-cache');
     extractedFolder = await extractTar(downloadPath);
   }
 
@@ -113,16 +113,16 @@ async function getHugoExec(
       await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
-        const {saveCache} = await import('@actions/cache');
+        const { saveCache } = await import('@actions/cache');
         const cacheId = await saveCache(path, key);
         info(`cacheId: ${cacheId}`);
       } catch (error) {
-        const {warning} = await import('@actions/core');
+        const { warning } = await import('@actions/core');
         warning(`Tool caching failed: ${error.message}`);
       }
     }
   } catch (error) {
-    const {setFailed} = await import('@actions/core');
+    const { setFailed } = await import('@actions/core');
     setFailed(`Action failed with error: ${error.message}`);
   }
 })();
