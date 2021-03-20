@@ -47,7 +47,7 @@ function getOsArch(arch: string = process.arch): string {
 
 const cacheDirectory: string = getEnvValue('RUNNER_TOOL_CACHE');
 const extended: string =
-  getInput('extended').toLowerCase() === 'true' ? '_extended' : '';
+  getInput('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
