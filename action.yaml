@@ -1,6 +1,6 @@
-name: 'Hugo GitHub Action'
+name: 'Yet another Hugo setup action'
 description: "GitHub Action for Hugo, the world's fastest framework for building websites"
-author: 'crazy-max'
+author: 'frenchvandal'
 branding:
   color: 'orange'
   icon: 'cloud'
