@@ -3,6 +3,7 @@
   "extends": [
     "eslint:recommended",
     "plugin:github/recommended",
+    "plugin:ava/recommended",
     "plugin:prettier/recommended"
   ],
   "parser": "@typescript-eslint/parser",
