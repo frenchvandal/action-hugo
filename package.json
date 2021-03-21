@@ -3,8 +3,8 @@
   "description": "GitHub Action for Hugo, the world's fastest framework for building websites",
   "main": "lib/main.js",
   "engines": {
-    "node": ">=12.14.1",
-    "npm": ">=6.13.7"
+    "node": "^15.12.0",
+    "npm": "^7.6.3"
   },
   "scripts": {
     "build": "tsc && ncc build --target es2020",
@@ -19,13 +19,7 @@
     "type": "git",
     "url": "git+https://github.com/frenchvandal/action-hugo.git"
   },
-  "keywords": [
-    "actions",
-    "hugo",
-    "build",
-    "package",
-    "website"
-  ],
+  "keywords": ["actions", "hugo", "build", "package", "website"],
   "author": "frenchvandal",
   "license": "MIT",
   "dependencies": {
