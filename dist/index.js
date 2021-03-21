@@ -15752,7 +15752,7 @@ const Store = __nccwpck_require__(7707)/* .Store */ .y;
 const MemoryCookieStore = __nccwpck_require__(6738)/* .MemoryCookieStore */ .m;
 const pathMatch = __nccwpck_require__(807)/* .pathMatch */ .U;
 const VERSION = __nccwpck_require__(8742);
-const { fromCallback } = __nccwpck_require__(9046);
+const { fromCallback } = __nccwpck_require__(4605);
 
 // From RFC6265 S4.1.1
 // note that it excludes \x3B ";"
@@ -17423,7 +17423,7 @@ exports.PrefixSecurityEnum = PrefixSecurityEnum;
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-const { fromCallback } = __nccwpck_require__(9046);
+const { fromCallback } = __nccwpck_require__(4605);
 const Store = __nccwpck_require__(7707)/* .Store */ .y;
 const permuteDomain = __nccwpck_require__(5696).permuteDomain;
 const pathMatch = __nccwpck_require__(807)/* .pathMatch */ .U;
@@ -18139,6 +18139,39 @@ function __classPrivateFieldSet(receiver, privateMap, value) {
     }
     privateMap.set(receiver, value);
     return value;
+}
+
+
+/***/ }),
+
+/***/ 4605:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+
+exports.fromCallback = function (fn) {
+  return Object.defineProperty(function () {
+    if (typeof arguments[arguments.length - 1] === 'function') fn.apply(this, arguments)
+    else {
+      return new Promise((resolve, reject) => {
+        arguments[arguments.length] = (err, res) => {
+          if (err) return reject(err)
+          resolve(res)
+        }
+        arguments.length++
+        fn.apply(this, arguments)
+      })
+    }
+  }, 'name', { value: fn.name })
+}
+
+exports.fromPromise = function (fn) {
+  return Object.defineProperty(function () {
+    const cb = arguments[arguments.length - 1]
+    if (typeof cb !== 'function') return fn.apply(this, arguments)
+    else fn.apply(this, arguments).then(r => cb(null, r), cb)
+  }, 'name', { value: fn.name })
 }
 
 
@@ -56773,39 +56806,6 @@ if (process.env.NODE_DEBUG && /\btunnel\b/.test(process.env.NODE_DEBUG)) {
   debug = function() {};
 }
 exports.debug = debug; // for test
-
-
-/***/ }),
-
-/***/ 9046:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-
-exports.fromCallback = function (fn) {
-  return Object.defineProperty(function () {
-    if (typeof arguments[arguments.length - 1] === 'function') fn.apply(this, arguments)
-    else {
-      return new Promise((resolve, reject) => {
-        arguments[arguments.length] = (err, res) => {
-          if (err) return reject(err)
-          resolve(res)
-        }
-        arguments.length++
-        fn.apply(this, arguments)
-      })
-    }
-  }, 'name', { value: fn.name })
-}
-
-exports.fromPromise = function (fn) {
-  return Object.defineProperty(function () {
-    const cb = arguments[arguments.length - 1]
-    if (typeof cb !== 'function') return fn.apply(this, arguments)
-    else fn.apply(this, arguments).then(r => cb(null, r), cb)
-  }, 'name', { value: fn.name })
-}
 
 
 /***/ }),
