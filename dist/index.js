@@ -104,11 +104,11 @@ async function getHugoExec(semver, downloadUrl) {
             try {
                 const { saveCache } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7799, 7));
                 const cacheId = await saveCache(path, key);
-                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`cacheId: ${cacheId}`);
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Save Cache succeeded: cacheId #${cacheId}`);
             }
-            catch (error) {
+            catch (saveCacheError) {
                 const { warning } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
-                warning(`Tool caching failed: ${error.message}`);
+                warning(`Save Cache failed: ${saveCacheError.message}`);
             }
         }
     }
