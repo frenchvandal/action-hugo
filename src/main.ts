@@ -100,7 +100,7 @@ async function getHugoExec(
 
     const path: string[] = [];
     path.push(join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
-    const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
+    const key = `${osPlatform}-${osArch}-${Tool.Repo}${extended}-${semver}`;
 
     const cacheKey: string | undefined = await restoreCache(path, key);
 
@@ -115,7 +115,7 @@ async function getHugoExec(
       try {
         const { saveCache } = await import('@actions/cache');
         const cacheId = await saveCache(path, key);
-        info(`Save Cache succeeded: cacheId #${cacheId}`);
+        info(`Save Cache succeeded: cacheId ${cacheId}`);
       } catch (saveCacheError) {
         const { warning } = await import('@actions/core');
         warning(`Save Cache failed: ${saveCacheError.message}`);

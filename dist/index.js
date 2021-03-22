@@ -91,7 +91,7 @@ async function getHugoExec(semver, downloadUrl) {
         const semver = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName) || tagName.replace(/^v/, '');
         const path = [];
         path.push((0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
-        const key = `${osPlatform}-${Tool.Repo}${extended}-${semver}`;
+        const key = `${osPlatform}-${osArch}-${Tool.Repo}${extended}-${semver}`;
         const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
@@ -104,7 +104,7 @@ async function getHugoExec(semver, downloadUrl) {
             try {
                 const { saveCache } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7799, 7));
                 const cacheId = await saveCache(path, key);
-                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Save Cache succeeded: cacheId #${cacheId}`);
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Save Cache succeeded: cacheId ${cacheId}`);
             }
             catch (saveCacheError) {
                 const { warning } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
