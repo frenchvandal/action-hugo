@@ -9,10 +9,10 @@
   "scripts": {
     "build": "tsc && ncc build --target es2020",
     "format": "prettier --write **/*.ts **/*.json **/*.md **/*.yaml",
-    "format-check": "prettier --check **/*.ts **/*.json **/*.md **/*.yaml",
+    "format:check": "prettier --check **/*.ts **/*.json **/*.md **/*.yaml",
     "lint": "eslint ./src/**/*.ts",
     "lint:fix": "eslint --fix ./src/**/*.ts",
-    "pre-checkin": "npm run format && npm run build",
+    "pre-checkin": "concurrently \"npm:format\" \"npm:build\"",
     "release": "standard-version",
     "postinstall": "npx husky install",
     "prepare": "husky install"
@@ -47,6 +47,7 @@
     "@typescript-eslint/eslint-plugin": "^4.15.2",
     "@typescript-eslint/parser": "^4.15.2",
     "@vercel/ncc": "^0.27.0",
+    "concurrently": "^6.0.0",
     "eslint": "^7.22.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-github": "^4.1.1",

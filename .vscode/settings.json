@@ -11,5 +11,6 @@
     "**/dist": true,
     "**/lib": true,
     "**/node_modules": true
-  }
+  },
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }
