@@ -37,11 +37,11 @@ async function getRelease(userAgent, version) {
     const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_4__.HttpClient(userAgent);
     return (await http.getJson(`${releaseUrl}/${version}`)).result;
 }
-function getEnvValue(environmentVariable) {
-    const envKey = process.env[`${environmentVariable}`];
-    if (!envKey)
-        throw new Error(`Expected ${environmentVariable} to be defined`);
-    return envKey;
+function getEnvValue(envKey) {
+    const envValue = process.env[`${envKey}`];
+    if (!envValue)
+        throw new Error(`Expected ${envKey} to be defined`);
+    return envValue;
 }
 function getOsArch(arch = process.arch) {
     switch (arch) {

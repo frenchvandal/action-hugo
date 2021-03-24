@@ -25,10 +25,10 @@ async function getRelease(
   return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
 }
 
-function getEnvValue(environmentVariable: string): string {
-  const envKey: string | undefined = process.env[`${environmentVariable}`];
-  if (!envKey) throw new Error(`Expected ${environmentVariable} to be defined`);
-  return envKey;
+function getEnvValue(envKey: string): string {
+  const envValue: string | undefined = process.env[`${envKey}`];
+  if (!envValue) throw new Error(`Expected ${envKey} to be defined`);
+  return envValue;
 }
 
 function getOsArch(arch: string = process.arch): string {
