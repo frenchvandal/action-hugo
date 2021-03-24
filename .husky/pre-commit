@@ -1,4 +1,7 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-npm run pre-checkin
+npm update
+npm run lint:fix
+npm run format
+npm run build
