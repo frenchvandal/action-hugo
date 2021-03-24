@@ -47,11 +47,9 @@ function getOsArch(arch = process.arch) {
     switch (arch) {
         case 'x64':
             return '64bit';
-            break;
         case 'arm64':
         case 'arm':
             return arch.toUpperCase();
-            break;
         default:
             throw new Error(`${arch} is not supported`);
     }
