@@ -18,23 +18,12 @@
     "prepare": "husky install"
   },
   "lint-staged": {
-    "./src/**/*.ts": [
-      "prettier --check",
-      "eslint"
-    ],
-    "README.md": [
-      "npx doctoc@2.0.0 --github"
-    ],
+    "./src/**/*.ts": ["prettier --check", "eslint"],
+    "README.md": ["npx doctoc@2.0.0 --github"],
     "*.js": "eslint --cache --fix"
   },
   "repository": "github:frenchvandal/action-hugo",
-  "keywords": [
-    "actions",
-    "hugo",
-    "build",
-    "package",
-    "website"
-  ],
+  "keywords": ["actions", "hugo", "build", "package", "website"],
   "author": "frenchvandal",
   "license": "MIT",
   "bugs": {
