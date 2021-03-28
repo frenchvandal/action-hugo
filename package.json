@@ -4,23 +4,16 @@
   "main": "lib/main.js",
   "engines": {
     "node": "^15.12.0",
-    "npm": "^7.6.3"
+    "npm": "^7.7.5"
   },
   "scripts": {
-    "build": "tsc && ncc build --target es2020",
+    "build": "tsc && ncc build --target es2015",
     "format": "prettier --write **/*.ts **/*.json **/*.md **/*.yaml",
     "format:check": "prettier --check **/*.ts **/*.json **/*.md **/*.yaml",
     "lint": "eslint ./src/**/*.ts",
     "lint:fix": "eslint --fix ./src/**/*.ts",
     "pre-checkin": "concurrently \"npm:format\" \"npm:build\"",
-    "release": "standard-version",
-    "postinstall": "npx husky install",
-    "prepare": "husky install"
-  },
-  "lint-staged": {
-    "./src/**/*.ts": ["prettier --check", "eslint"],
-    "README.md": ["npx doctoc@2.0.0 --github"],
-    "*.js": "eslint --cache --fix"
+    "release": "standard-version"
   },
   "repository": "github:frenchvandal/action-hugo",
   "keywords": ["actions", "hugo", "build", "package", "website"],
@@ -35,8 +28,7 @@
     "@actions/core": "^1.2.6",
     "@actions/exec": "^1.0.4",
     "@actions/http-client": "^1.0.9",
-    "@actions/tool-cache": "^1.6.1",
-    "husky": "^5.2.0"
+    "@actions/tool-cache": "^1.6.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^12.0.1",
@@ -52,14 +44,11 @@
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-github": "^4.1.1",
     "eslint-plugin-prettier": "^3.3.1",
-    "lint-staged": "^10.5.4",
     "prettier": "^2.1.2",
     "semver": "^7.3.4",
     "standard-version": "^9.1.1",
+    "testyts": "^1.1.2",
     "typescript": "^4.2.3",
     "typescript-formatter": "^7.2.2"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "npx lint-staged"
   }
 }
