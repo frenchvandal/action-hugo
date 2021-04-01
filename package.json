@@ -4,7 +4,7 @@
   "main": "lib/main.js",
   "engines": {
     "node": "^15.12.0",
-    "npm": "^7.7.5"
+    "npm": "^7.7.6"
   },
   "scripts": {
     "build": "tsc && ncc build --target es2015",
@@ -16,7 +16,13 @@
     "release": "standard-version"
   },
   "repository": "github:frenchvandal/action-hugo",
-  "keywords": ["actions", "hugo", "build", "package", "website"],
+  "keywords": [
+    "actions",
+    "hugo",
+    "build",
+    "package",
+    "website"
+  ],
   "author": "frenchvandal",
   "license": "MIT",
   "bugs": {
@@ -41,6 +47,7 @@
     "@typescript-eslint/parser": "^4.15.2",
     "@vercel/ncc": "^0.27.0",
     "concurrently": "^6.0.0",
+    "esbuild": "^0.11.2",
     "eslint": "^7.22.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-github": "^4.1.1",
