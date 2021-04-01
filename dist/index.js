@@ -27,12 +27,7 @@ __nccwpck_require__.r(__webpack_exports__);
 
 
 
-var Tool;
-(function (Tool) {
-    Tool["Owner"] = "gohugoio";
-    Tool["Repo"] = "hugo";
-})(Tool || (Tool = {}));
-const releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases`;
+const releaseUrl = `https://github.com/${"gohugoio"}/${"hugo"}/releases`;
 async function getRelease(userAgent, version) {
     const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_4__.HttpClient(userAgent);
     return (await http.getJson(`${releaseUrl}/${version}`)).result;
@@ -62,7 +57,7 @@ const isWindows = process.platform === 'win32';
 const osPlatform = getEnvValue('RUNNER_OS');
 const osArch = getOsArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
-const executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
+const executable = isWindows === true ? `${"hugo"}.exe` : "hugo";
 const extension = isWindows === true ? '.zip' : '.tar.gz';
 async function getHugoExec(semver, downloadUrl) {
     const downloadPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.downloadTool)(downloadUrl);
@@ -75,7 +70,7 @@ async function getHugoExec(semver, downloadUrl) {
         const { extractTar } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
         extractedFolder = await extractTar(downloadPath);
     }
-    const cachedPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.cacheDir)(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
+    const cachedPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.cacheDir)(extractedFolder, `${"hugo"}${extended}`, semver, osArch);
     (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(cachedPath);
     (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Running ${executable} …`);
     return executable;
@@ -88,8 +83,8 @@ async function getHugoExec(semver, downloadUrl) {
         const tagName = hugoRelease.tag_name;
         const semver = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName) || tagName.replace(/^v/, '');
         const path = [];
-        path.push((0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
-        const key = `${osPlatform}-${osArch}-${Tool.Repo}${extended}-${semver}`;
+        path.push((0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${"hugo"}${extended}`, semver, osArch));
+        const key = `${osPlatform}-${osArch}-${"hugo"}${extended}-${semver}`;
         const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
@@ -97,7 +92,7 @@ async function getHugoExec(semver, downloadUrl) {
         }
         else {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mNo cache found for key ${key}`);
-            const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
+            const downloadUrl = `${releaseUrl}/download/${tagName}/${"hugo"}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
             await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
             try {
                 const { saveCache } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7799, 7));

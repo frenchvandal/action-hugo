@@ -6,7 +6,7 @@ import { HttpClient } from '@actions/http-client';
 import { join } from 'path';
 import { clean } from 'semver';
 
-enum Tool {
+const enum Tool {
   Owner = 'gohugoio',
   Repo = 'hugo',
 }
