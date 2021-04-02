@@ -4,20 +4,6 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropSymbols = Object.getOwnPropertySymbols;
-var __propIsEnum = Object.prototype.propertyIsEnumerable;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, {enumerable: true, configurable: true, writable: true, value}) : obj[key] = value;
-var __assign = (a, b) => {
-  for (var prop in b || (b = {}))
-    if (__hasOwnProp.call(b, prop))
-      __defNormalProp(a, prop, b[prop]);
-  if (__getOwnPropSymbols)
-    for (var prop of __getOwnPropSymbols(b)) {
-      if (__propIsEnum.call(b, prop))
-        __defNormalProp(a, prop, b[prop]);
-    }
-  return a;
-};
 var __markAsModule = (target) => __defProp(target, "__esModule", {value: true});
 var __commonJS = (cb, mod) => () => (mod || cb((mod = {exports: {}}).exports, mod), mod.exports);
 var __exportStar = (target, module2, desc) => {
@@ -4912,12 +4898,13 @@ var require_http_client = __commonJS((exports2) => {
         const agentOptions = {
           maxSockets,
           keepAlive: this._keepAlive,
-          proxy: __assign(__assign({}, (proxyUrl.username || proxyUrl.password) && {
-            proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
-          }), {
+          proxy: {
+            ...(proxyUrl.username || proxyUrl.password) && {
+              proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
+            },
             host: proxyUrl.hostname,
             port: proxyUrl.port
-          })
+          }
         };
         let tunnelAgent;
         const overHttps = proxyUrl.protocol === "https:";
@@ -5074,7 +5061,7 @@ var require_tslib = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign2;
+  var __assign;
   var __rest;
   var __decorate;
   var __param;
@@ -5137,7 +5124,7 @@ var require_tslib = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign2 = Object.assign || function(t) {
+    __assign = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -5463,7 +5450,7 @@ var require_tslib = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign2);
+    exporter("__assign", __assign);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -17519,7 +17506,7 @@ var require_tslib2 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign2;
+  var __assign;
   var __rest;
   var __decorate;
   var __param;
@@ -17582,7 +17569,7 @@ var require_tslib2 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign2 = Object.assign || function(t) {
+    __assign = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -17908,7 +17895,7 @@ var require_tslib2 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign2);
+    exporter("__assign", __assign);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -27260,7 +27247,7 @@ var require_tslib3 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign2;
+  var __assign;
   var __rest;
   var __decorate;
   var __param;
@@ -27323,7 +27310,7 @@ var require_tslib3 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign2 = Object.assign || function(t) {
+    __assign = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -27649,7 +27636,7 @@ var require_tslib3 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign2);
+    exporter("__assign", __assign);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -39706,7 +39693,7 @@ var require_tslib4 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign2;
+  var __assign;
   var __rest;
   var __decorate;
   var __param;
@@ -39769,7 +39756,7 @@ var require_tslib4 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign2 = Object.assign || function(t) {
+    __assign = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -40095,7 +40082,7 @@ var require_tslib4 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign2);
+    exporter("__assign", __assign);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -41095,7 +41082,7 @@ var require_tslib5 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign2;
+  var __assign;
   var __rest;
   var __decorate;
   var __param;
@@ -41158,7 +41145,7 @@ var require_tslib5 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign2 = Object.assign || function(t) {
+    __assign = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -41484,7 +41471,7 @@ var require_tslib5 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign2);
+    exporter("__assign", __assign);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -41966,7 +41953,7 @@ var require_tslib6 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign2;
+  var __assign;
   var __rest;
   var __decorate;
   var __param;
@@ -42029,7 +42016,7 @@ var require_tslib6 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign2 = Object.assign || function(t) {
+    __assign = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -42355,7 +42342,7 @@ var require_tslib6 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign2);
+    exporter("__assign", __assign);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -67985,7 +67972,7 @@ var require_semver5 = __commonJS((exports2, module2) => {
   };
 });
 
-// src/main.ts
+// lib/main.js
 var import_cache = __toModule(require_cache());
 var import_core = __toModule(require_core());
 var import_exec = __toModule(require_exec());
@@ -67993,12 +67980,7 @@ var import_tool_cache = __toModule(require_tool_cache());
 var import_http_client = __toModule(require_http_client());
 var import_path = __toModule(require("path"));
 var import_semver = __toModule(require_semver5());
-var Tool;
-(function(Tool2) {
-  Tool2["Owner"] = "gohugoio";
-  Tool2["Repo"] = "hugo";
-})(Tool || (Tool = {}));
-var releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases`;
+var releaseUrl = `https://github.com/${"gohugoio"}/${"hugo"}/releases`;
 async function getRelease(userAgent2, version2) {
   const http = new import_http_client.HttpClient(userAgent2);
   return (await http.getJson(`${releaseUrl}/${version2}`)).result;
@@ -68028,7 +68010,7 @@ var isWindows = process.platform === "win32";
 var osPlatform = getEnvValue("RUNNER_OS");
 var osArch = getOsArch();
 var userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
-var executable = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
+var executable = isWindows === true ? `${"hugo"}.exe` : "hugo";
 var extension = isWindows === true ? ".zip" : ".tar.gz";
 async function getHugoExec(semver, downloadUrl) {
   const downloadPath = await (0, import_tool_cache.downloadTool)(downloadUrl);
@@ -68040,7 +68022,7 @@ async function getHugoExec(semver, downloadUrl) {
     const {extractTar} = await Promise.resolve().then(() => __toModule(require_tool_cache()));
     extractedFolder = await extractTar(downloadPath);
   }
-  const cachedPath = await (0, import_tool_cache.cacheDir)(extractedFolder, `${Tool.Repo}${extended}`, semver, osArch);
+  const cachedPath = await (0, import_tool_cache.cacheDir)(extractedFolder, `${"hugo"}${extended}`, semver, osArch);
   (0, import_core.addPath)(cachedPath);
   (0, import_core.info)(`Running ${executable} \u2026`);
   return executable;
@@ -68053,15 +68035,15 @@ async function getHugoExec(semver, downloadUrl) {
     const tagName = hugoRelease.tag_name;
     const semver = (0, import_semver.clean)(tagName) || tagName.replace(/^v/, "");
     const path = [];
-    path.push((0, import_path.join)(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
-    const key = `${osPlatform}-${osArch}-${Tool.Repo}${extended}-${semver}`;
+    path.push((0, import_path.join)(cacheDirectory, `${"hugo"}${extended}`, semver, osArch));
+    const key = `${osPlatform}-${osArch}-${"hugo"}${extended}-${semver}`;
     const cacheKey = await (0, import_cache.restoreCache)(path, key);
     if (cacheKey) {
       (0, import_core.addPath)(path[0]);
       await (0, import_exec.exec)(`${executable} ${args}`);
     } else {
       (0, import_core.info)(`[38;5;4mNo cache found for key ${key}`);
-      const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
+      const downloadUrl = `${releaseUrl}/download/${tagName}/${"hugo"}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
       await (0, import_exec.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
       try {
         const {saveCache} = await Promise.resolve().then(() => __toModule(require_cache()));
