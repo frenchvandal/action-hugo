@@ -4,6 +4,20 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, {enumerable: true, configurable: true, writable: true, value}) : obj[key] = value;
+var __assign = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
 var __markAsModule = (target) => __defProp(target, "__esModule", {value: true});
 var __commonJS = (cb, mod) => () => (mod || cb((mod = {exports: {}}).exports, mod), mod.exports);
 var __exportStar = (target, module2, desc) => {
@@ -4898,13 +4912,12 @@ var require_http_client = __commonJS((exports2) => {
         const agentOptions = {
           maxSockets,
           keepAlive: this._keepAlive,
-          proxy: {
-            ...(proxyUrl.username || proxyUrl.password) && {
-              proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
-            },
+          proxy: __assign(__assign({}, (proxyUrl.username || proxyUrl.password) && {
+            proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
+          }), {
             host: proxyUrl.hostname,
             port: proxyUrl.port
-          }
+          })
         };
         let tunnelAgent;
         const overHttps = proxyUrl.protocol === "https:";
@@ -5061,7 +5074,7 @@ var require_tslib = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign;
+  var __assign2;
   var __rest;
   var __decorate;
   var __param;
@@ -5124,7 +5137,7 @@ var require_tslib = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign = Object.assign || function(t) {
+    __assign2 = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -5450,7 +5463,7 @@ var require_tslib = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign);
+    exporter("__assign", __assign2);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -17506,7 +17519,7 @@ var require_tslib2 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign;
+  var __assign2;
   var __rest;
   var __decorate;
   var __param;
@@ -17569,7 +17582,7 @@ var require_tslib2 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign = Object.assign || function(t) {
+    __assign2 = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -17895,7 +17908,7 @@ var require_tslib2 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign);
+    exporter("__assign", __assign2);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -27247,7 +27260,7 @@ var require_tslib3 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign;
+  var __assign2;
   var __rest;
   var __decorate;
   var __param;
@@ -27310,7 +27323,7 @@ var require_tslib3 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign = Object.assign || function(t) {
+    __assign2 = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -27636,7 +27649,7 @@ var require_tslib3 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign);
+    exporter("__assign", __assign2);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -39693,7 +39706,7 @@ var require_tslib4 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign;
+  var __assign2;
   var __rest;
   var __decorate;
   var __param;
@@ -39756,7 +39769,7 @@ var require_tslib4 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign = Object.assign || function(t) {
+    __assign2 = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -40082,7 +40095,7 @@ var require_tslib4 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign);
+    exporter("__assign", __assign2);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -41082,7 +41095,7 @@ var require_tslib5 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign;
+  var __assign2;
   var __rest;
   var __decorate;
   var __param;
@@ -41145,7 +41158,7 @@ var require_tslib5 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign = Object.assign || function(t) {
+    __assign2 = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -41471,7 +41484,7 @@ var require_tslib5 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign);
+    exporter("__assign", __assign2);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
@@ -41953,7 +41966,7 @@ var require_tslib6 = __commonJS((exports2, module2) => {
   PERFORMANCE OF THIS SOFTWARE.
   ***************************************************************************** */
   var __extends;
-  var __assign;
+  var __assign2;
   var __rest;
   var __decorate;
   var __param;
@@ -42016,7 +42029,7 @@ var require_tslib6 = __commonJS((exports2, module2) => {
       }
       d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
-    __assign = Object.assign || function(t) {
+    __assign2 = Object.assign || function(t) {
       for (var s, i = 1, n = arguments.length; i < n; i++) {
         s = arguments[i];
         for (var p in s)
@@ -42342,7 +42355,7 @@ var require_tslib6 = __commonJS((exports2, module2) => {
       return value;
     };
     exporter("__extends", __extends);
-    exporter("__assign", __assign);
+    exporter("__assign", __assign2);
     exporter("__rest", __rest);
     exporter("__decorate", __decorate);
     exporter("__param", __param);
