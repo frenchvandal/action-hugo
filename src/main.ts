@@ -6,16 +6,14 @@ import { HttpClient } from '@actions/http-client';
 import { join } from 'path';
 import { clean } from 'semver';
 
-const enum Tool {
-  Owner = 'gohugoio',
-  Repo = 'hugo',
-}
-
 interface ReleaseJson {
   tag_name: string;
 }
 
-const releaseUrl = `https://github.com/${Tool.Owner}/${Tool.Repo}/releases`;
+const owner = 'gohugoio';
+const repo = 'hugo';
+
+const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
 
 async function getRelease(
   userAgent: string,
@@ -54,7 +52,7 @@ const osArch = getOsArch();
 const userAgent = `Node.js/${process.version.substr(
   1,
 )} (${osPlatform}; ${osArch})`;
-const executable: string = isWindows === true ? `${Tool.Repo}.exe` : Tool.Repo;
+const executable: string = isWindows === true ? `${repo}.exe` : repo;
 const extension: string = isWindows === true ? '.zip' : '.tar.gz';
 
 async function getHugoExec(
@@ -74,7 +72,7 @@ async function getHugoExec(
 
   const cachedPath: string = await cacheDir(
     extractedFolder,
-    `${Tool.Repo}${extended}`,
+    `${repo}${extended}`,
     semver,
     osArch,
   );
@@ -97,8 +95,8 @@ async function getHugoExec(
     const semver: string = clean(tagName) || tagName.replace(/^v/, '');
 
     const path: string[] = [];
-    path.push(join(cacheDirectory, `${Tool.Repo}${extended}`, semver, osArch));
-    const key = `${osPlatform}-${osArch}-${Tool.Repo}${extended}-${semver}`;
+    path.push(join(cacheDirectory, `${repo}${extended}`, semver, osArch));
+    const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
 
     const cacheKey: string | undefined = await restoreCache(path, key);
 
@@ -107,7 +105,7 @@ async function getHugoExec(
       await exec(`${executable} ${args}`);
     } else {
       info(`\u001b[38;5;4mNo cache found for key ${key}`);
-      const downloadUrl = `${releaseUrl}/download/${tagName}/${Tool.Repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
+      const downloadUrl = `${releaseUrl}/download/${tagName}/${repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
       await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
