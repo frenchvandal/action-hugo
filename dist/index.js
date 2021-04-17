@@ -1119,6 +1119,8 @@ function getTarPath(args, compressionMethod) {
             case 'darwin': {
                 const gnuTar = yield io.which('gtar', false);
                 if (gnuTar) {
+                    // fix permission denied errors when extracting BSD tar archive with GNU tar - https://github.com/actions/cache/issues/527
+                    args.push('--delay-directory-restore');
                     return gnuTar;
                 }
                 break;
@@ -9075,19 +9077,17 @@ function __importDefault(mod) {
     return (mod && mod.__esModule) ? mod : { default: mod };
 }
 
-function __classPrivateFieldGet(receiver, privateMap) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to get private field on non-instance");
-    }
-    return privateMap.get(receiver);
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 }
 
-function __classPrivateFieldSet(receiver, privateMap, value) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to set private field on non-instance");
-    }
-    privateMap.set(receiver, value);
-    return value;
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
 
@@ -9159,6 +9159,114 @@ var AzureKeyCredential = /** @class */ (function () {
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 /**
+ * Helper TypeGuard that checks if something is defined or not.
+ * @param thing - Anything
+ * @internal
+ */
+function isDefined(thing) {
+    return typeof thing !== "undefined" && thing !== null;
+}
+/**
+ * Helper TypeGuard that checks if the input is an object with the specified properties.
+ * Note: The properties may be inherited.
+ * @param thing - Anything.
+ * @param properties - The name of the properties that should appear in the object.
+ * @internal
+ */
+function isObjectWithProperties(thing, properties) {
+    if (!isDefined(thing) || typeof thing !== "object") {
+        return false;
+    }
+    for (var _i = 0, properties_1 = properties; _i < properties_1.length; _i++) {
+        var property = properties_1[_i];
+        if (!objectHasProperty(thing, property)) {
+            return false;
+        }
+    }
+    return true;
+}
+/**
+ * Helper TypeGuard that checks if the input is an object with the specified property.
+ * Note: The property may be inherited.
+ * @param thing - Any object.
+ * @param property - The name of the property that should appear in the object.
+ * @internal
+ */
+function objectHasProperty(thing, property) {
+    return typeof thing === "object" && property in thing;
+}
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * A static name/key-based credential that supports updating
+ * the underlying name and key values.
+ */
+var AzureNamedKeyCredential = /** @class */ (function () {
+    /**
+     * Create an instance of an AzureNamedKeyCredential for use
+     * with a service client.
+     *
+     * @param name - The initial value of the name to use in authentication.
+     * @param key - The initial value of the key to use in authentication.
+     */
+    function AzureNamedKeyCredential(name, key) {
+        if (!name || !key) {
+            throw new TypeError("name and key must be non-empty strings");
+        }
+        this._name = name;
+        this._key = key;
+    }
+    Object.defineProperty(AzureNamedKeyCredential.prototype, "key", {
+        /**
+         * The value of the key to be used in authentication.
+         */
+        get: function () {
+            return this._key;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(AzureNamedKeyCredential.prototype, "name", {
+        /**
+         * The value of the name to be used in authentication.
+         */
+        get: function () {
+            return this._name;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    /**
+     * Change the value of the key.
+     *
+     * Updates will take effect upon the next request after
+     * updating the key value.
+     *
+     * @param newName - The new name value to be used.
+     * @param newKey - The new key value to be used.
+     */
+    AzureNamedKeyCredential.prototype.update = function (newName, newKey) {
+        if (!newName || !newKey) {
+            throw new TypeError("newName and newKey must be non-empty strings");
+        }
+        this._name = newName;
+        this._key = newKey;
+    };
+    return AzureNamedKeyCredential;
+}());
+/**
+ * Tests an object to determine whether it implements NamedKeyCredential.
+ *
+ * @param credential - The assumed NamedKeyCredential to be tested.
+ */
+function isNamedKeyCredential(credential) {
+    return (isObjectWithProperties(credential, ["name", "key"]) &&
+        typeof credential.key === "string" &&
+        typeof credential.name === "string");
+}
+
+// Copyright (c) Microsoft Corporation.
+/**
  * A static-signature-based credential that supports updating
  * the underlying signature value.
  */
@@ -9201,6 +9309,14 @@ var AzureSASCredential = /** @class */ (function () {
     };
     return AzureSASCredential;
 }());
+/**
+ * Tests an object to determine whether it implements SASCredential.
+ *
+ * @param credential - The assumed SASCredential to be tested.
+ */
+function isSASCredential(credential) {
+    return (isObjectWithProperties(credential, ["signature"]) && typeof credential.signature === "string");
+}
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
@@ -9222,7 +9338,10 @@ function isTokenCredential(credential) {
 }
 
 exports.AzureKeyCredential = AzureKeyCredential;
+exports.AzureNamedKeyCredential = AzureNamedKeyCredential;
 exports.AzureSASCredential = AzureSASCredential;
+exports.isNamedKeyCredential = isNamedKeyCredential;
+exports.isSASCredential = isSASCredential;
 exports.isTokenCredential = isTokenCredential;
 //# sourceMappingURL=index.js.map
 
@@ -9256,7 +9375,7 @@ var coreAuth = __nccwpck_require__(9645);
 var xml2js = __nccwpck_require__(6189);
 var os = __nccwpck_require__(2087);
 var coreTracing = __nccwpck_require__(1754);
-var api = __nccwpck_require__(6865);
+__nccwpck_require__(6821);
 
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
@@ -9430,7 +9549,7 @@ var Constants = {
     /**
      * The core-http version
      */
-    coreHttpVersion: "1.2.3",
+    coreHttpVersion: "1.2.4",
     /**
      * Specifies HTTP.
      */
@@ -10826,6 +10945,9 @@ var WebResource = /** @class */ (function () {
         if (options.spanOptions) {
             this.spanOptions = options.spanOptions;
         }
+        if (options.tracingContext) {
+            this.tracingContext = options.tracingContext;
+        }
         this.abortSignal = options.abortSignal;
         this.onDownloadProgress = options.onDownloadProgress;
         this.onUploadProgress = options.onUploadProgress;
@@ -12037,6 +12159,7 @@ function operationOptionsToRequestOptionsBase(opts) {
     }
     if (tracingOptions) {
         result.spanOptions = tracingOptions.spanOptions;
+        result.tracingContext = tracingOptions.tracingContext;
     }
     return result;
 }
@@ -12204,7 +12327,7 @@ function getPathStringFromParameterPath(parameterPath, mapper) {
 // Copyright (c) Microsoft Corporation.
 /**
  * Gets the list of status codes for streaming responses.
- * @internal @hidden
+ * @internal
  */
 function getStreamResponseStatusCodes(operationSpec) {
     var result = new Set();
@@ -13025,213 +13148,223 @@ function getRegistrationStatus(policy, url, originalRequest) {
 }
 
 // Copyright (c) Microsoft Corporation.
-// Licensed under the MIT license.
+// Default options for the cycler if none are provided
+var DEFAULT_CYCLER_OPTIONS = {
+    forcedRefreshWindowInMs: 1000,
+    retryIntervalInMs: 3000,
+    refreshWindowInMs: 1000 * 60 * 2 // Start refreshing 2m before expiry
+};
 /**
- * Defines the default token refresh buffer duration.
+ * Converts an an unreliable access token getter (which may resolve with null)
+ * into an AccessTokenGetter by retrying the unreliable getter in a regular
+ * interval.
+ *
+ * @param getAccessToken - a function that produces a promise of an access
+ * token that may fail by returning null
+ * @param retryIntervalInMs - the time (in milliseconds) to wait between retry
+ * attempts
+ * @param timeoutInMs - the timestamp after which the refresh attempt will fail,
+ * throwing an exception
+ * @returns - a promise that, if it resolves, will resolve with an access token
  */
-var TokenRefreshBufferMs = 2 * 60 * 1000; // 2 Minutes
-/**
- * Provides an {@link AccessTokenCache} implementation which clears
- * the cached {@link AccessToken}'s after the expiresOnTimestamp has
- * passed.
- */
-var ExpiringAccessTokenCache = /** @class */ (function () {
-    /**
-     * Constructs an instance of {@link ExpiringAccessTokenCache} with
-     * an optional expiration buffer time.
-     */
-    function ExpiringAccessTokenCache(tokenRefreshBufferMs) {
-        if (tokenRefreshBufferMs === void 0) { tokenRefreshBufferMs = TokenRefreshBufferMs; }
-        this.cachedToken = undefined;
-        this.tokenRefreshBufferMs = tokenRefreshBufferMs;
-    }
-    ExpiringAccessTokenCache.prototype.setCachedToken = function (accessToken) {
-        this.cachedToken = accessToken;
-    };
-    ExpiringAccessTokenCache.prototype.getCachedToken = function () {
-        if (this.cachedToken &&
-            Date.now() + this.tokenRefreshBufferMs >= this.cachedToken.expiresOnTimestamp) {
-            this.cachedToken = undefined;
-        }
-        return this.cachedToken;
-    };
-    return ExpiringAccessTokenCache;
-}());
-
-// Copyright (c) Microsoft Corporation.
-/**
- * Helps the core-http token authentication policies with requesting a new token if we're not currently waiting for a new token.
- */
-var AccessTokenRefresher = /** @class */ (function () {
-    function AccessTokenRefresher(credential, scopes, requiredMillisecondsBeforeNewRefresh) {
-        if (requiredMillisecondsBeforeNewRefresh === void 0) { requiredMillisecondsBeforeNewRefresh = 30000; }
-        this.credential = credential;
-        this.scopes = scopes;
-        this.requiredMillisecondsBeforeNewRefresh = requiredMillisecondsBeforeNewRefresh;
-        this.lastCalled = 0;
-    }
-    /**
-     * Returns true if the required milliseconds(defaulted to 30000) have been passed signifying
-     * that we are ready for a new refresh.
-     */
-    AccessTokenRefresher.prototype.isReady = function () {
-        // We're only ready for a new refresh if the required milliseconds have passed.
-        return (!this.lastCalled || Date.now() - this.lastCalled > this.requiredMillisecondsBeforeNewRefresh);
-    };
-    /**
-     * Stores the time in which it is called,
-     * then requests a new token,
-     * then sets this.promise to undefined,
-     * then returns the token.
-     */
-    AccessTokenRefresher.prototype.getToken = function (options) {
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var token;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        this.lastCalled = Date.now();
-                        return [4 /*yield*/, this.credential.getToken(this.scopes, options)];
-                    case 1:
-                        token = _a.sent();
-                        this.promise = undefined;
-                        return [2 /*return*/, token || undefined];
-                }
+function beginRefresh(getAccessToken, retryIntervalInMs, timeoutInMs) {
+    return tslib.__awaiter(this, void 0, void 0, function () {
+        // This wrapper handles exceptions gracefully as long as we haven't exceeded
+        // the timeout.
+        function tryGetAccessToken() {
+            return tslib.__awaiter(this, void 0, void 0, function () {
+                var _a, finalToken;
+                return tslib.__generator(this, function (_b) {
+                    switch (_b.label) {
+                        case 0:
+                            if (!(Date.now() < timeoutInMs)) return [3 /*break*/, 5];
+                            _b.label = 1;
+                        case 1:
+                            _b.trys.push([1, 3, , 4]);
+                            return [4 /*yield*/, getAccessToken()];
+                        case 2: return [2 /*return*/, _b.sent()];
+                        case 3:
+                            _a = _b.sent();
+                            return [2 /*return*/, null];
+                        case 4: return [3 /*break*/, 7];
+                        case 5: return [4 /*yield*/, getAccessToken()];
+                        case 6:
+                            finalToken = _b.sent();
+                            // Timeout is up, so throw if it's still null
+                            if (finalToken === null) {
+                                throw new Error("Failed to refresh access token.");
+                            }
+                            return [2 /*return*/, finalToken];
+                        case 7: return [2 /*return*/];
+                    }
+                });
             });
+        }
+        var token;
+        return tslib.__generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, tryGetAccessToken()];
+                case 1:
+                    token = _a.sent();
+                    _a.label = 2;
+                case 2:
+                    if (!(token === null)) return [3 /*break*/, 5];
+                    return [4 /*yield*/, delay(retryIntervalInMs)];
+                case 3:
+                    _a.sent();
+                    return [4 /*yield*/, tryGetAccessToken()];
+                case 4:
+                    token = _a.sent();
+                    return [3 /*break*/, 2];
+                case 5: return [2 /*return*/, token];
+            }
         });
+    });
+}
+/**
+ * Creates a token cycler from a credential, scopes, and optional settings.
+ *
+ * A token cycler represents a way to reliably retrieve a valid access token
+ * from a TokenCredential. It will handle initializing the token, refreshing it
+ * when it nears expiration, and synchronizes refresh attempts to avoid
+ * concurrency hazards.
+ *
+ * @param credential - the underlying TokenCredential that provides the access
+ * token
+ * @param scopes - the scopes to request authorization for
+ * @param tokenCyclerOptions - optionally override default settings for the cycler
+ *
+ * @returns - a function that reliably produces a valid access token
+ */
+function createTokenCycler(credential, scopes, tokenCyclerOptions) {
+    var _this = this;
+    var refreshWorker = null;
+    var token = null;
+    var options = tslib.__assign(tslib.__assign({}, DEFAULT_CYCLER_OPTIONS), tokenCyclerOptions);
+    /**
+     * This little holder defines several predicates that we use to construct
+     * the rules of refreshing the token.
+     */
+    var cycler = {
+        /**
+         * Produces true if a refresh job is currently in progress.
+         */
+        get isRefreshing() {
+            return refreshWorker !== null;
+        },
+        /**
+         * Produces true if the cycler SHOULD refresh (we are within the refresh
+         * window and not already refreshing)
+         */
+        get shouldRefresh() {
+            var _a;
+            return (!cycler.isRefreshing &&
+                ((_a = token === null || token === void 0 ? void 0 : token.expiresOnTimestamp) !== null && _a !== void 0 ? _a : 0) - options.refreshWindowInMs < Date.now());
+        },
+        /**
+         * Produces true if the cycler MUST refresh (null or nearly-expired
+         * token).
+         */
+        get mustRefresh() {
+            return (token === null || token.expiresOnTimestamp - options.forcedRefreshWindowInMs < Date.now());
+        }
     };
     /**
-     * Requests a new token if we're not currently waiting for a new token.
-     * Returns null if the required time between each call hasn't been reached.
+     * Starts a refresh job or returns the existing job if one is already
+     * running.
      */
-    AccessTokenRefresher.prototype.refresh = function (options) {
-        if (!this.promise) {
-            this.promise = this.getToken(options);
+    function refresh(getTokenOptions) {
+        var _a;
+        if (!cycler.isRefreshing) {
+            // We bind `scopes` here to avoid passing it around a lot
+            var tryGetAccessToken = function () {
+                return credential.getToken(scopes, getTokenOptions);
+            };
+            // Take advantage of promise chaining to insert an assignment to `token`
+            // before the refresh can be considered done.
+            refreshWorker = beginRefresh(tryGetAccessToken, options.retryIntervalInMs, 
+            // If we don't have a token, then we should timeout immediately
+            (_a = token === null || token === void 0 ? void 0 : token.expiresOnTimestamp) !== null && _a !== void 0 ? _a : Date.now())
+                .then(function (_token) {
+                refreshWorker = null;
+                token = _token;
+                return token;
+            })
+                .catch(function (reason) {
+                // We also should reset the refresher if we enter a failed state.  All
+                // existing awaiters will throw, but subsequent requests will start a
+                // new retry chain.
+                refreshWorker = null;
+                token = null;
+                throw reason;
+            });
         }
-        return this.promise;
-    };
-    return AccessTokenRefresher;
-}());
-
-// Copyright (c) Microsoft Corporation.
+        return refreshWorker;
+    }
+    return function (tokenOptions) { return tslib.__awaiter(_this, void 0, void 0, function () {
+        return tslib.__generator(this, function (_a) {
+            //
+            // Simple rules:
+            // - If we MUST refresh, then return the refresh task, blocking
+            //   the pipeline until a token is available.
+            // - If we SHOULD refresh, then run refresh but don't return it
+            //   (we can still use the cached token).
+            // - Return the token, since it's fine if we didn't return in
+            //   step 1.
+            //
+            if (cycler.mustRefresh)
+                return [2 /*return*/, refresh(tokenOptions)];
+            if (cycler.shouldRefresh) {
+                refresh(tokenOptions);
+            }
+            return [2 /*return*/, token];
+        });
+    }); };
+}
+// #endregion
 /**
- * The automated token refresh will only start to happen at the
- * expiration date minus the value of timeBetweenRefreshAttemptsInMs,
- * which is by default 30 seconds.
- */
-var timeBetweenRefreshAttemptsInMs = 30000;
-/**
- * Creates a new BearerTokenAuthenticationPolicy factory.
+ * Creates a new factory for a RequestPolicy that applies a bearer token to
+ * the requests' `Authorization` headers.
  *
  * @param credential - The TokenCredential implementation that can supply the bearer token.
  * @param scopes - The scopes for which the bearer token applies.
  */
 function bearerTokenAuthenticationPolicy(credential, scopes) {
-    var tokenCache = new ExpiringAccessTokenCache();
-    var tokenRefresher = new AccessTokenRefresher(credential, scopes, timeBetweenRefreshAttemptsInMs);
+    // This simple function encapsulates the entire process of reliably retrieving the token
+    var getToken = createTokenCycler(credential, scopes /* , options */);
+    var BearerTokenAuthenticationPolicy = /** @class */ (function (_super) {
+        tslib.__extends(BearerTokenAuthenticationPolicy, _super);
+        function BearerTokenAuthenticationPolicy(nextPolicy, options) {
+            return _super.call(this, nextPolicy, options) || this;
+        }
+        BearerTokenAuthenticationPolicy.prototype.sendRequest = function (webResource) {
+            return tslib.__awaiter(this, void 0, void 0, function () {
+                var token;
+                return tslib.__generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, getToken({
+                                abortSignal: webResource.abortSignal,
+                                tracingOptions: {
+                                    spanOptions: webResource.spanOptions,
+                                    tracingContext: webResource.tracingContext
+                                }
+                            })];
+                        case 1:
+                            token = (_a.sent()).token;
+                            webResource.headers.set(Constants.HeaderConstants.AUTHORIZATION, "Bearer " + token);
+                            return [2 /*return*/, this._nextPolicy.sendRequest(webResource)];
+                    }
+                });
+            });
+        };
+        return BearerTokenAuthenticationPolicy;
+    }(BaseRequestPolicy));
     return {
         create: function (nextPolicy, options) {
-            return new BearerTokenAuthenticationPolicy(nextPolicy, options, tokenCache, tokenRefresher);
+            return new BearerTokenAuthenticationPolicy(nextPolicy, options);
         }
     };
 }
-/**
- *
- * Provides a RequestPolicy that can request a token from a TokenCredential
- * implementation and then apply it to the Authorization header of a request
- * as a Bearer token.
- *
- */
-var BearerTokenAuthenticationPolicy = /** @class */ (function (_super) {
-    tslib.__extends(BearerTokenAuthenticationPolicy, _super);
-    /**
-     * Creates a new BearerTokenAuthenticationPolicy object.
-     *
-     * @param nextPolicy - The next RequestPolicy in the request pipeline.
-     * @param options - Options for this RequestPolicy.
-     * @param credential - The TokenCredential implementation that can supply the bearer token.
-     * @param scopes - The scopes for which the bearer token applies.
-     * @param tokenCache - The cache for the most recent AccessToken returned from the TokenCredential.
-     */
-    function BearerTokenAuthenticationPolicy(nextPolicy, options, tokenCache, tokenRefresher) {
-        var _this = _super.call(this, nextPolicy, options) || this;
-        _this.tokenCache = tokenCache;
-        _this.tokenRefresher = tokenRefresher;
-        return _this;
-    }
-    /**
-     * Applies the Bearer token to the request through the Authorization header.
-     */
-    BearerTokenAuthenticationPolicy.prototype.sendRequest = function (webResource) {
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var token;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!webResource.headers)
-                            webResource.headers = new HttpHeaders();
-                        return [4 /*yield*/, this.getToken({
-                                abortSignal: webResource.abortSignal,
-                                tracingOptions: {
-                                    spanOptions: webResource.spanOptions
-                                }
-                            })];
-                    case 1:
-                        token = _a.sent();
-                        webResource.headers.set(Constants.HeaderConstants.AUTHORIZATION, "Bearer " + token);
-                        return [2 /*return*/, this._nextPolicy.sendRequest(webResource)];
-                }
-            });
-        });
-    };
-    /**
-     * Attempts a token update if any other time related conditionals have been reached based on the tokenRefresher class.
-     */
-    BearerTokenAuthenticationPolicy.prototype.updateTokenIfNeeded = function (options) {
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var accessToken;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!this.tokenRefresher.isReady()) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.tokenRefresher.refresh(options)];
-                    case 1:
-                        accessToken = _a.sent();
-                        this.tokenCache.setCachedToken(accessToken);
-                        _a.label = 2;
-                    case 2: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    BearerTokenAuthenticationPolicy.prototype.getToken = function (options) {
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var accessToken;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        accessToken = this.tokenCache.getCachedToken();
-                        if (!(accessToken === undefined)) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this.tokenRefresher.refresh(options)];
-                    case 1:
-                        // Waiting for the next refresh only if the cache is unable to retrieve the access token,
-                        // which means that it has expired, or it has never been set.
-                        accessToken = _a.sent();
-                        this.tokenCache.setCachedToken(accessToken);
-                        return [3 /*break*/, 3];
-                    case 2:
-                        // If we still have a cached access token,
-                        // And any other time related conditionals have been reached based on the tokenRefresher class,
-                        // then attempt to refresh without waiting.
-                        this.updateTokenIfNeeded(options);
-                        _a.label = 3;
-                    case 3: return [2 /*return*/, accessToken ? accessToken.token : undefined];
-                }
-            });
-        });
-    };
-    return BearerTokenAuthenticationPolicy;
-}(BaseRequestPolicy));
 
 // Copyright (c) Microsoft Corporation.
 function systemErrorRetryPolicy(retryCount, retryInterval, minRetryInterval, maxRetryInterval) {
@@ -13595,6 +13728,10 @@ var KeepAlivePolicy = /** @class */ (function (_super) {
 }(BaseRequestPolicy));
 
 // Copyright (c) Microsoft Corporation.
+var createSpan = coreTracing.createSpanFunction({
+    packagePrefix: "",
+    namespace: ""
+});
 function tracingPolicy(tracingOptions) {
     if (tracingOptions === void 0) { tracingOptions = {}; }
     return {
@@ -13612,17 +13749,20 @@ var TracingPolicy = /** @class */ (function (_super) {
     }
     TracingPolicy.prototype.sendRequest = function (request) {
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var tracer, spanOptions, path, span, spanContext, traceParentHeader, traceState, response, serviceRequestId, err_1;
+            var path, span, spanContext, traceParentHeader, traceState, response, serviceRequestId, err_1;
             return tslib.__generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!request.spanOptions || !request.spanOptions.parent) {
+                        if (!request.tracingContext) {
                             return [2 /*return*/, this._nextPolicy.sendRequest(request)];
                         }
-                        tracer = coreTracing.getTracer();
-                        spanOptions = tslib.__assign(tslib.__assign({}, request.spanOptions), { kind: api.SpanKind.CLIENT });
                         path = URLBuilder.parse(request.url).getPath() || "/";
-                        span = tracer.startSpan(path, spanOptions);
+                        span = createSpan(path, {
+                            tracingOptions: {
+                                spanOptions: tslib.__assign(tslib.__assign({}, request.spanOptions), { kind: coreTracing.SpanKind.CLIENT }),
+                                tracingContext: request.tracingContext
+                            }
+                        }).span;
                         span.setAttributes({
                             "http.method": request.method,
                             "http.url": request.url,
@@ -14006,6 +14146,9 @@ var ServiceClient = /** @class */ (function () {
                             if (options.spanOptions) {
                                 httpRequest.spanOptions = options.spanOptions;
                             }
+                            if (options.tracingContext) {
+                                httpRequest.tracingContext = options.tracingContext;
+                            }
                             if (options.shouldDeserialize !== undefined && options.shouldDeserialize !== null) {
                                 httpRequest.shouldDeserialize = options.shouldDeserialize;
                             }
@@ -14305,7 +14448,7 @@ function flattenResponse(_response, responseSpec) {
         var modelProperties_1 = (typeName === "Composite" && bodyMapper.type.modelProperties) || {};
         var isPageableResponse = Object.keys(modelProperties_1).some(function (k) { return modelProperties_1[k].serializedName === ""; });
         if (typeName === "Sequence" || isPageableResponse) {
-            var arrayResponse = tslib.__spreadArrays((_response.parsedBody || []));
+            var arrayResponse = tslib.__spreadArray([], (_response.parsedBody || []));
             for (var _i = 0, _a = Object.keys(modelProperties_1); _i < _a.length; _i++) {
                 var key = _a[_i];
                 if (modelProperties_1[key].serializedName) {
@@ -14348,31 +14491,110 @@ function getCredentialScopes(options, baseUri) {
 
 // Copyright (c) Microsoft Corporation.
 /**
- * Creates a function called createSpan to create spans using the global tracer.
+ * This function is only here for compatibility. Use createSpanFunction in core-tracing.
+ *
+ * @deprecated This function is only here for compatibility. Use createSpanFunction in core-tracing.
  * @hidden
+
  * @param spanConfig - The name of the operation being performed.
  * @param tracingOptions - The options for the underlying http request.
  */
-function createSpanFunction(_a) {
-    var packagePrefix = _a.packagePrefix, namespace = _a.namespace;
-    return function (operationName, operationOptions) {
-        var tracer = coreTracing.getTracer();
-        var tracingOptions = operationOptions.tracingOptions || {};
-        var spanOptions = tslib.__assign(tslib.__assign({}, tracingOptions.spanOptions), { kind: api.SpanKind.INTERNAL });
-        var span = tracer.startSpan(packagePrefix + "." + operationName, spanOptions);
-        span.setAttribute("az.namespace", namespace);
-        var newSpanOptions = tracingOptions.spanOptions || {};
-        if (span.isRecording()) {
-            newSpanOptions = tslib.__assign(tslib.__assign({}, tracingOptions.spanOptions), { parent: span.context(), attributes: tslib.__assign(tslib.__assign({}, spanOptions.attributes), { "az.namespace": namespace }) });
-        }
-        var newTracingOptions = tslib.__assign(tslib.__assign({}, tracingOptions), { spanOptions: newSpanOptions });
-        var newOperationOptions = tslib.__assign(tslib.__assign({}, operationOptions), { tracingOptions: newTracingOptions });
-        return {
-            span: span,
-            updatedOptions: newOperationOptions
-        };
-    };
+function createSpanFunction(args) {
+    return coreTracing.createSpanFunction(args);
 }
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+/**
+ * Defines the default token refresh buffer duration.
+ */
+var TokenRefreshBufferMs = 2 * 60 * 1000; // 2 Minutes
+/**
+ * Provides an {@link AccessTokenCache} implementation which clears
+ * the cached {@link AccessToken}'s after the expiresOnTimestamp has
+ * passed.
+ *
+ * @deprecated No longer used in the bearer authorization policy.
+ */
+var ExpiringAccessTokenCache = /** @class */ (function () {
+    /**
+     * Constructs an instance of {@link ExpiringAccessTokenCache} with
+     * an optional expiration buffer time.
+     */
+    function ExpiringAccessTokenCache(tokenRefreshBufferMs) {
+        if (tokenRefreshBufferMs === void 0) { tokenRefreshBufferMs = TokenRefreshBufferMs; }
+        this.cachedToken = undefined;
+        this.tokenRefreshBufferMs = tokenRefreshBufferMs;
+    }
+    ExpiringAccessTokenCache.prototype.setCachedToken = function (accessToken) {
+        this.cachedToken = accessToken;
+    };
+    ExpiringAccessTokenCache.prototype.getCachedToken = function () {
+        if (this.cachedToken &&
+            Date.now() + this.tokenRefreshBufferMs >= this.cachedToken.expiresOnTimestamp) {
+            this.cachedToken = undefined;
+        }
+        return this.cachedToken;
+    };
+    return ExpiringAccessTokenCache;
+}());
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * Helps the core-http token authentication policies with requesting a new token if we're not currently waiting for a new token.
+ *
+ * @deprecated No longer used in the bearer authorization policy.
+ */
+var AccessTokenRefresher = /** @class */ (function () {
+    function AccessTokenRefresher(credential, scopes, requiredMillisecondsBeforeNewRefresh) {
+        if (requiredMillisecondsBeforeNewRefresh === void 0) { requiredMillisecondsBeforeNewRefresh = 30000; }
+        this.credential = credential;
+        this.scopes = scopes;
+        this.requiredMillisecondsBeforeNewRefresh = requiredMillisecondsBeforeNewRefresh;
+        this.lastCalled = 0;
+    }
+    /**
+     * Returns true if the required milliseconds(defaulted to 30000) have been passed signifying
+     * that we are ready for a new refresh.
+     */
+    AccessTokenRefresher.prototype.isReady = function () {
+        // We're only ready for a new refresh if the required milliseconds have passed.
+        return (!this.lastCalled || Date.now() - this.lastCalled > this.requiredMillisecondsBeforeNewRefresh);
+    };
+    /**
+     * Stores the time in which it is called,
+     * then requests a new token,
+     * then sets this.promise to undefined,
+     * then returns the token.
+     */
+    AccessTokenRefresher.prototype.getToken = function (options) {
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var token;
+            return tslib.__generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        this.lastCalled = Date.now();
+                        return [4 /*yield*/, this.credential.getToken(this.scopes, options)];
+                    case 1:
+                        token = _a.sent();
+                        this.promise = undefined;
+                        return [2 /*return*/, token || undefined];
+                }
+            });
+        });
+    };
+    /**
+     * Requests a new token if we're not currently waiting for a new token.
+     * Returns null if the required time between each call hasn't been reached.
+     */
+    AccessTokenRefresher.prototype.refresh = function (options) {
+        if (!this.promise) {
+            this.promise = this.getToken(options);
+        }
+        return this.promise;
+    };
+    return AccessTokenRefresher;
+}());
 
 // Copyright (c) Microsoft Corporation.
 var HeaderConstants = Constants.HeaderConstants;
@@ -20504,19 +20726,17 @@ function __importDefault(mod) {
     return (mod && mod.__esModule) ? mod : { default: mod };
 }
 
-function __classPrivateFieldGet(receiver, privateMap) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to get private field on non-instance");
-    }
-    return privateMap.get(receiver);
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 }
 
-function __classPrivateFieldSet(receiver, privateMap, value) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to set private field on non-instance");
-    }
-    privateMap.set(receiver, value);
-    return value;
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
 
@@ -20928,7 +21148,7 @@ function version(uuid) {
  * Licensed under the MIT License. See License.txt in the project root for
  * license information.
  * 
- * Azure Core LRO SDK for JavaScript - 1.0.3
+ * Azure Core LRO SDK for JavaScript - 1.0.5
  */
 
 
@@ -21111,7 +21331,6 @@ var Poller = /** @class */ (function () {
     }
     /**
      * @internal
-     * @hidden
      * Starts a loop that will break only if the poller is done
      * or if the poller is stopped.
      */
@@ -21140,7 +21359,6 @@ var Poller = /** @class */ (function () {
     };
     /**
      * @internal
-     * @hidden
      * pollOnce does one polling, by calling to the update method of the underlying
      * poll operation to make any relevant change effective.
      *
@@ -21151,21 +21369,18 @@ var Poller = /** @class */ (function () {
     Poller.prototype.pollOnce = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var state, _a, e_1;
+            var _a, e_1;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        state = this.operation.state;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 4, , 5]);
-                        if (!!this.isDone()) return [3 /*break*/, 3];
+                        _b.trys.push([0, 3, , 4]);
+                        if (!!this.isDone()) return [3 /*break*/, 2];
                         _a = this;
                         return [4 /*yield*/, this.operation.update({
                                 abortSignal: options.abortSignal,
                                 fireProgress: this.fireProgress.bind(this)
                             })];
-                    case 2:
+                    case 1:
                         _a.operation = _b.sent();
                         if (this.isDone() && this.resolve) {
                             // If the poller has finished polling, this means we now have a result.
@@ -21173,25 +21388,24 @@ var Poller = /** @class */ (function () {
                             // we are not expecting a result anyway. To assert that we might not
                             // have a result eventually after finishing polling, we cast the result
                             // to TResult.
-                            this.resolve(state.result);
+                            this.resolve(this.operation.state.result);
                         }
-                        _b.label = 3;
-                    case 3: return [3 /*break*/, 5];
-                    case 4:
+                        _b.label = 2;
+                    case 2: return [3 /*break*/, 4];
+                    case 3:
                         e_1 = _b.sent();
-                        state.error = e_1;
+                        this.operation.state.error = e_1;
                         if (this.reject) {
                             this.reject(e_1);
                         }
                         throw e_1;
-                    case 5: return [2 /*return*/];
+                    case 4: return [2 /*return*/];
                 }
             });
         });
     };
     /**
      * @internal
-     * @hidden
      * fireProgress calls the functions passed in via onProgress the method of the poller.
      *
      * It loops over all of the callbacks received from onProgress, and executes them, sending them
@@ -21207,7 +21421,6 @@ var Poller = /** @class */ (function () {
     };
     /**
      * @internal
-     * @hidden
      * Invokes the underlying operation's cancel method, and rejects the
      * pollUntilDone promise.
      */
@@ -21655,19 +21868,17 @@ function __importDefault(mod) {
     return (mod && mod.__esModule) ? mod : { default: mod };
 }
 
-function __classPrivateFieldGet(receiver, privateMap) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to get private field on non-instance");
-    }
-    return privateMap.get(receiver);
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 }
 
-function __classPrivateFieldSet(receiver, privateMap, value) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to set private field on non-instance");
-    }
-    privateMap.set(receiver, value);
-    return value;
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
 
@@ -21716,7 +21927,7 @@ var NoOpSpan = /** @class */ (function () {
     };
     /**
      * Marks the end of Span execution.
-     * @param _endTime The time to use as the Span's end time. Defaults to
+     * @param _endTime - The time to use as the Span's end time. Defaults to
      * the current time.
      */
     NoOpSpan.prototype.end = function (_endTime) {
@@ -21724,37 +21935,37 @@ var NoOpSpan = /** @class */ (function () {
     };
     /**
      * Sets an attribute on the Span
-     * @param _key the attribute key
-     * @param _value the attribute value
+     * @param _key - The attribute key
+     * @param _value - The attribute value
      */
     NoOpSpan.prototype.setAttribute = function (_key, _value) {
         return this;
     };
     /**
      * Sets attributes on the Span
-     * @param _attributes the attributes to add
+     * @param _attributes - The attributes to add
      */
     NoOpSpan.prototype.setAttributes = function (_attributes) {
         return this;
     };
     /**
      * Adds an event to the Span
-     * @param _name The name of the event
-     * @param _attributes The associated attributes to add for this event
+     * @param _name - The name of the event
+     * @param _attributes - The associated attributes to add for this event
      */
     NoOpSpan.prototype.addEvent = function (_name, _attributes) {
         return this;
     };
     /**
      * Sets a status on the span. Overrides the default of CanonicalCode.OK.
-     * @param _status The status to set.
+     * @param _status - The status to set.
      */
     NoOpSpan.prototype.setStatus = function (_status) {
         return this;
     };
     /**
      * Updates the name of the Span
-     * @param _name the new Span name
+     * @param _name - the new Span name
      */
     NoOpSpan.prototype.updateName = function (_name) {
         return this;
@@ -21778,8 +21989,8 @@ var NoOpTracer = /** @class */ (function () {
     }
     /**
      * Starts a new Span.
-     * @param _name The name of the span.
-     * @param _options The SpanOptions used during Span creation.
+     * @param _name - The name of the span.
+     * @param _options - The SpanOptions used during Span creation.
      */
     NoOpTracer.prototype.startSpan = function (_name, _options) {
         return new NoOpSpan();
@@ -21792,16 +22003,16 @@ var NoOpTracer = /** @class */ (function () {
     };
     /**
      * Executes the given function within the context provided by a Span.
-     * @param _span The span that provides the context.
-     * @param fn The function to be executed.
+     * @param _span - The span that provides the context.
+     * @param fn - The function to be executed.
      */
     NoOpTracer.prototype.withSpan = function (_span, fn) {
         return fn();
     };
     /**
      * Bind a Span as the target's scope
-     * @param target An object to bind the scope.
-     * @param _span A specific Span to use. Otherwise, use the current one.
+     * @param target - An object to bind the scope.
+     * @param _span - A specific Span to use. Otherwise, use the current one.
      */
     NoOpTracer.prototype.bind = function (target, _span) {
         return target;
@@ -21866,7 +22077,7 @@ function getDefaultTracer() {
 }
 /**
  * Sets the global tracer, enabling tracing for the Azure SDK.
- * @param tracer An OpenTelemetry Tracer instance.
+ * @param tracer - An OpenTelemetry Tracer instance.
  */
 function setTracer(tracer) {
     var cache = getCache();
@@ -21887,7 +22098,6 @@ function getTracer() {
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 /**
- * @ignore
  * @internal
  */
 var OpenCensusTraceStateWrapper = /** @class */ (function () {
@@ -21950,7 +22160,7 @@ var OpenCensusSpanWrapper = /** @class */ (function () {
     };
     /**
      * Marks the end of Span execution.
-     * @param endTime The time to use as the Span's end time. Defaults to
+     * @param endTime - The time to use as the Span's end time. Defaults to
      * the current time.
      */
     OpenCensusSpanWrapper.prototype.end = function (_endTime) {
@@ -21970,8 +22180,8 @@ var OpenCensusSpanWrapper = /** @class */ (function () {
     };
     /**
      * Sets an attribute on the Span
-     * @param key the attribute key
-     * @param value the attribute value
+     * @param key - The attribute key
+     * @param value - The attribute value
      */
     OpenCensusSpanWrapper.prototype.setAttribute = function (key, value) {
         this._span.addAttribute(key, value);
@@ -21979,7 +22189,7 @@ var OpenCensusSpanWrapper = /** @class */ (function () {
     };
     /**
      * Sets attributes on the Span
-     * @param attributes the attributes to add
+     * @param attributes - The attributes to add
      */
     OpenCensusSpanWrapper.prototype.setAttributes = function (attributes) {
         this._span.attributes = attributes;
@@ -21987,15 +22197,15 @@ var OpenCensusSpanWrapper = /** @class */ (function () {
     };
     /**
      * Adds an event to the Span
-     * @param name The name of the event
-     * @param attributes The associated attributes to add for this event
+     * @param name - The name of the event
+     * @param attributes - The associated attributes to add for this event
      */
     OpenCensusSpanWrapper.prototype.addEvent = function (_name, _attributes) {
         throw new Error("Method not implemented.");
     };
     /**
      * Sets a status on the span. Overrides the default of CanonicalCode.OK.
-     * @param status The status to set.
+     * @param status - The status to set.
      */
     OpenCensusSpanWrapper.prototype.setStatus = function (status) {
         this._span.setStatus(status.code, status.message);
@@ -22003,7 +22213,7 @@ var OpenCensusSpanWrapper = /** @class */ (function () {
     };
     /**
      * Updates the name of the Span
-     * @param name the new Span name
+     * @param name - The new Span name
      */
     OpenCensusSpanWrapper.prototype.updateName = function (name) {
         this._span.name = name;
@@ -22026,7 +22236,7 @@ var OpenCensusSpanWrapper = /** @class */ (function () {
 var OpenCensusTracerWrapper = /** @class */ (function () {
     /**
      * Create a new wrapper around a given OpenCensus Tracer.
-     * @param tracer The OpenCensus Tracer to wrap.
+     * @param tracer - The OpenCensus Tracer to wrap.
      */
     function OpenCensusTracerWrapper(tracer) {
         this._tracer = tracer;
@@ -22039,8 +22249,8 @@ var OpenCensusTracerWrapper = /** @class */ (function () {
     };
     /**
      * Starts a new Span.
-     * @param name The name of the span.
-     * @param options The SpanOptions used during Span creation.
+     * @param name - The name of the span.
+     * @param options - The SpanOptions used during Span creation.
      */
     OpenCensusTracerWrapper.prototype.startSpan = function (name, options) {
         return new OpenCensusSpanWrapper(this, name, options);
@@ -22053,16 +22263,16 @@ var OpenCensusTracerWrapper = /** @class */ (function () {
     };
     /**
      * Executes the given function within the context provided by a Span.
-     * @param _span The span that provides the context.
-     * @param _fn The function to be executed.
+     * @param _span - The span that provides the context.
+     * @param _fn - The function to be executed.
      */
     OpenCensusTracerWrapper.prototype.withSpan = function (_span, _fn) {
         throw new Error("Method not implemented.");
     };
     /**
      * Bind a Span as the target's scope
-     * @param target An object to bind the scope.
-     * @param _span A specific Span to use. Otherwise, use the current one.
+     * @param target - An object to bind the scope.
+     * @param _span - A specific Span to use. Otherwise, use the current one.
      */
     OpenCensusTracerWrapper.prototype.bind = function (_target, _span) {
         throw new Error("Method not implemented.");
@@ -22078,12 +22288,12 @@ var TestSpan = /** @class */ (function (_super) {
     tslib.__extends(TestSpan, _super);
     /**
      * Starts a new Span.
-     * @param parentTracer The tracer that created this Span
-     * @param name The name of the span.
-     * @param context The SpanContext this span belongs to
-     * @param kind The SpanKind of this Span
-     * @param parentSpanId The identifier of the parent Span
-     * @param startTime The startTime of the event (defaults to now)
+     * @param parentTracer-  The tracer that created this Span
+     * @param name - The name of the span.
+     * @param context - The SpanContext this span belongs to
+     * @param kind - The SpanKind of this Span
+     * @param parentSpanId - The identifier of the parent Span
+     * @param startTime - The startTime of the event (defaults to now)
      */
     function TestSpan(parentTracer, name, context, kind, parentSpanId, startTime) {
         if (startTime === void 0) { startTime = Date.now(); }
@@ -22115,7 +22325,7 @@ var TestSpan = /** @class */ (function (_super) {
     };
     /**
      * Marks the end of Span execution.
-     * @param _endTime The time to use as the Span's end time. Defaults to
+     * @param _endTime - The time to use as the Span's end time. Defaults to
      * the current time.
      */
     TestSpan.prototype.end = function (_endTime) {
@@ -22123,7 +22333,7 @@ var TestSpan = /** @class */ (function (_super) {
     };
     /**
      * Sets a status on the span. Overrides the default of CanonicalCode.OK.
-     * @param status The status to set.
+     * @param status - The status to set.
      */
     TestSpan.prototype.setStatus = function (status) {
         this.status = status;
@@ -22137,8 +22347,8 @@ var TestSpan = /** @class */ (function (_super) {
     };
     /**
      * Sets an attribute on the Span
-     * @param key the attribute key
-     * @param value the attribute value
+     * @param key - The attribute key
+     * @param value - The attribute value
      */
     TestSpan.prototype.setAttribute = function (key, value) {
         this.attributes[key] = value;
@@ -22146,7 +22356,7 @@ var TestSpan = /** @class */ (function (_super) {
     };
     /**
      * Sets attributes on the Span
-     * @param attributes the attributes to add
+     * @param attributes - The attributes to add
      */
     TestSpan.prototype.setAttributes = function (attributes) {
         for (var _i = 0, _a = Object.keys(attributes); _i < _a.length; _i++) {
@@ -22203,7 +22413,7 @@ var TestTracer = /** @class */ (function (_super) {
     /**
      * Return all Spans for a particular trace, grouped by their
      * parent Span in a tree-like structure
-     * @param traceId The traceId to return the graph for
+     * @param traceId - The traceId to return the graph for
      */
     TestTracer.prototype.getSpanGraph = function (traceId) {
         var traceSpans = this.knownSpans.filter(function (span) {
@@ -22236,8 +22446,8 @@ var TestTracer = /** @class */ (function (_super) {
     };
     /**
      * Starts a new Span.
-     * @param name The name of the span.
-     * @param options The SpanOptions used during Span creation.
+     * @param name - The name of the span.
+     * @param options - The SpanOptions used during Span creation.
      */
     TestTracer.prototype.startSpan = function (name, options) {
         if (options === void 0) { options = {}; }
@@ -22280,11 +22490,53 @@ var TestTracer = /** @class */ (function (_super) {
 }(NoOpTracer));
 
 // Copyright (c) Microsoft Corporation.
+/**
+ * Creates a function that can be used to create spans using the global tracer.
+ *
+ * Usage:
+ *
+ * ```typescript
+ * // once
+ * const createSpan = createSpanFunction({ packagePrefix: "Azure.Data.AppConfiguration", namespace: "Microsoft.AppConfiguration" });
+ *
+ * // in each operation
+ * const span = createSpan("deleteConfigurationSetting", operationOptions);
+ *    // code...
+ * span.end();
+ * ```
+ *
+ * @hidden
+ * @param args - allows configuration of the prefix for each span as well as the az.namespace field.
+ */
+function createSpanFunction(args) {
+    return function (operationName, operationOptions) {
+        var tracer = getTracer();
+        var tracingOptions = (operationOptions === null || operationOptions === void 0 ? void 0 : operationOptions.tracingOptions) || {};
+        var spanOptions = tslib.__assign({ kind: api.SpanKind.INTERNAL }, tracingOptions.spanOptions);
+        var spanName = args.packagePrefix ? args.packagePrefix + "." + operationName : operationName;
+        var span = tracer.startSpan(spanName, spanOptions);
+        if (args.namespace) {
+            span.setAttribute("az.namespace", args.namespace);
+        }
+        var newSpanOptions = tracingOptions.spanOptions || {};
+        if (span.isRecording() && args.namespace) {
+            newSpanOptions = tslib.__assign(tslib.__assign({}, tracingOptions.spanOptions), { parent: span.context(), attributes: tslib.__assign(tslib.__assign({}, spanOptions.attributes), { "az.namespace": args.namespace }) });
+        }
+        var newTracingOptions = tslib.__assign(tslib.__assign({}, tracingOptions), { spanOptions: newSpanOptions });
+        var newOperationOptions = tslib.__assign(tslib.__assign({}, operationOptions), { tracingOptions: newTracingOptions });
+        return {
+            span: span,
+            updatedOptions: newOperationOptions
+        };
+    };
+}
+
+// Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 var VERSION = "00";
 /**
  * Generates a `SpanContext` given a `traceparent` header value.
- * @param traceParent Serialized span context data as a `traceparent` header value.
+ * @param traceParent - Serialized span context data as a `traceparent` header value.
  * @returns The `SpanContext` generated from the `traceparent` value.
  */
 function extractSpanContextFromTraceParentHeader(traceParentHeader) {
@@ -22306,7 +22558,7 @@ function extractSpanContextFromTraceParentHeader(traceParentHeader) {
 }
 /**
  * Generates a `traceparent` value given a span context.
- * @param spanContext Contains context for a specific span.
+ * @param spanContext - Contains context for a specific span.
  * @returns The `spanContext` represented as a `traceparent` value.
  */
 function getTraceParentHeader(spanContext) {
@@ -22333,6 +22585,7 @@ exports.OpenCensusSpanWrapper = OpenCensusSpanWrapper;
 exports.OpenCensusTracerWrapper = OpenCensusTracerWrapper;
 exports.TestSpan = TestSpan;
 exports.TestTracer = TestTracer;
+exports.createSpanFunction = createSpanFunction;
 exports.extractSpanContextFromTraceParentHeader = extractSpanContextFromTraceParentHeader;
 exports.getTraceParentHeader = getTraceParentHeader;
 exports.getTracer = getTracer;
@@ -22596,19 +22849,17 @@ function __importDefault(mod) {
     return (mod && mod.__esModule) ? mod : { default: mod };
 }
 
-function __classPrivateFieldGet(receiver, privateMap) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to get private field on non-instance");
-    }
-    return privateMap.get(receiver);
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 }
 
-function __classPrivateFieldSet(receiver, privateMap, value) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to set private field on non-instance");
-    }
-    privateMap.set(receiver, value);
-    return value;
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
 
@@ -23156,19 +23407,17 @@ function __importDefault(mod) {
     return (mod && mod.__esModule) ? mod : { default: mod };
 }
 
-function __classPrivateFieldGet(receiver, privateMap) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to get private field on non-instance");
-    }
-    return privateMap.get(receiver);
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 }
 
-function __classPrivateFieldSet(receiver, privateMap, value) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to set private field on non-instance");
-    }
-    privateMap.set(receiver, value);
-    return value;
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
 
@@ -23188,12 +23437,12 @@ var api = __nccwpck_require__(5163);
 var logger$1 = __nccwpck_require__(3233);
 var abortController = __nccwpck_require__(2557);
 var os = __nccwpck_require__(2087);
+var crypto = __nccwpck_require__(6417);
+var coreTracing = __nccwpck_require__(4175);
 var stream = __nccwpck_require__(2413);
 __nccwpck_require__(4559);
-var crypto = __nccwpck_require__(6417);
 var coreLro = __nccwpck_require__(7094);
 var events = __nccwpck_require__(8614);
-var coreTracing = __nccwpck_require__(4175);
 var fs = __nccwpck_require__(5747);
 var util = __nccwpck_require__(1669);
 
@@ -25876,6 +26125,78 @@ var ContainerRestoreHeaders = {
         }
     }
 };
+var ContainerRenameHeaders = {
+    serializedName: "container-rename-headers",
+    type: {
+        name: "Composite",
+        className: "ContainerRenameHeaders",
+        modelProperties: {
+            clientRequestId: {
+                serializedName: "x-ms-client-request-id",
+                type: {
+                    name: "String"
+                }
+            },
+            requestId: {
+                serializedName: "x-ms-request-id",
+                type: {
+                    name: "String"
+                }
+            },
+            version: {
+                serializedName: "x-ms-version",
+                type: {
+                    name: "String"
+                }
+            },
+            date: {
+                serializedName: "date",
+                type: {
+                    name: "DateTimeRfc1123"
+                }
+            },
+            errorCode: {
+                serializedName: "x-ms-error-code",
+                type: {
+                    name: "String"
+                }
+            }
+        }
+    }
+};
+var ContainerSubmitBatchHeaders = {
+    serializedName: "container-submitbatch-headers",
+    type: {
+        name: "Composite",
+        className: "ContainerSubmitBatchHeaders",
+        modelProperties: {
+            contentType: {
+                serializedName: "content-type",
+                type: {
+                    name: "String"
+                }
+            },
+            requestId: {
+                serializedName: "x-ms-request-id",
+                type: {
+                    name: "String"
+                }
+            },
+            version: {
+                serializedName: "x-ms-version",
+                type: {
+                    name: "String"
+                }
+            },
+            errorCode: {
+                serializedName: "x-ms-error-code",
+                type: {
+                    name: "String"
+                }
+            }
+        }
+    }
+};
 var ContainerAcquireLeaseHeaders = {
     serializedName: "container-acquirelease-headers",
     type: {
@@ -26520,6 +26841,12 @@ var BlobDownloadHeaders = {
                 serializedName: "x-ms-version-id",
                 type: {
                     name: "String"
+                }
+            },
+            isCurrentVersion: {
+                serializedName: "x-ms-is-current-version",
+                type: {
+                    name: "Boolean"
                 }
             },
             acceptRanges: {
@@ -30088,7 +30415,7 @@ var comp10 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'expiry',
+        defaultValue: 'lease',
         type: {
             name: "String"
         }
@@ -30100,7 +30427,7 @@ var comp11 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'snapshot',
+        defaultValue: 'expiry',
         type: {
             name: "String"
         }
@@ -30112,7 +30439,7 @@ var comp12 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'copy',
+        defaultValue: 'snapshot',
         type: {
             name: "String"
         }
@@ -30124,7 +30451,7 @@ var comp13 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'tier',
+        defaultValue: 'copy',
         type: {
             name: "String"
         }
@@ -30136,7 +30463,7 @@ var comp14 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'query',
+        defaultValue: 'tier',
         type: {
             name: "String"
         }
@@ -30148,7 +30475,7 @@ var comp15 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'tags',
+        defaultValue: 'query',
         type: {
             name: "String"
         }
@@ -30160,7 +30487,7 @@ var comp16 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'page',
+        defaultValue: 'tags',
         type: {
             name: "String"
         }
@@ -30172,7 +30499,7 @@ var comp17 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'pagelist',
+        defaultValue: 'page',
         type: {
             name: "String"
         }
@@ -30184,7 +30511,7 @@ var comp18 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'incrementalcopy',
+        defaultValue: 'pagelist',
         type: {
             name: "String"
         }
@@ -30196,7 +30523,7 @@ var comp19 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'appendblock',
+        defaultValue: 'incrementalcopy',
         type: {
             name: "String"
         }
@@ -30220,7 +30547,7 @@ var comp20 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'seal',
+        defaultValue: 'appendblock',
         type: {
             name: "String"
         }
@@ -30232,13 +30559,25 @@ var comp21 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'block',
+        defaultValue: 'seal',
         type: {
             name: "String"
         }
     }
 };
 var comp22 = {
+    parameterPath: "comp",
+    mapper: {
+        required: true,
+        isConstant: true,
+        serializedName: "comp",
+        defaultValue: 'block',
+        type: {
+            name: "String"
+        }
+    }
+};
+var comp23 = {
     parameterPath: "comp",
     mapper: {
         required: true,
@@ -30328,7 +30667,7 @@ var comp9 = {
         required: true,
         isConstant: true,
         serializedName: "comp",
-        defaultValue: 'lease',
+        defaultValue: 'rename',
         type: {
             name: "String"
         }
@@ -31189,6 +31528,16 @@ var snapshot = {
         }
     }
 };
+var sourceContainerName = {
+    parameterPath: "sourceContainerName",
+    mapper: {
+        required: true,
+        serializedName: "x-ms-source-container-name",
+        type: {
+            name: "String"
+        }
+    }
+};
 var sourceContentCrc64 = {
     parameterPath: [
         "options",
@@ -31413,7 +31762,7 @@ var version = {
         required: true,
         isConstant: true,
         serializedName: "x-ms-version",
-        defaultValue: '2020-04-08',
+        defaultValue: '2020-06-12',
         type: {
             name: "String"
         }
@@ -31797,10 +32146,12 @@ var Mappers$1 = /*#__PURE__*/Object.freeze({
     ContainerListBlobFlatSegmentHeaders: ContainerListBlobFlatSegmentHeaders,
     ContainerListBlobHierarchySegmentHeaders: ContainerListBlobHierarchySegmentHeaders,
     ContainerReleaseLeaseHeaders: ContainerReleaseLeaseHeaders,
+    ContainerRenameHeaders: ContainerRenameHeaders,
     ContainerRenewLeaseHeaders: ContainerRenewLeaseHeaders,
     ContainerRestoreHeaders: ContainerRestoreHeaders,
     ContainerSetAccessPolicyHeaders: ContainerSetAccessPolicyHeaders,
     ContainerSetMetadataHeaders: ContainerSetMetadataHeaders,
+    ContainerSubmitBatchHeaders: ContainerSubmitBatchHeaders,
     ListBlobsFlatSegmentResponse: ListBlobsFlatSegmentResponse,
     ListBlobsHierarchySegmentResponse: ListBlobsHierarchySegmentResponse,
     SignedIdentifier: SignedIdentifier,
@@ -31859,6 +32210,20 @@ var Container = /** @class */ (function () {
         return this.client.sendOperationRequest({
             options: options
         }, restoreOperationSpec, callback);
+    };
+    Container.prototype.rename = function (sourceContainerName, options, callback) {
+        return this.client.sendOperationRequest({
+            sourceContainerName: sourceContainerName,
+            options: options
+        }, renameOperationSpec, callback);
+    };
+    Container.prototype.submitBatch = function (body, contentLength, multipartContentType, options, callback) {
+        return this.client.sendOperationRequest({
+            body: body,
+            contentLength: contentLength,
+            multipartContentType: multipartContentType,
+            options: options
+        }, submitBatchOperationSpec$1, callback);
     };
     Container.prototype.acquireLease = function (options, callback) {
         return this.client.sendOperationRequest({
@@ -32147,6 +32512,81 @@ var restoreOperationSpec = {
     isXML: true,
     serializer: serializer$1
 };
+var renameOperationSpec = {
+    httpMethod: "PUT",
+    path: "{containerName}",
+    urlParameters: [
+        url
+    ],
+    queryParameters: [
+        timeoutInSeconds,
+        restype2,
+        comp9
+    ],
+    headerParameters: [
+        version,
+        requestId,
+        sourceContainerName,
+        sourceLeaseId
+    ],
+    responses: {
+        200: {
+            headersMapper: ContainerRenameHeaders
+        },
+        default: {
+            bodyMapper: StorageError,
+            headersMapper: ContainerRenameHeaders
+        }
+    },
+    isXML: true,
+    serializer: serializer$1
+};
+var submitBatchOperationSpec$1 = {
+    httpMethod: "POST",
+    path: "{containerName}",
+    urlParameters: [
+        url
+    ],
+    queryParameters: [
+        timeoutInSeconds,
+        restype2,
+        comp4
+    ],
+    headerParameters: [
+        contentLength,
+        multipartContentType,
+        version,
+        requestId
+    ],
+    requestBody: {
+        parameterPath: "body",
+        mapper: {
+            required: true,
+            serializedName: "body",
+            type: {
+                name: "Stream"
+            }
+        }
+    },
+    contentType: "application/xml; charset=utf-8",
+    responses: {
+        202: {
+            bodyMapper: {
+                serializedName: "parsedResponse",
+                type: {
+                    name: "Stream"
+                }
+            },
+            headersMapper: ContainerSubmitBatchHeaders
+        },
+        default: {
+            bodyMapper: StorageError,
+            headersMapper: ContainerSubmitBatchHeaders
+        }
+    },
+    isXML: true,
+    serializer: serializer$1
+};
 var acquireLeaseOperationSpec = {
     httpMethod: "PUT",
     path: "{containerName}",
@@ -32155,7 +32595,7 @@ var acquireLeaseOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9,
+        comp10,
         restype2
     ],
     headerParameters: [
@@ -32187,7 +32627,7 @@ var releaseLeaseOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9,
+        comp10,
         restype2
     ],
     headerParameters: [
@@ -32218,7 +32658,7 @@ var renewLeaseOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9,
+        comp10,
         restype2
     ],
     headerParameters: [
@@ -32249,7 +32689,7 @@ var breakLeaseOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9,
+        comp10,
         restype2
     ],
     headerParameters: [
@@ -32280,7 +32720,7 @@ var changeLeaseOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9,
+        comp10,
         restype2
     ],
     headerParameters: [
@@ -32490,7 +32930,7 @@ var Blob$1 = /** @class */ (function () {
         return this.client.sendOperationRequest({
             renameSource: renameSource,
             options: options
-        }, renameOperationSpec, callback);
+        }, renameOperationSpec$1, callback);
     };
     Blob.prototype.undelete = function (options, callback) {
         return this.client.sendOperationRequest({
@@ -32787,7 +33227,7 @@ var getAccessControlOperationSpec = {
     isXML: true,
     serializer: serializer$2
 };
-var renameOperationSpec = {
+var renameOperationSpec$1 = {
     httpMethod: "PUT",
     path: "{filesystem}/{path}",
     urlParameters: [
@@ -32866,7 +33306,7 @@ var setExpiryOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp10
+        comp11
     ],
     headerParameters: [
         version,
@@ -32969,7 +33409,7 @@ var acquireLeaseOperationSpec$1 = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9
+        comp10
     ],
     headerParameters: [
         duration,
@@ -33003,7 +33443,7 @@ var releaseLeaseOperationSpec$1 = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9
+        comp10
     ],
     headerParameters: [
         leaseId1,
@@ -33036,7 +33476,7 @@ var renewLeaseOperationSpec$1 = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9
+        comp10
     ],
     headerParameters: [
         leaseId1,
@@ -33069,7 +33509,7 @@ var changeLeaseOperationSpec$1 = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9
+        comp10
     ],
     headerParameters: [
         leaseId1,
@@ -33103,7 +33543,7 @@ var breakLeaseOperationSpec$1 = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp9
+        comp10
     ],
     headerParameters: [
         breakPeriod,
@@ -33136,7 +33576,7 @@ var createSnapshotOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp11
+        comp12
     ],
     headerParameters: [
         metadata,
@@ -33257,7 +33697,7 @@ var abortCopyFromURLOperationSpec = {
     queryParameters: [
         copyId,
         timeoutInSeconds,
-        comp12
+        comp13
     ],
     headerParameters: [
         version,
@@ -33287,7 +33727,7 @@ var setTierOperationSpec = {
         snapshot,
         versionId,
         timeoutInSeconds,
-        comp13
+        comp14
     ],
     headerParameters: [
         tier1,
@@ -33346,7 +33786,7 @@ var queryOperationSpec = {
     queryParameters: [
         snapshot,
         timeoutInSeconds,
-        comp14
+        comp15
     ],
     headerParameters: [
         version,
@@ -33406,7 +33846,7 @@ var getTagsOperationSpec = {
         timeoutInSeconds,
         snapshot,
         versionId,
-        comp15
+        comp16
     ],
     headerParameters: [
         version,
@@ -33436,7 +33876,7 @@ var setTagsOperationSpec = {
     queryParameters: [
         timeoutInSeconds,
         versionId,
-        comp15
+        comp16
     ],
     headerParameters: [
         version,
@@ -33627,7 +34067,7 @@ var uploadPagesOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp16
+        comp17
     ],
     headerParameters: [
         contentLength,
@@ -33682,7 +34122,7 @@ var clearPagesOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp16
+        comp17
     ],
     headerParameters: [
         contentLength,
@@ -33724,7 +34164,7 @@ var uploadPagesFromURLOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp16
+        comp17
     ],
     headerParameters: [
         sourceUrl,
@@ -33775,7 +34215,7 @@ var getPageRangesOperationSpec = {
     queryParameters: [
         snapshot,
         timeoutInSeconds,
-        comp17
+        comp18
     ],
     headerParameters: [
         range0,
@@ -33811,7 +34251,7 @@ var getPageRangesDiffOperationSpec = {
         snapshot,
         timeoutInSeconds,
         prevsnapshot,
-        comp17
+        comp18
     ],
     headerParameters: [
         prevSnapshotUrl,
@@ -33917,7 +34357,7 @@ var copyIncrementalOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp18
+        comp19
     ],
     headerParameters: [
         copySource,
@@ -34059,7 +34499,7 @@ var appendBlockOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp19
+        comp20
     ],
     headerParameters: [
         contentLength,
@@ -34111,7 +34551,7 @@ var appendBlockFromUrlOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp19
+        comp20
     ],
     headerParameters: [
         sourceUrl,
@@ -34159,7 +34599,7 @@ var sealOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp20
+        comp21
     ],
     headerParameters: [
         version,
@@ -34392,7 +34832,7 @@ var stageBlockOperationSpec = {
     queryParameters: [
         blockId,
         timeoutInSeconds,
-        comp21
+        comp22
     ],
     headerParameters: [
         contentLength,
@@ -34438,7 +34878,7 @@ var stageBlockFromURLOperationSpec = {
     queryParameters: [
         blockId,
         timeoutInSeconds,
-        comp21
+        comp22
     ],
     headerParameters: [
         contentLength,
@@ -34478,7 +34918,7 @@ var commitBlockListOperationSpec = {
     ],
     queryParameters: [
         timeoutInSeconds,
-        comp22
+        comp23
     ],
     headerParameters: [
         transactionalContentMD5,
@@ -34532,7 +34972,7 @@ var getBlockListOperationSpec = {
         snapshot,
         listType,
         timeoutInSeconds,
-        comp22
+        comp23
     ],
     headerParameters: [
         version,
@@ -34556,14 +34996,14 @@ var getBlockListOperationSpec = {
 
 // Copyright (c) Microsoft Corporation.
 /**
- * The @azure/logger configuration for this package.
+ * The `@azure/logger` configuration for this package.
  */
 var logger = logger$1.createClientLogger("storage-blob");
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-var SDK_VERSION = "12.4.1";
-var SERVICE_VERSION = "2020-04-08";
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+var SDK_VERSION = "12.5.0";
+var SERVICE_VERSION = "2020-06-12";
 var BLOCK_BLOB_MAX_UPLOAD_BLOB_BYTES = 256 * 1024 * 1024; // 256MB
 var BLOCK_BLOB_MAX_STAGE_BLOCK_BYTES = 4000 * 1024 * 1024; // 4000MB
 var BLOCK_BLOB_MAX_BLOCKS = 50000;
@@ -34756,7 +35196,7 @@ var StorageBlobLoggingAllowedQueryParameters = [
     "snapshot"
 ];
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * Reserved URL characters must be properly escaped for Storage services like Blob or File.
  *
@@ -34807,9 +35247,7 @@ var StorageBlobLoggingAllowedQueryParameters = [
  * @see https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata
  * @see https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-shares--directories--files--and-metadata
  *
- * @export
- * @param {string} url
- * @returns {string}
+ * @param url -
  */
 function escapeURLPath(url) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -34848,9 +35286,8 @@ function getValueInConnString(connectionString, argument) {
 /**
  * Extracts the parts of an Azure Storage account connection string.
  *
- * @export
- * @param {string} connectionString Connection string.
- * @returns {ConnectionString}  String key value pairs of the storage account's url and credentials.
+ * @param connectionString - Connection string.
+ * @returns String key value pairs of the storage account's url and credentials.
  */
 function extractConnectionStringParts(connectionString) {
     var proxyUri = "";
@@ -34918,8 +35355,7 @@ function extractConnectionStringParts(connectionString) {
 /**
  * Internal escape method implemented Strategy Two mentioned in escapeURL() description.
  *
- * @param {string} text
- * @returns {string}
+ * @param text -
  */
 function escape(text) {
     return encodeURIComponent(text)
@@ -34932,10 +35368,9 @@ function escape(text) {
  * Append a string to URL path. Will remove duplicated "/" in front of the string
  * when URL path ends with a "/".
  *
- * @export
- * @param {string} url Source URL string
- * @param {string} name String to be appended to URL
- * @returns {string} An updated URL string
+ * @param url - Source URL string
+ * @param name - String to be appended to URL
+ * @returns An updated URL string
  */
 function appendToURLPath(url, name) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -34948,11 +35383,10 @@ function appendToURLPath(url, name) {
  * Set URL parameter name and value. If name exists in URL parameters, old value
  * will be replaced by name key. If not provide value, the parameter will be deleted.
  *
- * @export
- * @param {string} url Source URL string
- * @param {string} name Parameter name
- * @param {string} [value] Parameter value
- * @returns {string} An updated URL string
+ * @param url - Source URL string
+ * @param name - Parameter name
+ * @param value - Parameter value
+ * @returns An updated URL string
  */
 function setURLParameter(url, name, value) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -34962,10 +35396,8 @@ function setURLParameter(url, name, value) {
 /**
  * Get URL parameter by name.
  *
- * @export
- * @param {string} url
- * @param {string} name
- * @returns {(string | string[] | undefined)}
+ * @param url -
+ * @param name -
  */
 function getURLParameter(url, name) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -34974,9 +35406,8 @@ function getURLParameter(url, name) {
 /**
  * Set URL host.
  *
- * @export
- * @param {string} url Source URL string
- * @param {string} host New host string
+ * @param url - Source URL string
+ * @param host - New host string
  * @returns An updated URL string
  */
 function setURLHost(url, host) {
@@ -34987,9 +35418,7 @@ function setURLHost(url, host) {
 /**
  * Get URL path from an URL string.
  *
- * @export
- * @param {string} url Source URL string
- * @returns {(string | undefined)}
+ * @param url - Source URL string
  */
 function getURLPath(url) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -34998,9 +35427,7 @@ function getURLPath(url) {
 /**
  * Get URL scheme from an URL string.
  *
- * @export
- * @param {string} url Source URL string
- * @returns {(string | undefined)}
+ * @param url - Source URL string
  */
 function getURLScheme(url) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -35009,9 +35436,7 @@ function getURLScheme(url) {
 /**
  * Get URL path and query from an URL string.
  *
- * @export
- * @param {string} url Source URL string
- * @returns {(string | undefined)}
+ * @param url - Source URL string
  */
 function getURLPathAndQuery(url) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -35029,9 +35454,7 @@ function getURLPathAndQuery(url) {
 /**
  * Get URL query key value pairs from an URL string.
  *
- * @export
- * @param {string} url
- * @returns {{[key: string]: string}}
+ * @param url -
  */
 function getURLQueries(url) {
     var queryString = coreHttp.URLBuilder.parse(url).getQuery();
@@ -35059,10 +35482,9 @@ function getURLQueries(url) {
 /**
  * Append a string to URL query.
  *
- * @export
- * @param {string} url Source URL string.
- * @param {string} queryParts String to be appended to the URL query.
- * @returns {string} An updated URL string.
+ * @param url - Source URL string.
+ * @param queryParts - String to be appended to the URL query.
+ * @returns An updated URL string.
  */
 function appendToURLQuery(url, queryParts) {
     var urlParsed = coreHttp.URLBuilder.parse(url);
@@ -35079,11 +35501,10 @@ function appendToURLQuery(url, queryParts) {
 /**
  * Rounds a date off to seconds.
  *
- * @export
- * @param {Date} date
- * @param {boolean} [withMilliseconds=true] If true, YYYY-MM-DDThh:mm:ss.fffffffZ will be returned;
+ * @param date -
+ * @param withMilliseconds - If true, YYYY-MM-DDThh:mm:ss.fffffffZ will be returned;
  *                                          If false, YYYY-MM-DDThh:mm:ssZ will be returned.
- * @returns {string} Date string in ISO8061 format, with or without 7 milliseconds component
+ * @returns Date string in ISO8061 format, with or without 7 milliseconds component
  */
 function truncatedISO8061Date(date, withMilliseconds) {
     if (withMilliseconds === void 0) { withMilliseconds = true; }
@@ -35096,9 +35517,7 @@ function truncatedISO8061Date(date, withMilliseconds) {
 /**
  * Base64 encode.
  *
- * @export
- * @param {string} content
- * @returns {string}
+ * @param content -
  */
 function base64encode(content) {
     return !coreHttp.isNode ? btoa(content) : Buffer.from(content).toString("base64");
@@ -35106,9 +35525,7 @@ function base64encode(content) {
 /**
  * Generate a 64 bytes base64 block ID string.
  *
- * @export
- * @param {number} blockIndex
- * @returns {string}
+ * @param blockIndex -
  */
 function generateBlockID(blockIDPrefix, blockIndex) {
     // To generate a 64 bytes base64 string, source string should be 48
@@ -35126,10 +35543,9 @@ function generateBlockID(blockIDPrefix, blockIndex) {
 /**
  * Delay specified time interval.
  *
- * @export
- * @param {number} timeInMs
- * @param {AbortSignalLike} [aborter]
- * @param {Error} [abortError]
+ * @param timeInMs -
+ * @param aborter -
+ * @param abortError -
  */
 function delay(timeInMs, aborter, abortError) {
     return tslib.__awaiter(this, void 0, void 0, function () {
@@ -35159,11 +35575,9 @@ function delay(timeInMs, aborter, abortError) {
 /**
  * String.prototype.padStart()
  *
- * @export
- * @param {string} currentString
- * @param {number} targetLength
- * @param {string} [padString=" "]
- * @returns {string}
+ * @param currentString -
+ * @param targetLength -
+ * @param padString -
  */
 function padStart(currentString, targetLength, padString) {
     if (padString === void 0) { padString = " "; }
@@ -35187,18 +35601,16 @@ function padStart(currentString, targetLength, padString) {
 /**
  * If two strings are equal when compared case insensitive.
  *
- * @export
- * @param {string} str1
- * @param {string} str2
- * @returns {boolean}
+ * @param str1 -
+ * @param str2 -
  */
 function iEqual(str1, str2) {
     return str1.toLocaleLowerCase() === str2.toLocaleLowerCase();
 }
 /**
  * Extracts account name from the url
- * @param {string} url url to extract the account name from
- * @returns {string} with the account name
+ * @param url - url to extract the account name from
+ * @returns with the account name
  */
 function getAccountNameFromUrl(url) {
     var parsedUrl = coreHttp.URLBuilder.parse(url);
@@ -35238,9 +35650,7 @@ function isIpEndpointStyle(parsedUrl) {
 /**
  * Convert Tags to encoded string.
  *
- * @export
- * @param {Tags} tags
- * @returns {string | undefined}
+ * @param tags -
  */
 function toBlobTagsString(tags) {
     if (tags === undefined) {
@@ -35258,9 +35668,7 @@ function toBlobTagsString(tags) {
 /**
  * Convert Tags type to BlobTags.
  *
- * @export
- * @param {Tags} [tags]
- * @returns {(BlobTags | undefined)}
+ * @param tags -
  */
 function toBlobTags(tags) {
     if (tags === undefined) {
@@ -35283,9 +35691,7 @@ function toBlobTags(tags) {
 /**
  * Covert BlobTags to Tags type.
  *
- * @export
- * @param {BlobTags} [tags]
- * @returns {(Tags | undefined)}
+ * @param tags -
  */
 function toTags(tags) {
     if (tags === undefined) {
@@ -35301,9 +35707,7 @@ function toTags(tags) {
 /**
  * Convert BlobQueryTextConfiguration to QuerySerialization type.
  *
- * @export
- * @param {(BlobQueryJsonTextConfiguration | BlobQueryCsvTextConfiguration | BlobQueryArrowConfiguration)} [textConfiguration]
- * @returns {(QuerySerialization | undefined)}
+ * @param textConfiguration -
  */
 function toQuerySerialization(textConfiguration) {
     if (textConfiguration === undefined) {
@@ -35384,17 +35788,15 @@ function parseObjectReplicationRecord(objectReplicationRecord) {
 /**
  * Attach a TokenCredential to an object.
  *
- * @export
- * @param {T} thing
- * @param {TokenCredential} credential
- * @returns {T}
+ * @param thing -
+ * @param credential -
  */
 function attachCredential(thing, credential) {
     thing.credential = credential;
     return thing;
 }
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * StorageBrowserPolicy will handle differences between Node.js and browser runtime, including:
  *
@@ -35405,17 +35807,13 @@ function attachCredential(thing, credential) {
  * 2. Remove cookie header for security
  *
  * 3. Remove content-length header to avoid browsers warning
- *
- * @class StorageBrowserPolicy
- * @extends {BaseRequestPolicy}
  */
 var StorageBrowserPolicy = /** @class */ (function (_super) {
     tslib.__extends(StorageBrowserPolicy, _super);
     /**
      * Creates an instance of StorageBrowserPolicy.
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @memberof StorageBrowserPolicy
+     * @param nextPolicy -
+     * @param options -
      */
     function StorageBrowserPolicy(nextPolicy, options) {
         return _super.call(this, nextPolicy, options) || this;
@@ -35423,9 +35821,7 @@ var StorageBrowserPolicy = /** @class */ (function (_super) {
     /**
      * Sends out request.
      *
-     * @param {WebResource} request
-     * @returns {Promise<HttpOperationResponse>}
-     * @memberof StorageBrowserPolicy
+     * @param request -
      */
     StorageBrowserPolicy.prototype.sendRequest = function (request) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -35439,13 +35835,9 @@ var StorageBrowserPolicy = /** @class */ (function (_super) {
     return StorageBrowserPolicy;
 }(coreHttp.BaseRequestPolicy));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * StorageBrowserPolicyFactory is a factory class helping generating StorageBrowserPolicy objects.
- *
- * @export
- * @class StorageBrowserPolicyFactory
- * @implements {RequestPolicyFactory}
  */
 var StorageBrowserPolicyFactory = /** @class */ (function () {
     function StorageBrowserPolicyFactory() {
@@ -35453,10 +35845,8 @@ var StorageBrowserPolicyFactory = /** @class */ (function () {
     /**
      * Creates a StorageBrowserPolicyFactory object.
      *
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @returns {StorageBrowserPolicy}
-     * @memberof StorageBrowserPolicyFactory
+     * @param nextPolicy -
+     * @param options -
      */
     StorageBrowserPolicyFactory.prototype.create = function (nextPolicy, options) {
         return new StorageBrowserPolicy(nextPolicy, options);
@@ -35464,7 +35854,7 @@ var StorageBrowserPolicyFactory = /** @class */ (function () {
     return StorageBrowserPolicyFactory;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 (function (StorageRetryPolicyType) {
     /**
      * Exponential retry. Retry time delay grows exponentially.
@@ -35487,19 +35877,15 @@ var DEFAULT_RETRY_OPTIONS = {
 var RETRY_ABORT_ERROR = new abortController.AbortError("The operation was aborted.");
 /**
  * Retry policy with exponential retry and linear retry implemented.
- *
- * @class RetryPolicy
- * @extends {BaseRequestPolicy}
  */
 var StorageRetryPolicy = /** @class */ (function (_super) {
     tslib.__extends(StorageRetryPolicy, _super);
     /**
      * Creates an instance of RetryPolicy.
      *
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @param {StorageRetryOptions} [retryOptions=DEFAULT_RETRY_OPTIONS]
-     * @memberof StorageRetryPolicy
+     * @param nextPolicy -
+     * @param options -
+     * @param retryOptions -
      */
     function StorageRetryPolicy(nextPolicy, options, retryOptions) {
         if (retryOptions === void 0) { retryOptions = DEFAULT_RETRY_OPTIONS; }
@@ -35532,9 +35918,7 @@ var StorageRetryPolicy = /** @class */ (function (_super) {
     /**
      * Sends request.
      *
-     * @param {WebResource} request
-     * @returns {Promise<HttpOperationResponse>}
-     * @memberof StorageRetryPolicy
+     * @param request -
      */
     StorageRetryPolicy.prototype.sendRequest = function (request) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -35546,15 +35930,12 @@ var StorageRetryPolicy = /** @class */ (function (_super) {
     /**
      * Decide and perform next retry. Won't mutate request parameter.
      *
-     * @protected
-     * @param {WebResource} request
-     * @param {boolean} secondaryHas404  If attempt was against the secondary & it returned a StatusNotFound (404), then
+     * @param request -
+     * @param secondaryHas404 -  If attempt was against the secondary & it returned a StatusNotFound (404), then
      *                                   the resource was not found. This may be due to replication delay. So, in this
      *                                   case, we'll never try the secondary again for this operation.
-     * @param {number} attempt           How many retries has been attempted to performed, starting from 1, which includes
+     * @param attempt -           How many retries has been attempted to performed, starting from 1, which includes
      *                                   the attempt will be performed by this method call.
-     * @returns {Promise<HttpOperationResponse>}
-     * @memberof StorageRetryPolicy
      */
     StorageRetryPolicy.prototype.attemptSendRequest = function (request, secondaryHas404, attempt) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -35605,13 +35986,10 @@ var StorageRetryPolicy = /** @class */ (function (_super) {
     /**
      * Decide whether to retry according to last HTTP response and retry counters.
      *
-     * @protected
-     * @param {boolean} isPrimaryRetry
-     * @param {number} attempt
-     * @param {HttpOperationResponse} [response]
-     * @param {RestError} [err]
-     * @returns {boolean}
-     * @memberof StorageRetryPolicy
+     * @param isPrimaryRetry -
+     * @param attempt -
+     * @param response -
+     * @param err -
      */
     StorageRetryPolicy.prototype.shouldRetry = function (isPrimaryRetry, attempt, response, err) {
         if (attempt >= this.retryOptions.maxTries) {
@@ -35667,11 +36045,9 @@ var StorageRetryPolicy = /** @class */ (function (_super) {
     /**
      * Delay a calculated time between retries.
      *
-     * @private
-     * @param {boolean} isPrimaryRetry
-     * @param {number} attempt
-     * @param {AbortSignalLike} [abortSignal]
-     * @memberof StorageRetryPolicy
+     * @param isPrimaryRetry -
+     * @param attempt -
+     * @param abortSignal -
      */
     StorageRetryPolicy.prototype.delay = function (isPrimaryRetry, attempt, abortSignal) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -35699,19 +36075,14 @@ var StorageRetryPolicy = /** @class */ (function (_super) {
     return StorageRetryPolicy;
 }(coreHttp.BaseRequestPolicy));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * StorageRetryPolicyFactory is a factory class helping generating {@link StorageRetryPolicy} objects.
- *
- * @export
- * @class StorageRetryPolicyFactory
- * @implements {RequestPolicyFactory}
  */
 var StorageRetryPolicyFactory = /** @class */ (function () {
     /**
      * Creates an instance of StorageRetryPolicyFactory.
-     * @param {StorageRetryOptions} [retryOptions]
-     * @memberof StorageRetryPolicyFactory
+     * @param retryOptions -
      */
     function StorageRetryPolicyFactory(retryOptions) {
         this.retryOptions = retryOptions;
@@ -35719,10 +36090,8 @@ var StorageRetryPolicyFactory = /** @class */ (function () {
     /**
      * Creates a StorageRetryPolicy object.
      *
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @returns {StorageRetryPolicy}
-     * @memberof StorageRetryPolicyFactory
+     * @param nextPolicy -
+     * @param options -
      */
     StorageRetryPolicyFactory.prototype.create = function (nextPolicy, options) {
         return new StorageRetryPolicy(nextPolicy, options, this.retryOptions);
@@ -35730,15 +36099,10 @@ var StorageRetryPolicyFactory = /** @class */ (function () {
     return StorageRetryPolicyFactory;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * Credential policy used to sign HTTP(S) requests before sending. This is an
  * abstract class.
- *
- * @export
- * @abstract
- * @class CredentialPolicy
- * @extends {BaseRequestPolicy}
  */
 var CredentialPolicy = /** @class */ (function (_super) {
     tslib.__extends(CredentialPolicy, _super);
@@ -35748,9 +36112,7 @@ var CredentialPolicy = /** @class */ (function (_super) {
     /**
      * Sends out request.
      *
-     * @param {WebResource} request
-     * @returns {Promise<HttpOperationResponse>}
-     * @memberof CredentialPolicy
+     * @param request -
      */
     CredentialPolicy.prototype.sendRequest = function (request) {
         return this._nextPolicy.sendRequest(this.signRequest(request));
@@ -35759,11 +36121,7 @@ var CredentialPolicy = /** @class */ (function (_super) {
      * Child classes must implement this method with request signing. This method
      * will be executed in {@link sendRequest}.
      *
-     * @protected
-     * @abstract
-     * @param {WebResource} request
-     * @returns {WebResource}
-     * @memberof CredentialPolicy
+     * @param request -
      */
     CredentialPolicy.prototype.signRequest = function (request) {
         // Child classes must override this method with request signing. This method
@@ -35773,22 +36131,17 @@ var CredentialPolicy = /** @class */ (function (_super) {
     return CredentialPolicy;
 }(coreHttp.BaseRequestPolicy));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * AnonymousCredentialPolicy is used with HTTP(S) requests that read public resources
  * or for use with Shared Access Signatures (SAS).
- *
- * @export
- * @class AnonymousCredentialPolicy
- * @extends {CredentialPolicy}
  */
 var AnonymousCredentialPolicy = /** @class */ (function (_super) {
     tslib.__extends(AnonymousCredentialPolicy, _super);
     /**
      * Creates an instance of AnonymousCredentialPolicy.
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @memberof AnonymousCredentialPolicy
+     * @param nextPolicy -
+     * @param options -
      */
     function AnonymousCredentialPolicy(nextPolicy, options) {
         return _super.call(this, nextPolicy, options) || this;
@@ -35796,15 +36149,11 @@ var AnonymousCredentialPolicy = /** @class */ (function (_super) {
     return AnonymousCredentialPolicy;
 }(CredentialPolicy));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 /**
  * Credential is an abstract class for Azure Storage HTTP requests signing. This
  * class will host an credentialPolicyCreator factory which generates CredentialPolicy.
- *
- * @export
- * @abstract
- * @class Credential
  */
 var Credential = /** @class */ (function () {
     function Credential() {
@@ -35812,10 +36161,8 @@ var Credential = /** @class */ (function () {
     /**
      * Creates a RequestPolicy object.
      *
-     * @param {RequestPolicy} _nextPolicy
-     * @param {RequestPolicyOptions} _options
-     * @returns {RequestPolicy}
-     * @memberof Credential
+     * @param _nextPolicy -
+     * @param _options -
      */
     Credential.prototype.create = function (
     // tslint:disable-next-line:variable-name
@@ -35827,16 +36174,12 @@ var Credential = /** @class */ (function () {
     return Credential;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * AnonymousCredential provides a credentialPolicyCreator member used to create
  * AnonymousCredentialPolicy objects. AnonymousCredentialPolicy is used with
  * HTTP(S) requests that read public resources or for use with Shared Access
  * Signatures (SAS).
- *
- * @export
- * @class AnonymousCredential
- * @extends {Credential}
  */
 var AnonymousCredential = /** @class */ (function (_super) {
     tslib.__extends(AnonymousCredential, _super);
@@ -35846,10 +36189,8 @@ var AnonymousCredential = /** @class */ (function (_super) {
     /**
      * Creates an {@link AnonymousCredentialPolicy} object.
      *
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @returns {AnonymousCredentialPolicy}
-     * @memberof AnonymousCredential
+     * @param nextPolicy -
+     * @param options -
      */
     AnonymousCredential.prototype.create = function (nextPolicy, options) {
         return new AnonymousCredentialPolicy(nextPolicy, options);
@@ -35857,21 +36198,17 @@ var AnonymousCredential = /** @class */ (function (_super) {
     return AnonymousCredential;
 }(Credential));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * TelemetryPolicy is a policy used to tag user-agent header for every requests.
- *
- * @class TelemetryPolicy
- * @extends {BaseRequestPolicy}
  */
 var TelemetryPolicy = /** @class */ (function (_super) {
     tslib.__extends(TelemetryPolicy, _super);
     /**
      * Creates an instance of TelemetryPolicy.
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @param {string} telemetry
-     * @memberof TelemetryPolicy
+     * @param nextPolicy -
+     * @param options -
+     * @param telemetry -
      */
     function TelemetryPolicy(nextPolicy, options, telemetry) {
         var _this = _super.call(this, nextPolicy, options) || this;
@@ -35881,9 +36218,7 @@ var TelemetryPolicy = /** @class */ (function (_super) {
     /**
      * Sends out request.
      *
-     * @param {WebResource} request
-     * @returns {Promise<HttpOperationResponse>}
-     * @memberof TelemetryPolicy
+     * @param request -
      */
     TelemetryPolicy.prototype.sendRequest = function (request) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -35903,19 +36238,14 @@ var TelemetryPolicy = /** @class */ (function (_super) {
     return TelemetryPolicy;
 }(coreHttp.BaseRequestPolicy));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * TelemetryPolicyFactory is a factory class helping generating {@link TelemetryPolicy} objects.
- *
- * @export
- * @class TelemetryPolicyFactory
- * @implements {RequestPolicyFactory}
  */
 var TelemetryPolicyFactory = /** @class */ (function () {
     /**
      * Creates an instance of TelemetryPolicyFactory.
-     * @param {UserAgentOptions} [telemetry]
-     * @memberof TelemetryPolicyFactory
+     * @param telemetry -
      */
     function TelemetryPolicyFactory(telemetry) {
         var userAgentInfo = [];
@@ -35942,10 +36272,8 @@ var TelemetryPolicyFactory = /** @class */ (function () {
     /**
      * Creates a TelemetryPolicy object.
      *
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @returns {TelemetryPolicy}
-     * @memberof TelemetryPolicyFactory
+     * @param nextPolicy -
+     * @param options -
      */
     TelemetryPolicyFactory.prototype.create = function (nextPolicy, options) {
         return new TelemetryPolicy(nextPolicy, options, this.telemetryString);
@@ -35959,7 +36287,7 @@ function getCachedDefaultHttpClient() {
     return _defaultHttpClient;
 }
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * A Pipeline class containing HTTP request policies.
  * You can create a default Pipeline by calling {@link newPipeline}.
@@ -35967,17 +36295,13 @@ function getCachedDefaultHttpClient() {
  *
  * Refer to {@link newPipeline} and provided policies before implementing your
  * customized Pipeline.
- *
- * @export
- * @class Pipeline
  */
 var Pipeline = /** @class */ (function () {
     /**
      * Creates an instance of Pipeline. Customize HTTPClient by implementing IHttpClient interface.
      *
-     * @param {RequestPolicyFactory[]} factories
-     * @param {PipelineOptions} [options={}]
-     * @memberof Pipeline
+     * @param factories -
+     * @param options -
      */
     function Pipeline(factories, options) {
         if (options === void 0) { options = {}; }
@@ -35990,8 +36314,7 @@ var Pipeline = /** @class */ (function () {
      * Transfer Pipeline object to ServiceClientOptions object which is required by
      * ServiceClient constructor.
      *
-     * @returns {ServiceClientOptions} The ServiceClientOptions object from this Pipeline.
-     * @memberof Pipeline
+     * @returns The ServiceClientOptions object from this Pipeline.
      */
     Pipeline.prototype.toServiceClientOptions = function () {
         return {
@@ -36004,10 +36327,9 @@ var Pipeline = /** @class */ (function () {
 /**
  * Creates a new Pipeline object with Credential provided.
  *
- * @export
- * @param {StorageSharedKeyCredential | AnonymousCredential | TokenCredential} credential  Such as AnonymousCredential, StorageSharedKeyCredential or any credential from the @azure/identity package to authenticate requests to the service. You can also provide an object that implements the TokenCredential interface. If not specified, AnonymousCredential is used.
- * @param {StoragePipelineOptions} [pipelineOptions] Optional. Options.
- * @returns {Pipeline} A new Pipeline object.
+ * @param credential -  Such as AnonymousCredential, StorageSharedKeyCredential or any credential from the `@azure/identity` package to authenticate requests to the service. You can also provide an object that implements the TokenCredential interface. If not specified, AnonymousCredential is used.
+ * @param pipelineOptions - Optional. Options.
+ * @returns A new Pipeline object.
  */
 function newPipeline(credential, pipelineOptions) {
     if (pipelineOptions === void 0) { pipelineOptions = {}; }
@@ -36046,27 +36368,1578 @@ function newPipeline(credential, pipelineOptions) {
     return new Pipeline(factories, pipelineOptions);
 }
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
+/**
+ * StorageSharedKeyCredentialPolicy is a policy used to sign HTTP request with a shared key.
+ */
+var StorageSharedKeyCredentialPolicy = /** @class */ (function (_super) {
+    tslib.__extends(StorageSharedKeyCredentialPolicy, _super);
+    /**
+     * Creates an instance of StorageSharedKeyCredentialPolicy.
+     * @param nextPolicy -
+     * @param options -
+     * @param factory -
+     */
+    function StorageSharedKeyCredentialPolicy(nextPolicy, options, factory) {
+        var _this = _super.call(this, nextPolicy, options) || this;
+        _this.factory = factory;
+        return _this;
+    }
+    /**
+     * Signs request.
+     *
+     * @param request -
+     */
+    StorageSharedKeyCredentialPolicy.prototype.signRequest = function (request) {
+        request.headers.set(HeaderConstants.X_MS_DATE, new Date().toUTCString());
+        if (request.body && typeof request.body === "string" && request.body.length > 0) {
+            request.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request.body));
+        }
+        var stringToSign = [
+            request.method.toUpperCase(),
+            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_LANGUAGE),
+            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_ENCODING),
+            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_LENGTH),
+            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_MD5),
+            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_TYPE),
+            this.getHeaderValueToSign(request, HeaderConstants.DATE),
+            this.getHeaderValueToSign(request, HeaderConstants.IF_MODIFIED_SINCE),
+            this.getHeaderValueToSign(request, HeaderConstants.IF_MATCH),
+            this.getHeaderValueToSign(request, HeaderConstants.IF_NONE_MATCH),
+            this.getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
+            this.getHeaderValueToSign(request, HeaderConstants.RANGE)
+        ].join("\n") +
+            "\n" +
+            this.getCanonicalizedHeadersString(request) +
+            this.getCanonicalizedResourceString(request);
+        var signature = this.factory.computeHMACSHA256(stringToSign);
+        request.headers.set(HeaderConstants.AUTHORIZATION, "SharedKey " + this.factory.accountName + ":" + signature);
+        // console.log(`[URL]:${request.url}`);
+        // console.log(`[HEADERS]:${request.headers.toString()}`);
+        // console.log(`[STRING TO SIGN]:${JSON.stringify(stringToSign)}`);
+        // console.log(`[KEY]: ${request.headers.get(HeaderConstants.AUTHORIZATION)}`);
+        return request;
+    };
+    /**
+     * Retrieve header value according to shared key sign rules.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/authenticate-with-shared-key
+     *
+     * @param request -
+     * @param headerName -
+     */
+    StorageSharedKeyCredentialPolicy.prototype.getHeaderValueToSign = function (request, headerName) {
+        var value = request.headers.get(headerName);
+        if (!value) {
+            return "";
+        }
+        // When using version 2015-02-21 or later, if Content-Length is zero, then
+        // set the Content-Length part of the StringToSign to an empty string.
+        // https://docs.microsoft.com/en-us/rest/api/storageservices/authenticate-with-shared-key
+        if (headerName === HeaderConstants.CONTENT_LENGTH && value === "0") {
+            return "";
+        }
+        return value;
+    };
+    /**
+     * To construct the CanonicalizedHeaders portion of the signature string, follow these steps:
+     * 1. Retrieve all headers for the resource that begin with x-ms-, including the x-ms-date header.
+     * 2. Convert each HTTP header name to lowercase.
+     * 3. Sort the headers lexicographically by header name, in ascending order.
+     *    Each header may appear only once in the string.
+     * 4. Replace any linear whitespace in the header value with a single space.
+     * 5. Trim any whitespace around the colon in the header.
+     * 6. Finally, append a new-line character to each canonicalized header in the resulting list.
+     *    Construct the CanonicalizedHeaders string by concatenating all headers in this list into a single string.
+     *
+     * @param request -
+     */
+    StorageSharedKeyCredentialPolicy.prototype.getCanonicalizedHeadersString = function (request) {
+        var headersArray = request.headers.headersArray().filter(function (value) {
+            return value.name.toLowerCase().startsWith(HeaderConstants.PREFIX_FOR_STORAGE);
+        });
+        headersArray.sort(function (a, b) {
+            return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+        });
+        // Remove duplicate headers
+        headersArray = headersArray.filter(function (value, index, array) {
+            if (index > 0 && value.name.toLowerCase() === array[index - 1].name.toLowerCase()) {
+                return false;
+            }
+            return true;
+        });
+        var canonicalizedHeadersStringToSign = "";
+        headersArray.forEach(function (header) {
+            canonicalizedHeadersStringToSign += header.name
+                .toLowerCase()
+                .trimRight() + ":" + header.value.trimLeft() + "\n";
+        });
+        return canonicalizedHeadersStringToSign;
+    };
+    /**
+     * Retrieves the webResource canonicalized resource string.
+     *
+     * @param request -
+     */
+    StorageSharedKeyCredentialPolicy.prototype.getCanonicalizedResourceString = function (request) {
+        var path = getURLPath(request.url) || "/";
+        var canonicalizedResourceString = "";
+        canonicalizedResourceString += "/" + this.factory.accountName + path;
+        var queries = getURLQueries(request.url);
+        var lowercaseQueries = {};
+        if (queries) {
+            var queryKeys = [];
+            for (var key in queries) {
+                if (queries.hasOwnProperty(key)) {
+                    var lowercaseKey = key.toLowerCase();
+                    lowercaseQueries[lowercaseKey] = queries[key];
+                    queryKeys.push(lowercaseKey);
+                }
+            }
+            queryKeys.sort();
+            for (var _i = 0, queryKeys_1 = queryKeys; _i < queryKeys_1.length; _i++) {
+                var key = queryKeys_1[_i];
+                canonicalizedResourceString += "\n" + key + ":" + decodeURIComponent(lowercaseQueries[key]);
+            }
+        }
+        return canonicalizedResourceString;
+    };
+    return StorageSharedKeyCredentialPolicy;
+}(CredentialPolicy));
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ *
+ * StorageSharedKeyCredential for account key authorization of Azure Storage service.
+ */
+var StorageSharedKeyCredential = /** @class */ (function (_super) {
+    tslib.__extends(StorageSharedKeyCredential, _super);
+    /**
+     * Creates an instance of StorageSharedKeyCredential.
+     * @param accountName -
+     * @param accountKey -
+     */
+    function StorageSharedKeyCredential(accountName, accountKey) {
+        var _this = _super.call(this) || this;
+        _this.accountName = accountName;
+        _this.accountKey = Buffer.from(accountKey, "base64");
+        return _this;
+    }
+    /**
+     * Creates a StorageSharedKeyCredentialPolicy object.
+     *
+     * @param nextPolicy -
+     * @param options -
+     */
+    StorageSharedKeyCredential.prototype.create = function (nextPolicy, options) {
+        return new StorageSharedKeyCredentialPolicy(nextPolicy, options, this);
+    };
+    /**
+     * Generates a hash signature for an HTTP request or for a SAS.
+     *
+     * @param stringToSign -
+     */
+    StorageSharedKeyCredential.prototype.computeHMACSHA256 = function (stringToSign) {
+        return crypto.createHmac("sha256", this.accountKey)
+            .update(stringToSign, "utf8")
+            .digest("base64");
+    };
+    return StorageSharedKeyCredential;
+}(Credential));
+
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See License.txt in the project root for
+ * license information.
+ *
+ * Code generated by Microsoft (R) AutoRest Code Generator.
+ * Changes may cause incorrect behavior and will be lost if the code is
+ * regenerated.
+ */
+var packageName = "azure-storage-blob";
+var packageVersion = "12.5.0";
+var StorageClientContext = /** @class */ (function (_super) {
+    tslib.__extends(StorageClientContext, _super);
+    /**
+     * Initializes a new instance of the StorageClientContext class.
+     * @param url The URL of the service account, container, or blob that is the targe of the desired
+     * operation.
+     * @param [options] The parameter options
+     */
+    function StorageClientContext(url, options) {
+        var _this = this;
+        if (url == undefined) {
+            throw new Error("'url' cannot be null.");
+        }
+        if (!options) {
+            options = {};
+        }
+        if (!options.userAgent) {
+            var defaultUserAgent = coreHttp.getDefaultUserAgentValue();
+            options.userAgent = packageName + "/" + packageVersion + " " + defaultUserAgent;
+        }
+        _this = _super.call(this, undefined, options) || this;
+        _this.version = '2020-06-12';
+        _this.baseUri = "{url}";
+        _this.requestContentType = "application/json; charset=utf-8";
+        _this.url = url;
+        return _this;
+    }
+    return StorageClientContext;
+}(coreHttp.ServiceClient));
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * A StorageClient represents a based URL class for {@link BlobServiceClient}, {@link ContainerClient}
+ * and etc.
+ */
+var StorageClient = /** @class */ (function () {
+    /**
+     * Creates an instance of StorageClient.
+     * @param url - url to resource
+     * @param pipeline - request policy pipeline.
+     */
+    function StorageClient(url, pipeline) {
+        // URL should be encoded and only once, protocol layer shouldn't encode URL again
+        this.url = escapeURLPath(url);
+        this.accountName = getAccountNameFromUrl(url);
+        this.pipeline = pipeline;
+        this.storageClientContext = new StorageClientContext(this.url, pipeline.toServiceClientOptions());
+        this.isHttps = iEqual(getURLScheme(this.url) || "", "https");
+        this.credential = new AnonymousCredential();
+        for (var _i = 0, _a = this.pipeline.factories; _i < _a.length; _i++) {
+            var factory = _a[_i];
+            if ((coreHttp.isNode && factory instanceof StorageSharedKeyCredential) ||
+                factory instanceof AnonymousCredential) {
+                this.credential = factory;
+            }
+            else if (coreHttp.isTokenCredential(factory.credential)) {
+                // Only works if the factory has been attached a "credential" property.
+                // We do that in newPipeline() when using TokenCredential.
+                this.credential = factory.credential;
+            }
+        }
+        // Override protocol layer's default content-type
+        var storageClientContext = this.storageClientContext;
+        storageClientContext.requestContentType = undefined;
+    }
+    return StorageClient;
+}());
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * Creates a span using the global tracer.
+ * @internal
+ */
+var createSpan = coreTracing.createSpanFunction({
+    packagePrefix: "Azure.Storage.Blob",
+    namespace: "Microsoft.Storage"
+});
+/**
+ * @internal
+ *
+ * Adapt the tracing options from OperationOptions to what they need to be for
+ * RequestOptionsBase (when we update to later OpenTelemetry versions this is now
+ * two separate fields, not just one).
+ */
+function convertTracingToRequestOptionsBase(options) {
+    var _a;
+    return {
+        spanOptions: (_a = options === null || options === void 0 ? void 0 : options.tracingOptions) === null || _a === void 0 ? void 0 : _a.spanOptions
+    };
+}
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ *
+ * This is a helper class to construct a string representing the permissions granted by a ServiceSAS to a blob. Setting
+ * a value to true means that any SAS which uses these permissions will grant permissions for that operation. Once all
+ * the values are set, this should be serialized with toString and set as the permissions field on a
+ * {@link BlobSASSignatureValues} object. It is possible to construct the permissions string without this class, but
+ * the order of the permissions is particular and this class guarantees correctness.
+ */
+var BlobSASPermissions = /** @class */ (function () {
+    function BlobSASPermissions() {
+        /**
+         * Specifies Read access granted.
+         */
+        this.read = false;
+        /**
+         * Specifies Add access granted.
+         */
+        this.add = false;
+        /**
+         * Specifies Create access granted.
+         */
+        this.create = false;
+        /**
+         * Specifies Write access granted.
+         */
+        this.write = false;
+        /**
+         * Specifies Delete access granted.
+         */
+        this.delete = false;
+        /**
+         * Specifies Delete version access granted.
+         */
+        this.deleteVersion = false;
+        /**
+         * Specfies Tag access granted.
+         */
+        this.tag = false;
+        /**
+         * Specifies Move access granted.
+         */
+        this.move = false;
+        /**
+         * Specifies Execute access granted.
+         */
+        this.execute = false;
+    }
+    /**
+     * Creates a {@link BlobSASPermissions} from the specified permissions string. This method will throw an
+     * Error if it encounters a character that does not correspond to a valid permission.
+     *
+     * @param permissions -
+     */
+    BlobSASPermissions.parse = function (permissions) {
+        var blobSASPermissions = new BlobSASPermissions();
+        for (var _i = 0, permissions_1 = permissions; _i < permissions_1.length; _i++) {
+            var char = permissions_1[_i];
+            switch (char) {
+                case "r":
+                    blobSASPermissions.read = true;
+                    break;
+                case "a":
+                    blobSASPermissions.add = true;
+                    break;
+                case "c":
+                    blobSASPermissions.create = true;
+                    break;
+                case "w":
+                    blobSASPermissions.write = true;
+                    break;
+                case "d":
+                    blobSASPermissions.delete = true;
+                    break;
+                case "x":
+                    blobSASPermissions.deleteVersion = true;
+                    break;
+                case "t":
+                    blobSASPermissions.tag = true;
+                    break;
+                case "m":
+                    blobSASPermissions.move = true;
+                    break;
+                case "e":
+                    blobSASPermissions.execute = true;
+                    break;
+                default:
+                    throw new RangeError("Invalid permission: " + char);
+            }
+        }
+        return blobSASPermissions;
+    };
+    /**
+     * Creates a {@link BlobSASPermissions} from a raw object which contains same keys as it
+     * and boolean values for them.
+     *
+     * @param permissionLike -
+     */
+    BlobSASPermissions.from = function (permissionLike) {
+        var blobSASPermissions = new BlobSASPermissions();
+        if (permissionLike.read) {
+            blobSASPermissions.read = true;
+        }
+        if (permissionLike.add) {
+            blobSASPermissions.add = true;
+        }
+        if (permissionLike.create) {
+            blobSASPermissions.create = true;
+        }
+        if (permissionLike.write) {
+            blobSASPermissions.write = true;
+        }
+        if (permissionLike.delete) {
+            blobSASPermissions.delete = true;
+        }
+        if (permissionLike.deleteVersion) {
+            blobSASPermissions.deleteVersion = true;
+        }
+        if (permissionLike.tag) {
+            blobSASPermissions.tag = true;
+        }
+        if (permissionLike.move) {
+            blobSASPermissions.move = true;
+        }
+        if (permissionLike.execute) {
+            blobSASPermissions.execute = true;
+        }
+        return blobSASPermissions;
+    };
+    /**
+     * Converts the given permissions to a string. Using this method will guarantee the permissions are in an
+     * order accepted by the service.
+     *
+     * @returns A string which represents the BlobSASPermissions
+     */
+    BlobSASPermissions.prototype.toString = function () {
+        var permissions = [];
+        if (this.read) {
+            permissions.push("r");
+        }
+        if (this.add) {
+            permissions.push("a");
+        }
+        if (this.create) {
+            permissions.push("c");
+        }
+        if (this.write) {
+            permissions.push("w");
+        }
+        if (this.delete) {
+            permissions.push("d");
+        }
+        if (this.deleteVersion) {
+            permissions.push("x");
+        }
+        if (this.tag) {
+            permissions.push("t");
+        }
+        if (this.move) {
+            permissions.push("m");
+        }
+        if (this.execute) {
+            permissions.push("e");
+        }
+        return permissions.join("");
+    };
+    return BlobSASPermissions;
+}());
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+/**
+ * This is a helper class to construct a string representing the permissions granted by a ServiceSAS to a container.
+ * Setting a value to true means that any SAS which uses these permissions will grant permissions for that operation.
+ * Once all the values are set, this should be serialized with toString and set as the permissions field on a
+ * {@link BlobSASSignatureValues} object. It is possible to construct the permissions string without this class, but
+ * the order of the permissions is particular and this class guarantees correctness.
+ */
+var ContainerSASPermissions = /** @class */ (function () {
+    function ContainerSASPermissions() {
+        /**
+         * Specifies Read access granted.
+         */
+        this.read = false;
+        /**
+         * Specifies Add access granted.
+         */
+        this.add = false;
+        /**
+         * Specifies Create access granted.
+         */
+        this.create = false;
+        /**
+         * Specifies Write access granted.
+         */
+        this.write = false;
+        /**
+         * Specifies Delete access granted.
+         */
+        this.delete = false;
+        /**
+         * Specifies Delete version access granted.
+         */
+        this.deleteVersion = false;
+        /**
+         * Specifies List access granted.
+         */
+        this.list = false;
+        /**
+         * Specfies Tag access granted.
+         */
+        this.tag = false;
+        /**
+         * Specifies Move access granted.
+         */
+        this.move = false;
+        /**
+         * Specifies Execute access granted.
+         */
+        this.execute = false;
+    }
+    /**
+     * Creates an {@link ContainerSASPermissions} from the specified permissions string. This method will throw an
+     * Error if it encounters a character that does not correspond to a valid permission.
+     *
+     * @param permissions -
+     */
+    ContainerSASPermissions.parse = function (permissions) {
+        var containerSASPermissions = new ContainerSASPermissions();
+        for (var _i = 0, permissions_1 = permissions; _i < permissions_1.length; _i++) {
+            var char = permissions_1[_i];
+            switch (char) {
+                case "r":
+                    containerSASPermissions.read = true;
+                    break;
+                case "a":
+                    containerSASPermissions.add = true;
+                    break;
+                case "c":
+                    containerSASPermissions.create = true;
+                    break;
+                case "w":
+                    containerSASPermissions.write = true;
+                    break;
+                case "d":
+                    containerSASPermissions.delete = true;
+                    break;
+                case "l":
+                    containerSASPermissions.list = true;
+                    break;
+                case "t":
+                    containerSASPermissions.tag = true;
+                    break;
+                case "x":
+                    containerSASPermissions.deleteVersion = true;
+                    break;
+                case "m":
+                    containerSASPermissions.move = true;
+                    break;
+                case "e":
+                    containerSASPermissions.execute = true;
+                    break;
+                default:
+                    throw new RangeError("Invalid permission " + char);
+            }
+        }
+        return containerSASPermissions;
+    };
+    /**
+     * Creates a {@link ContainerSASPermissions} from a raw object which contains same keys as it
+     * and boolean values for them.
+     *
+     * @param permissionLike -
+     */
+    ContainerSASPermissions.from = function (permissionLike) {
+        var containerSASPermissions = new ContainerSASPermissions();
+        if (permissionLike.read) {
+            containerSASPermissions.read = true;
+        }
+        if (permissionLike.add) {
+            containerSASPermissions.add = true;
+        }
+        if (permissionLike.create) {
+            containerSASPermissions.create = true;
+        }
+        if (permissionLike.write) {
+            containerSASPermissions.write = true;
+        }
+        if (permissionLike.delete) {
+            containerSASPermissions.delete = true;
+        }
+        if (permissionLike.list) {
+            containerSASPermissions.list = true;
+        }
+        if (permissionLike.deleteVersion) {
+            containerSASPermissions.deleteVersion = true;
+        }
+        if (permissionLike.tag) {
+            containerSASPermissions.tag = true;
+        }
+        if (permissionLike.move) {
+            containerSASPermissions.move = true;
+        }
+        if (permissionLike.execute) {
+            containerSASPermissions.execute = true;
+        }
+        return containerSASPermissions;
+    };
+    /**
+     * Converts the given permissions to a string. Using this method will guarantee the permissions are in an
+     * order accepted by the service.
+     *
+     * The order of the characters should be as specified here to ensure correctness.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas
+     *
+     */
+    ContainerSASPermissions.prototype.toString = function () {
+        var permissions = [];
+        if (this.read) {
+            permissions.push("r");
+        }
+        if (this.add) {
+            permissions.push("a");
+        }
+        if (this.create) {
+            permissions.push("c");
+        }
+        if (this.write) {
+            permissions.push("w");
+        }
+        if (this.delete) {
+            permissions.push("d");
+        }
+        if (this.deleteVersion) {
+            permissions.push("x");
+        }
+        if (this.list) {
+            permissions.push("l");
+        }
+        if (this.tag) {
+            permissions.push("t");
+        }
+        if (this.move) {
+            permissions.push("m");
+        }
+        if (this.execute) {
+            permissions.push("e");
+        }
+        return permissions.join("");
+    };
+    return ContainerSASPermissions;
+}());
+
+// Copyright (c) Microsoft Corporation.
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ *
+ * UserDelegationKeyCredential is only used for generation of user delegation SAS.
+ * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas
+ */
+var UserDelegationKeyCredential = /** @class */ (function () {
+    /**
+     * Creates an instance of UserDelegationKeyCredential.
+     * @param accountName -
+     * @param userDelegationKey -
+     */
+    function UserDelegationKeyCredential(accountName, userDelegationKey) {
+        this.accountName = accountName;
+        this.userDelegationKey = userDelegationKey;
+        this.key = Buffer.from(userDelegationKey.value, "base64");
+    }
+    /**
+     * Generates a hash signature for an HTTP request or for a SAS.
+     *
+     * @param stringToSign -
+     */
+    UserDelegationKeyCredential.prototype.computeHMACSHA256 = function (stringToSign) {
+        // console.log(`stringToSign: ${JSON.stringify(stringToSign)}`);
+        return crypto.createHmac("sha256", this.key)
+            .update(stringToSign, "utf8")
+            .digest("base64");
+    };
+    return UserDelegationKeyCredential;
+}());
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+/**
+ * Generate SasIPRange format string. For example:
+ *
+ * "8.8.8.8" or "1.1.1.1-255.255.255.255"
+ *
+ * @param ipRange -
+ */
+function ipRangeToString(ipRange) {
+    return ipRange.end ? ipRange.start + "-" + ipRange.end : ipRange.start;
+}
+
+// Copyright (c) Microsoft Corporation.
+(function (SASProtocol) {
+    /**
+     * Protocol that allows HTTPS only
+     */
+    SASProtocol["Https"] = "https";
+    /**
+     * Protocol that allows both HTTPS and HTTP
+     */
+    SASProtocol["HttpsAndHttp"] = "https,http";
+})(exports.SASProtocol || (exports.SASProtocol = {}));
+/**
+ * Represents the components that make up an Azure Storage SAS' query parameters. This type is not constructed directly
+ * by the user; it is only generated by the {@link AccountSASSignatureValues} and {@link BlobSASSignatureValues}
+ * types. Once generated, it can be encoded into a {@code String} and appended to a URL directly (though caution should
+ * be taken here in case there are existing query parameters, which might affect the appropriate means of appending
+ * these query parameters).
+ *
+ * NOTE: Instances of this class are immutable.
+ */
+var SASQueryParameters = /** @class */ (function () {
+    function SASQueryParameters(version, signature, permissionsOrOptions, services, resourceTypes, protocol, startsOn, expiresOn, ipRange, identifier, resource, cacheControl, contentDisposition, contentEncoding, contentLanguage, contentType, userDelegationKey, preauthorizedAgentObjectId, correlationId) {
+        this.version = version;
+        this.signature = signature;
+        if (permissionsOrOptions !== undefined && typeof permissionsOrOptions !== "string") {
+            // SASQueryParametersOptions
+            this.permissions = permissionsOrOptions.permissions;
+            this.services = permissionsOrOptions.services;
+            this.resourceTypes = permissionsOrOptions.resourceTypes;
+            this.protocol = permissionsOrOptions.protocol;
+            this.startsOn = permissionsOrOptions.startsOn;
+            this.expiresOn = permissionsOrOptions.expiresOn;
+            this.ipRangeInner = permissionsOrOptions.ipRange;
+            this.identifier = permissionsOrOptions.identifier;
+            this.resource = permissionsOrOptions.resource;
+            this.cacheControl = permissionsOrOptions.cacheControl;
+            this.contentDisposition = permissionsOrOptions.contentDisposition;
+            this.contentEncoding = permissionsOrOptions.contentEncoding;
+            this.contentLanguage = permissionsOrOptions.contentLanguage;
+            this.contentType = permissionsOrOptions.contentType;
+            if (permissionsOrOptions.userDelegationKey) {
+                this.signedOid = permissionsOrOptions.userDelegationKey.signedObjectId;
+                this.signedTenantId = permissionsOrOptions.userDelegationKey.signedTenantId;
+                this.signedStartsOn = permissionsOrOptions.userDelegationKey.signedStartsOn;
+                this.signedExpiresOn = permissionsOrOptions.userDelegationKey.signedExpiresOn;
+                this.signedService = permissionsOrOptions.userDelegationKey.signedService;
+                this.signedVersion = permissionsOrOptions.userDelegationKey.signedVersion;
+                this.preauthorizedAgentObjectId = permissionsOrOptions.preauthorizedAgentObjectId;
+                this.correlationId = permissionsOrOptions.correlationId;
+            }
+        }
+        else {
+            this.services = services;
+            this.resourceTypes = resourceTypes;
+            this.expiresOn = expiresOn;
+            this.permissions = permissionsOrOptions;
+            this.protocol = protocol;
+            this.startsOn = startsOn;
+            this.ipRangeInner = ipRange;
+            this.identifier = identifier;
+            this.resource = resource;
+            this.cacheControl = cacheControl;
+            this.contentDisposition = contentDisposition;
+            this.contentEncoding = contentEncoding;
+            this.contentLanguage = contentLanguage;
+            this.contentType = contentType;
+            if (userDelegationKey) {
+                this.signedOid = userDelegationKey.signedObjectId;
+                this.signedTenantId = userDelegationKey.signedTenantId;
+                this.signedStartsOn = userDelegationKey.signedStartsOn;
+                this.signedExpiresOn = userDelegationKey.signedExpiresOn;
+                this.signedService = userDelegationKey.signedService;
+                this.signedVersion = userDelegationKey.signedVersion;
+                this.preauthorizedAgentObjectId = preauthorizedAgentObjectId;
+                this.correlationId = correlationId;
+            }
+        }
+    }
+    Object.defineProperty(SASQueryParameters.prototype, "ipRange", {
+        /**
+         * Optional. IP range allowed for this SAS.
+         *
+         * @readonly
+         */
+        get: function () {
+            if (this.ipRangeInner) {
+                return {
+                    end: this.ipRangeInner.end,
+                    start: this.ipRangeInner.start
+                };
+            }
+            return undefined;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    /**
+     * Encodes all SAS query parameters into a string that can be appended to a URL.
+     *
+     */
+    SASQueryParameters.prototype.toString = function () {
+        var params = [
+            "sv",
+            "ss",
+            "srt",
+            "spr",
+            "st",
+            "se",
+            "sip",
+            "si",
+            "skoid",
+            "sktid",
+            "skt",
+            "ske",
+            "sks",
+            "skv",
+            "sr",
+            "sp",
+            "sig",
+            "rscc",
+            "rscd",
+            "rsce",
+            "rscl",
+            "rsct",
+            "saoid",
+            "scid"
+        ];
+        var queries = [];
+        for (var _i = 0, params_1 = params; _i < params_1.length; _i++) {
+            var param = params_1[_i];
+            switch (param) {
+                case "sv":
+                    this.tryAppendQueryParameter(queries, param, this.version);
+                    break;
+                case "ss":
+                    this.tryAppendQueryParameter(queries, param, this.services);
+                    break;
+                case "srt":
+                    this.tryAppendQueryParameter(queries, param, this.resourceTypes);
+                    break;
+                case "spr":
+                    this.tryAppendQueryParameter(queries, param, this.protocol);
+                    break;
+                case "st":
+                    this.tryAppendQueryParameter(queries, param, this.startsOn ? truncatedISO8061Date(this.startsOn, false) : undefined);
+                    break;
+                case "se":
+                    this.tryAppendQueryParameter(queries, param, this.expiresOn ? truncatedISO8061Date(this.expiresOn, false) : undefined);
+                    break;
+                case "sip":
+                    this.tryAppendQueryParameter(queries, param, this.ipRange ? ipRangeToString(this.ipRange) : undefined);
+                    break;
+                case "si":
+                    this.tryAppendQueryParameter(queries, param, this.identifier);
+                    break;
+                case "skoid": // Signed object ID
+                    this.tryAppendQueryParameter(queries, param, this.signedOid);
+                    break;
+                case "sktid": // Signed tenant ID
+                    this.tryAppendQueryParameter(queries, param, this.signedTenantId);
+                    break;
+                case "skt": // Signed key start time
+                    this.tryAppendQueryParameter(queries, param, this.signedStartsOn ? truncatedISO8061Date(this.signedStartsOn, false) : undefined);
+                    break;
+                case "ske": // Signed key expiry time
+                    this.tryAppendQueryParameter(queries, param, this.signedExpiresOn ? truncatedISO8061Date(this.signedExpiresOn, false) : undefined);
+                    break;
+                case "sks": // Signed key service
+                    this.tryAppendQueryParameter(queries, param, this.signedService);
+                    break;
+                case "skv": // Signed key version
+                    this.tryAppendQueryParameter(queries, param, this.signedVersion);
+                    break;
+                case "sr":
+                    this.tryAppendQueryParameter(queries, param, this.resource);
+                    break;
+                case "sp":
+                    this.tryAppendQueryParameter(queries, param, this.permissions);
+                    break;
+                case "sig":
+                    this.tryAppendQueryParameter(queries, param, this.signature);
+                    break;
+                case "rscc":
+                    this.tryAppendQueryParameter(queries, param, this.cacheControl);
+                    break;
+                case "rscd":
+                    this.tryAppendQueryParameter(queries, param, this.contentDisposition);
+                    break;
+                case "rsce":
+                    this.tryAppendQueryParameter(queries, param, this.contentEncoding);
+                    break;
+                case "rscl":
+                    this.tryAppendQueryParameter(queries, param, this.contentLanguage);
+                    break;
+                case "rsct":
+                    this.tryAppendQueryParameter(queries, param, this.contentType);
+                    break;
+                case "saoid":
+                    this.tryAppendQueryParameter(queries, param, this.preauthorizedAgentObjectId);
+                    break;
+                case "scid":
+                    this.tryAppendQueryParameter(queries, param, this.correlationId);
+                    break;
+            }
+        }
+        return queries.join("&");
+    };
+    /**
+     * A private helper method used to filter and append query key/value pairs into an array.
+     *
+     * @param queries -
+     * @param key -
+     * @param value -
+     */
+    SASQueryParameters.prototype.tryAppendQueryParameter = function (queries, key, value) {
+        if (!value) {
+            return;
+        }
+        key = encodeURIComponent(key);
+        value = encodeURIComponent(value);
+        if (key.length > 0 && value.length > 0) {
+            queries.push(key + "=" + value);
+        }
+    };
+    return SASQueryParameters;
+}());
+
+// Copyright (c) Microsoft Corporation.
+function generateBlobSASQueryParameters(blobSASSignatureValues, sharedKeyCredentialOrUserDelegationKey, accountName) {
+    var version = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
+    var sharedKeyCredential = sharedKeyCredentialOrUserDelegationKey instanceof StorageSharedKeyCredential
+        ? sharedKeyCredentialOrUserDelegationKey
+        : undefined;
+    var userDelegationKeyCredential;
+    if (sharedKeyCredential === undefined && accountName !== undefined) {
+        userDelegationKeyCredential = new UserDelegationKeyCredential(accountName, sharedKeyCredentialOrUserDelegationKey);
+    }
+    if (sharedKeyCredential === undefined && userDelegationKeyCredential === undefined) {
+        throw TypeError("Invalid sharedKeyCredential, userDelegationKey or accountName.");
+    }
+    // Version 2019-12-12 adds support for the blob tags permission.
+    // Version 2018-11-09 adds support for the signed resource and signed blob snapshot time fields.
+    // https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas#constructing-the-signature-string
+    if (version >= "2018-11-09") {
+        if (sharedKeyCredential !== undefined) {
+            return generateBlobSASQueryParameters20181109(blobSASSignatureValues, sharedKeyCredential);
+        }
+        else {
+            // Version 2020-02-10 delegation SAS signature construction includes preauthorizedAgentObjectId, agentObjectId, correlationId.
+            if (version >= "2020-02-10") {
+                return generateBlobSASQueryParametersUDK20200210(blobSASSignatureValues, userDelegationKeyCredential);
+            }
+            else {
+                return generateBlobSASQueryParametersUDK20181109(blobSASSignatureValues, userDelegationKeyCredential);
+            }
+        }
+    }
+    if (version >= "2015-04-05") {
+        if (sharedKeyCredential !== undefined) {
+            return generateBlobSASQueryParameters20150405(blobSASSignatureValues, sharedKeyCredential);
+        }
+        else {
+            throw new RangeError("'version' must be >= '2018-11-09' when generating user delegation SAS using user delegation key.");
+        }
+    }
+    throw new RangeError("'version' must be >= '2015-04-05'.");
+}
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ * IMPLEMENTATION FOR API VERSION FROM 2015-04-05 AND BEFORE 2018-11-09.
+ *
+ * Creates an instance of SASQueryParameters.
+ *
+ * Only accepts required settings needed to create a SAS. For optional settings please
+ * set corresponding properties directly, such as permissions, startsOn and identifier.
+ *
+ * WARNING: When identifier is not provided, permissions and expiresOn are required.
+ * You MUST assign value to identifier or expiresOn & permissions manually if you initial with
+ * this constructor.
+ *
+ * @param blobSASSignatureValues -
+ * @param sharedKeyCredential -
+ */
+function generateBlobSASQueryParameters20150405(blobSASSignatureValues, sharedKeyCredential) {
+    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
+    if (!blobSASSignatureValues.identifier &&
+        !(blobSASSignatureValues.permissions && blobSASSignatureValues.expiresOn)) {
+        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when 'identifier' is not provided.");
+    }
+    var resource = "c";
+    if (blobSASSignatureValues.blobName) {
+        resource = "b";
+    }
+    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
+    var verifiedPermissions;
+    if (blobSASSignatureValues.permissions) {
+        if (blobSASSignatureValues.blobName) {
+            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+        else {
+            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+    }
+    // Signature is generated on the un-url-encoded values.
+    var stringToSign = [
+        verifiedPermissions ? verifiedPermissions : "",
+        blobSASSignatureValues.startsOn
+            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
+            : "",
+        blobSASSignatureValues.expiresOn
+            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
+            : "",
+        getCanonicalName(sharedKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
+        blobSASSignatureValues.identifier,
+        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
+        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
+        blobSASSignatureValues.version,
+        blobSASSignatureValues.cacheControl ? blobSASSignatureValues.cacheControl : "",
+        blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
+        blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
+        blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
+        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : ""
+    ].join("\n");
+    var signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
+    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType);
+}
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ * IMPLEMENTATION FOR API VERSION FROM 2018-11-09.
+ *
+ * Creates an instance of SASQueryParameters.
+ *
+ * Only accepts required settings needed to create a SAS. For optional settings please
+ * set corresponding properties directly, such as permissions, startsOn and identifier.
+ *
+ * WARNING: When identifier is not provided, permissions and expiresOn are required.
+ * You MUST assign value to identifier or expiresOn & permissions manually if you initial with
+ * this constructor.
+ *
+ * @param blobSASSignatureValues -
+ * @param sharedKeyCredential -
+ */
+function generateBlobSASQueryParameters20181109(blobSASSignatureValues, sharedKeyCredential) {
+    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
+    if (!blobSASSignatureValues.identifier &&
+        !(blobSASSignatureValues.permissions && blobSASSignatureValues.expiresOn)) {
+        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when 'identifier' is not provided.");
+    }
+    var resource = "c";
+    var timestamp = blobSASSignatureValues.snapshotTime;
+    if (blobSASSignatureValues.blobName) {
+        resource = "b";
+        if (blobSASSignatureValues.snapshotTime) {
+            resource = "bs";
+        }
+        else if (blobSASSignatureValues.versionId) {
+            resource = "bv";
+            timestamp = blobSASSignatureValues.versionId;
+        }
+    }
+    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
+    var verifiedPermissions;
+    if (blobSASSignatureValues.permissions) {
+        if (blobSASSignatureValues.blobName) {
+            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+        else {
+            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+    }
+    // Signature is generated on the un-url-encoded values.
+    var stringToSign = [
+        verifiedPermissions ? verifiedPermissions : "",
+        blobSASSignatureValues.startsOn
+            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
+            : "",
+        blobSASSignatureValues.expiresOn
+            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
+            : "",
+        getCanonicalName(sharedKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
+        blobSASSignatureValues.identifier,
+        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
+        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
+        blobSASSignatureValues.version,
+        resource,
+        timestamp,
+        blobSASSignatureValues.cacheControl ? blobSASSignatureValues.cacheControl : "",
+        blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
+        blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
+        blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
+        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : ""
+    ].join("\n");
+    var signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
+    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType);
+}
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ * IMPLEMENTATION FOR API VERSION FROM 2018-11-09.
+ *
+ * Creates an instance of SASQueryParameters.
+ *
+ * Only accepts required settings needed to create a SAS. For optional settings please
+ * set corresponding properties directly, such as permissions, startsOn.
+ *
+ * WARNING: identifier will be ignored, permissions and expiresOn are required.
+ *
+ * @param blobSASSignatureValues -
+ * @param userDelegationKeyCredential -
+ */
+function generateBlobSASQueryParametersUDK20181109(blobSASSignatureValues, userDelegationKeyCredential) {
+    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
+    // Stored access policies are not supported for a user delegation SAS.
+    if (!blobSASSignatureValues.permissions || !blobSASSignatureValues.expiresOn) {
+        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when generating user delegation SAS.");
+    }
+    var resource = "c";
+    var timestamp = blobSASSignatureValues.snapshotTime;
+    if (blobSASSignatureValues.blobName) {
+        resource = "b";
+        if (blobSASSignatureValues.snapshotTime) {
+            resource = "bs";
+        }
+        else if (blobSASSignatureValues.versionId) {
+            resource = "bv";
+            timestamp = blobSASSignatureValues.versionId;
+        }
+    }
+    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
+    var verifiedPermissions;
+    if (blobSASSignatureValues.permissions) {
+        if (blobSASSignatureValues.blobName) {
+            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+        else {
+            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+    }
+    // Signature is generated on the un-url-encoded values.
+    var stringToSign = [
+        verifiedPermissions ? verifiedPermissions : "",
+        blobSASSignatureValues.startsOn
+            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
+            : "",
+        blobSASSignatureValues.expiresOn
+            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
+            : "",
+        getCanonicalName(userDelegationKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
+        userDelegationKeyCredential.userDelegationKey.signedObjectId,
+        userDelegationKeyCredential.userDelegationKey.signedTenantId,
+        userDelegationKeyCredential.userDelegationKey.signedStartsOn
+            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedStartsOn, false)
+            : "",
+        userDelegationKeyCredential.userDelegationKey.signedExpiresOn
+            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedExpiresOn, false)
+            : "",
+        userDelegationKeyCredential.userDelegationKey.signedService,
+        userDelegationKeyCredential.userDelegationKey.signedVersion,
+        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
+        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
+        blobSASSignatureValues.version,
+        resource,
+        timestamp,
+        blobSASSignatureValues.cacheControl,
+        blobSASSignatureValues.contentDisposition,
+        blobSASSignatureValues.contentEncoding,
+        blobSASSignatureValues.contentLanguage,
+        blobSASSignatureValues.contentType
+    ].join("\n");
+    var signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
+    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey);
+}
+/**
+ * ONLY AVAILABLE IN NODE.JS RUNTIME.
+ * IMPLEMENTATION FOR API VERSION FROM 2020-02-10.
+ *
+ * Creates an instance of SASQueryParameters.
+ *
+ * Only accepts required settings needed to create a SAS. For optional settings please
+ * set corresponding properties directly, such as permissions, startsOn.
+ *
+ * WARNING: identifier will be ignored, permissions and expiresOn are required.
+ *
+ * @param blobSASSignatureValues -
+ * @param userDelegationKeyCredential -
+ */
+function generateBlobSASQueryParametersUDK20200210(blobSASSignatureValues, userDelegationKeyCredential) {
+    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
+    // Stored access policies are not supported for a user delegation SAS.
+    if (!blobSASSignatureValues.permissions || !blobSASSignatureValues.expiresOn) {
+        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when generating user delegation SAS.");
+    }
+    var resource = "c";
+    var timestamp = blobSASSignatureValues.snapshotTime;
+    if (blobSASSignatureValues.blobName) {
+        resource = "b";
+        if (blobSASSignatureValues.snapshotTime) {
+            resource = "bs";
+        }
+        else if (blobSASSignatureValues.versionId) {
+            resource = "bv";
+            timestamp = blobSASSignatureValues.versionId;
+        }
+    }
+    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
+    var verifiedPermissions;
+    if (blobSASSignatureValues.permissions) {
+        if (blobSASSignatureValues.blobName) {
+            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+        else {
+            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
+        }
+    }
+    // Signature is generated on the un-url-encoded values.
+    var stringToSign = [
+        verifiedPermissions ? verifiedPermissions : "",
+        blobSASSignatureValues.startsOn
+            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
+            : "",
+        blobSASSignatureValues.expiresOn
+            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
+            : "",
+        getCanonicalName(userDelegationKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
+        userDelegationKeyCredential.userDelegationKey.signedObjectId,
+        userDelegationKeyCredential.userDelegationKey.signedTenantId,
+        userDelegationKeyCredential.userDelegationKey.signedStartsOn
+            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedStartsOn, false)
+            : "",
+        userDelegationKeyCredential.userDelegationKey.signedExpiresOn
+            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedExpiresOn, false)
+            : "",
+        userDelegationKeyCredential.userDelegationKey.signedService,
+        userDelegationKeyCredential.userDelegationKey.signedVersion,
+        blobSASSignatureValues.preauthorizedAgentObjectId,
+        undefined,
+        blobSASSignatureValues.correlationId,
+        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
+        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
+        blobSASSignatureValues.version,
+        resource,
+        timestamp,
+        blobSASSignatureValues.cacheControl,
+        blobSASSignatureValues.contentDisposition,
+        blobSASSignatureValues.contentEncoding,
+        blobSASSignatureValues.contentLanguage,
+        blobSASSignatureValues.contentType
+    ].join("\n");
+    var signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
+    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey, blobSASSignatureValues.preauthorizedAgentObjectId, blobSASSignatureValues.correlationId);
+}
+function getCanonicalName(accountName, containerName, blobName) {
+    // Container: "/blob/account/containerName"
+    // Blob:      "/blob/account/containerName/blobName"
+    var elements = ["/blob/" + accountName + "/" + containerName];
+    if (blobName) {
+        elements.push("/" + blobName);
+    }
+    return elements.join("");
+}
+function SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues) {
+    var version = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
+    if (blobSASSignatureValues.snapshotTime && version < "2018-11-09") {
+        throw RangeError("'version' must be >= '2018-11-09' when providing 'snapshotTime'.");
+    }
+    if (blobSASSignatureValues.blobName === undefined && blobSASSignatureValues.snapshotTime) {
+        throw RangeError("Must provide 'blobName' when providing 'snapshotTime'.");
+    }
+    if (blobSASSignatureValues.versionId && version < "2019-10-10") {
+        throw RangeError("'version' must be >= '2019-10-10' when providing 'versionId'.");
+    }
+    if (blobSASSignatureValues.blobName === undefined && blobSASSignatureValues.versionId) {
+        throw RangeError("Must provide 'blobName' when providing 'versionId'.");
+    }
+    if (blobSASSignatureValues.permissions &&
+        blobSASSignatureValues.permissions.deleteVersion &&
+        version < "2019-10-10") {
+        throw RangeError("'version' must be >= '2019-10-10' when providing 'x' permission.");
+    }
+    if (blobSASSignatureValues.permissions &&
+        blobSASSignatureValues.permissions.tag &&
+        version < "2019-12-12") {
+        throw RangeError("'version' must be >= '2019-12-12' when providing 't' permission.");
+    }
+    if (version < "2020-02-10" &&
+        blobSASSignatureValues.permissions &&
+        (blobSASSignatureValues.permissions.move || blobSASSignatureValues.permissions.execute)) {
+        throw RangeError("'version' must be >= '2020-02-10' when providing the 'm' or 'e' permission.");
+    }
+    if (version < "2020-02-10" &&
+        (blobSASSignatureValues.preauthorizedAgentObjectId || blobSASSignatureValues.correlationId)) {
+        throw RangeError("'version' must be >= '2020-02-10' when providing 'preauthorizedAgentObjectId' or 'correlationId'.");
+    }
+    blobSASSignatureValues.version = version;
+    return blobSASSignatureValues;
+}
+
+/**
+ * A client that manages leases for a {@link ContainerClient} or a {@link BlobClient}.
+ */
+var BlobLeaseClient = /** @class */ (function () {
+    /**
+     * Creates an instance of BlobLeaseClient.
+     * @param client - The client to make the lease operation requests.
+     * @param leaseId - Initial proposed lease id.
+     */
+    function BlobLeaseClient(client, leaseId) {
+        var clientContext = new StorageClientContext(client.url, client.pipeline.toServiceClientOptions());
+        this._url = client.url;
+        if (client.name === undefined) {
+            this._isContainer = true;
+            this._containerOrBlobOperation = new Container(clientContext);
+        }
+        else {
+            this._isContainer = false;
+            this._containerOrBlobOperation = new Blob$1(clientContext);
+        }
+        if (!leaseId) {
+            leaseId = coreHttp.generateUuid();
+        }
+        this._leaseId = leaseId;
+    }
+    Object.defineProperty(BlobLeaseClient.prototype, "leaseId", {
+        /**
+         * Gets the lease Id.
+         *
+         * @readonly
+         */
+        get: function () {
+            return this._leaseId;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(BlobLeaseClient.prototype, "url", {
+        /**
+         * Gets the url.
+         *
+         * @readonly
+         */
+        get: function () {
+            return this._url;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    /**
+     * Establishes and manages a lock on a container for delete operations, or on a blob
+     * for write and delete operations.
+     * The lock duration can be 15 to 60 seconds, or can be infinite.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+     * and
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
+     *
+     * @param duration - Must be between 15 to 60 seconds, or infinite (-1)
+     * @param options - option to configure lease management operations.
+     * @returns Response data for acquire lease operation.
+     */
+    BlobLeaseClient.prototype.acquireLease = function (duration, options) {
+        var _a, _b, _c, _d, _e, _f;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _g, span, updatedOptions, e_1;
+            return tslib.__generator(this, function (_h) {
+                switch (_h.label) {
+                    case 0:
+                        _g = createSpan("BlobLeaseClient-acquireLease", options), span = _g.span, updatedOptions = _g.updatedOptions;
+                        if (this._isContainer &&
+                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
+                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
+                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
+                        }
+                        _h.label = 1;
+                    case 1:
+                        _h.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this._containerOrBlobOperation.acquireLease(tslib.__assign({ abortSignal: options.abortSignal, duration: duration, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }), proposedLeaseId: this._leaseId }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _h.sent()];
+                    case 3:
+                        e_1 = _h.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_1.message
+                        });
+                        throw e_1;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * To change the ID of the lease.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+     * and
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
+     *
+     * @param proposedLeaseId - the proposed new lease Id.
+     * @param options - option to configure lease management operations.
+     * @returns Response data for change lease operation.
+     */
+    BlobLeaseClient.prototype.changeLease = function (proposedLeaseId, options) {
+        var _a, _b, _c, _d, _e, _f;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _g, span, updatedOptions, response, e_2;
+            return tslib.__generator(this, function (_h) {
+                switch (_h.label) {
+                    case 0:
+                        _g = createSpan("BlobLeaseClient-changeLease", options), span = _g.span, updatedOptions = _g.updatedOptions;
+                        if (this._isContainer &&
+                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
+                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
+                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
+                        }
+                        _h.label = 1;
+                    case 1:
+                        _h.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this._containerOrBlobOperation.changeLease(this._leaseId, proposedLeaseId, tslib.__assign({ abortSignal: options.abortSignal, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2:
+                        response = _h.sent();
+                        this._leaseId = proposedLeaseId;
+                        return [2 /*return*/, response];
+                    case 3:
+                        e_2 = _h.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_2.message
+                        });
+                        throw e_2;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * To free the lease if it is no longer needed so that another client may
+     * immediately acquire a lease against the container or the blob.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+     * and
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
+     *
+     * @param options - option to configure lease management operations.
+     * @returns Response data for release lease operation.
+     */
+    BlobLeaseClient.prototype.releaseLease = function (options) {
+        var _a, _b, _c, _d, _e, _f;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _g, span, updatedOptions, e_3;
+            return tslib.__generator(this, function (_h) {
+                switch (_h.label) {
+                    case 0:
+                        _g = createSpan("BlobLeaseClient-releaseLease", options), span = _g.span, updatedOptions = _g.updatedOptions;
+                        if (this._isContainer &&
+                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
+                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
+                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
+                        }
+                        _h.label = 1;
+                    case 1:
+                        _h.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this._containerOrBlobOperation.releaseLease(this._leaseId, tslib.__assign({ abortSignal: options.abortSignal, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _h.sent()];
+                    case 3:
+                        e_3 = _h.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_3.message
+                        });
+                        throw e_3;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * To renew the lease.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+     * and
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
+     *
+     * @param options - Optional option to configure lease management operations.
+     * @returns Response data for renew lease operation.
+     */
+    BlobLeaseClient.prototype.renewLease = function (options) {
+        var _a, _b, _c, _d, _e, _f;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _g, span, updatedOptions, e_4;
+            return tslib.__generator(this, function (_h) {
+                switch (_h.label) {
+                    case 0:
+                        _g = createSpan("BlobLeaseClient-renewLease", options), span = _g.span, updatedOptions = _g.updatedOptions;
+                        if (this._isContainer &&
+                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
+                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
+                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
+                        }
+                        _h.label = 1;
+                    case 1:
+                        _h.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this._containerOrBlobOperation.renewLease(this._leaseId, tslib.__assign({ abortSignal: options.abortSignal, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _h.sent()];
+                    case 3:
+                        e_4 = _h.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_4.message
+                        });
+                        throw e_4;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * To end the lease but ensure that another client cannot acquire a new lease
+     * until the current lease period has expired.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
+     * and
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
+     *
+     * @param breakPeriod - Break period
+     * @param options - Optional options to configure lease management operations.
+     * @returns Response data for break lease operation.
+     */
+    BlobLeaseClient.prototype.breakLease = function (breakPeriod, options) {
+        var _a, _b, _c, _d, _e, _f;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _g, span, updatedOptions, operationOptions, e_5;
+            return tslib.__generator(this, function (_h) {
+                switch (_h.label) {
+                    case 0:
+                        _g = createSpan("BlobLeaseClient-breakLease", options), span = _g.span, updatedOptions = _g.updatedOptions;
+                        if (this._isContainer &&
+                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
+                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
+                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
+                        }
+                        _h.label = 1;
+                    case 1:
+                        _h.trys.push([1, 3, 4, 5]);
+                        operationOptions = tslib.__assign({ abortSignal: options.abortSignal, breakPeriod: breakPeriod, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions));
+                        return [4 /*yield*/, this._containerOrBlobOperation.breakLease(operationOptions)];
+                    case 2: return [2 /*return*/, _h.sent()];
+                    case 3:
+                        e_5 = _h.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_5.message
+                        });
+                        throw e_5;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    return BlobLeaseClient;
+}());
+
+// Copyright (c) Microsoft Corporation.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
  * A Node.js ReadableStream will internally retry when internal ReadableStream unexpected ends.
- *
- * @class RetriableReadableStream
- * @extends {Readable}
  */
 var RetriableReadableStream = /** @class */ (function (_super) {
     tslib.__extends(RetriableReadableStream, _super);
     /**
      * Creates an instance of RetriableReadableStream.
      *
-     * @param {NodeJS.ReadableStream} source The current ReadableStream returned from getter
-     * @param {ReadableStreamGetter} getter A method calling downloading request returning
+     * @param source - The current ReadableStream returned from getter
+     * @param getter - A method calling downloading request returning
      *                                      a new ReadableStream from specified offset
-     * @param {number} offset Offset position in original data source to read
-     * @param {number} count How much data in original data source to read
-     * @param {RetriableReadableStreamOptions} [options={}]
-     * @memberof RetriableReadableStream
+     * @param offset - Offset position in original data source to read
+     * @param count - How much data in original data source to read
+     * @param options -
      */
     function RetriableReadableStream(source, getter, offset, count, options) {
         if (options === void 0) { options = {}; }
@@ -36165,7 +38038,7 @@ var RetriableReadableStream = /** @class */ (function (_super) {
     return RetriableReadableStream;
 }(stream.Readable));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
@@ -36175,21 +38048,16 @@ var RetriableReadableStream = /** @class */ (function (_super) {
  *
  * The {@link readableStreamBody} stream will retry underlayer, you can just use it as a normal Node.js
  * Readable stream.
- *
- * @export
- * @class BlobDownloadResponse
- * @implements {BlobDownloadResponseParsed}
  */
 var BlobDownloadResponse = /** @class */ (function () {
     /**
      * Creates an instance of BlobDownloadResponse.
      *
-     * @param {BlobDownloadResponseParsed} originalResponse
-     * @param {ReadableStreamGetter} getter
-     * @param {number} offset
-     * @param {number} count
-     * @param {RetriableReadableStreamOptions} [options={}]
-     * @memberof BlobDownloadResponse
+     * @param originalResponse -
+     * @param getter -
+     * @param offset -
+     * @param count -
+     * @param options -
      */
     function BlobDownloadResponse(originalResponse, getter, offset, count, options) {
         if (options === void 0) { options = {}; }
@@ -36202,8 +38070,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * requests for partial file content.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.acceptRanges;
@@ -36217,8 +38083,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * for the file.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.cacheControl;
@@ -36233,8 +38097,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * response.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentDisposition;
@@ -36248,8 +38110,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * for the Content-Encoding request header.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentEncoding;
@@ -36263,8 +38123,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * for the Content-Language request header.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentLanguage;
@@ -36278,8 +38136,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * page blob. This header is not returned for block blobs or append blobs.
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.blobSequenceNumber;
@@ -36293,8 +38149,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * 'BlockBlob', 'PageBlob', 'AppendBlob'.
          *
          * @readonly
-         * @type {(BlobType | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.blobType;
@@ -36308,8 +38162,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * response body.
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentLength;
@@ -36329,8 +38181,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * header.
          *
          * @readonly
-         * @type {(Uint8Array | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentMD5;
@@ -36345,8 +38195,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * header.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentRange;
@@ -36360,8 +38208,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * The default content type is 'application/octet-stream'
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentType;
@@ -36376,8 +38222,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * can specify the time of a completed, aborted, or failed copy attempt.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.copyCompletedOn;
@@ -36391,8 +38235,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * File operation where this file was the destination file.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.copyId;
@@ -36408,8 +38250,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * Content-Length bytes copied.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.copyProgress;
@@ -36424,8 +38264,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * was the destination file.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.copySource;
@@ -36440,8 +38278,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * 'success', 'aborted', 'failed'
          *
          * @readonly
-         * @type {(CopyStatusType | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.copyStatus;
@@ -36456,8 +38292,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * non-fatal copy operation failure.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.copyStatusDescription;
@@ -36472,8 +38306,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * values include: 'infinite', 'fixed'.
          *
          * @readonly
-         * @type {(LeaseDurationType | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.leaseDuration;
@@ -36487,8 +38319,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * values include: 'available', 'leased', 'expired', 'breaking', 'broken'.
          *
          * @readonly
-         * @type {(LeaseStateType | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.leaseState;
@@ -36502,8 +38332,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * blob. Possible values include: 'locked', 'unlocked'.
          *
          * @readonly
-         * @type {(LeaseStatusType | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.leaseStatus;
@@ -36517,8 +38345,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * indicates the time at which the response was initiated.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.date;
@@ -36532,8 +38358,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * present in the blob. This header is returned only for append blobs.
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.blobCommittedBlockCount;
@@ -36547,8 +38371,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * perform operations conditionally, in quotes.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.etag;
@@ -36561,8 +38383,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * The number of tags associated with the blob
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.tagCount;
@@ -36575,8 +38395,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * The error code.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.errorCode;
@@ -36593,8 +38411,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * are encrypted).
          *
          * @readonly
-         * @type {(boolean | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.isServerEncrypted;
@@ -36611,8 +38427,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * latter calculated from the requested range.
          *
          * @readonly
-         * @type {(Uint8Array | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.blobContentMD5;
@@ -36627,8 +38441,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * the last modified time.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.lastModified;
@@ -36642,8 +38454,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * last read or written to.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.lastAccessed;
@@ -36657,8 +38467,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * to associate with a file storage object.
          *
          * @readonly
-         * @type {(Metadata | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.metadata;
@@ -36672,8 +38480,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * that was made and can be used for troubleshooting the request.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.requestId;
@@ -36687,8 +38493,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * response with the same value.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.clientRequestId;
@@ -36702,8 +38506,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * to execute the request.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.version;
@@ -36716,11 +38518,21 @@ var BlobDownloadResponse = /** @class */ (function () {
          * Indicates the versionId of the downloaded blob version.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.versionId;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(BlobDownloadResponse.prototype, "isCurrentVersion", {
+        /**
+         * Indicates whether version of this blob is a current version.
+         *
+         * @readonly
+         */
+        get: function () {
+            return this.originalResponse.isCurrentVersion;
         },
         enumerable: false,
         configurable: true
@@ -36731,8 +38543,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * when the blob was encrypted with a customer-provided key.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.encryptionKeySha256;
@@ -36746,9 +38556,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * true, then the request returns a crc64 for the range, as long as the range size is less than
          * or equal to 4 MB. If both x-ms-range-get-content-crc64 & x-ms-range-get-content-md5 is
          * specified in the same request, it will fail with 400(Bad Request)
-         *
-         * @type {(Uint8Array | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.contentCrc64;
@@ -36761,8 +38568,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * Object Replication Policy Id of the destination blob.
          *
          * @readonly
-         * @type {(string| undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.objectReplicationDestinationPolicyId;
@@ -36775,8 +38580,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * Parsed Object Replication Policy Id, Rule Id(s) and status of the source blob.
          *
          * @readonly
-         * @type {(ObjectReplicationPolicy[] | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.objectReplicationSourceProperties;
@@ -36789,8 +38592,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * If this blob has been sealed.
          *
          * @readonly
-         * @type {(boolean | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.isSealed;
@@ -36804,8 +38605,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * Always undefined in node.js.
          *
          * @readonly
-         * @type {(Promise<Blob> | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse.blobBody;
@@ -36821,8 +38620,6 @@ var BlobDownloadResponse = /** @class */ (function () {
          * It will automatically retry when internal read stream unexpected ends.
          *
          * @readonly
-         * @type {(NodeJS.ReadableStream | undefined)}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return coreHttp.isNode ? this.blobDownloadStream : undefined;
@@ -36833,9 +38630,6 @@ var BlobDownloadResponse = /** @class */ (function () {
     Object.defineProperty(BlobDownloadResponse.prototype, "_response", {
         /**
          * The HTTP response.
-         *
-         * @type {HttpResponse}
-         * @memberof BlobDownloadResponse
          */
         get: function () {
             return this.originalResponse._response;
@@ -36876,12 +38670,9 @@ var AvroParser = /** @class */ (function () {
     /**
      * Reads a fixed number of bytes from the stream.
      *
-     * @static
-     * @param {AvroReadable} [stream]
-     * @param {number} [length]
-     * @param {AvroParserReadOptions} [options={}]
-     * @returns {Promise<Uint8Array>}
-     * @memberof AvroParser
+     * @param stream -
+     * @param length -
+     * @param options -
      */
     AvroParser.readFixedBytes = function (stream, length, options) {
         if (options === void 0) { options = {}; }
@@ -36903,11 +38694,8 @@ var AvroParser = /** @class */ (function () {
     /**
      * Reads a single byte from the stream.
      *
-     * @static
-     * @param {AvroReadable} [stream]
-     * @param {AvroParserReadOptions} [options={}]
-     * @returns {Promise<number>}
-     * @memberof AvroParser
+     * @param stream -
+     * @param options -
      */
     AvroParser.readByte = function (stream, options) {
         if (options === void 0) { options = {}; }
@@ -37190,7 +38978,7 @@ var AvroType = /** @class */ (function () {
      * Determines the AvroType from the Avro Schema.
      */
     AvroType.fromSchema = function (schema) {
-        if (typeof schema == "string") {
+        if (typeof schema === "string") {
             return AvroType.fromStringSchema(schema);
         }
         else if (Array.isArray(schema)) {
@@ -37710,23 +39498,19 @@ var AvroReadableFromStream = /** @class */ (function (_super) {
     return AvroReadableFromStream;
 }(AvroReadable));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
  * A Node.js BlobQuickQueryStream will internally parse avro data stream for blob query.
- *
- * @class BlobQuickQueryStream
- * @extends {Readable}
  */
 var BlobQuickQueryStream = /** @class */ (function (_super) {
     tslib.__extends(BlobQuickQueryStream, _super);
     /**
      * Creates an instance of BlobQuickQueryStream.
      *
-     * @param {NodeJS.ReadableStream} source The current ReadableStream returned from getter
-     * @param {BlobQuickQueryStreamOptions} [options={}]
-     * @memberof BlobQuickQueryStream
+     * @param source - The current ReadableStream returned from getter
+     * @param options -
      */
     function BlobQuickQueryStream(source, options) {
         if (options === void 0) { options = {}; }
@@ -37836,24 +39620,19 @@ var BlobQuickQueryStream = /** @class */ (function (_super) {
     return BlobQuickQueryStream;
 }(stream.Readable));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
  * BlobQueryResponse implements BlobDownloadResponseModel interface, and in Node.js runtime it will
  * parse avor data returned by blob query.
- *
- * @export
- * @class BlobQueryResponse
- * @implements {BlobDownloadResponseModel}
  */
 var BlobQueryResponse = /** @class */ (function () {
     /**
      * Creates an instance of BlobQueryResponse.
      *
-     * @param {BlobQueryResponseModel} originalResponse
-     * @param {BlobQuickQueryStreamOptions} [options={}]
-     * @memberof BlobQueryResponse
+     * @param originalResponse -
+     * @param options -
      */
     function BlobQueryResponse(originalResponse, options) {
         if (options === void 0) { options = {}; }
@@ -37866,8 +39645,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * requests for partial file content.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.acceptRanges;
@@ -37881,8 +39658,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * for the file.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.cacheControl;
@@ -37897,8 +39672,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * response.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentDisposition;
@@ -37912,8 +39685,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * for the Content-Encoding request header.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentEncoding;
@@ -37927,8 +39698,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * for the Content-Language request header.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentLanguage;
@@ -37942,8 +39711,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * page blob. This header is not returned for block blobs or append blobs.
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.blobSequenceNumber;
@@ -37957,8 +39724,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * 'BlockBlob', 'PageBlob', 'AppendBlob'.
          *
          * @readonly
-         * @type {(BlobType | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.blobType;
@@ -37972,8 +39737,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * response body.
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentLength;
@@ -37993,8 +39756,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * header.
          *
          * @readonly
-         * @type {(Uint8Array | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentMD5;
@@ -38009,8 +39770,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * header.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentRange;
@@ -38024,8 +39783,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * The default content type is 'application/octet-stream'
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentType;
@@ -38040,8 +39797,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * can specify the time of a completed, aborted, or failed copy attempt.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return undefined;
@@ -38055,8 +39810,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * File operation where this file was the destination file.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.copyId;
@@ -38072,8 +39825,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * Content-Length bytes copied.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.copyProgress;
@@ -38088,8 +39839,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * was the destination file.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.copySource;
@@ -38104,8 +39853,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * 'success', 'aborted', 'failed'
          *
          * @readonly
-         * @type {(CopyStatusType | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.copyStatus;
@@ -38120,8 +39867,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * non-fatal copy operation failure.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.copyStatusDescription;
@@ -38136,8 +39881,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * values include: 'infinite', 'fixed'.
          *
          * @readonly
-         * @type {(LeaseDurationType | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.leaseDuration;
@@ -38151,8 +39894,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * values include: 'available', 'leased', 'expired', 'breaking', 'broken'.
          *
          * @readonly
-         * @type {(LeaseStateType | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.leaseState;
@@ -38166,8 +39907,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * blob. Possible values include: 'locked', 'unlocked'.
          *
          * @readonly
-         * @type {(LeaseStatusType | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.leaseStatus;
@@ -38181,8 +39920,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * indicates the time at which the response was initiated.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.date;
@@ -38196,8 +39933,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * present in the blob. This header is returned only for append blobs.
          *
          * @readonly
-         * @type {(number | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.blobCommittedBlockCount;
@@ -38211,8 +39946,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * perform operations conditionally, in quotes.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.etag;
@@ -38225,8 +39958,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * The error code.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.errorCode;
@@ -38243,8 +39974,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * are encrypted).
          *
          * @readonly
-         * @type {(boolean | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.isServerEncrypted;
@@ -38261,8 +39990,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * latter calculated from the requested range.
          *
          * @readonly
-         * @type {(Uint8Array | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.blobContentMD5;
@@ -38277,8 +40004,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * the last modified time.
          *
          * @readonly
-         * @type {(Date | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.lastModified;
@@ -38292,8 +40017,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * to associate with a file storage object.
          *
          * @readonly
-         * @type {(Metadata | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.metadata;
@@ -38307,8 +40030,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * that was made and can be used for troubleshooting the request.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.requestId;
@@ -38322,8 +40043,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * response with the same value.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.clientRequestId;
@@ -38337,8 +40056,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * to execute the request.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.version;
@@ -38352,8 +40069,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * when the blob was encrypted with a customer-provided key.
          *
          * @readonly
-         * @type {(string | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.encryptionKeySha256;
@@ -38367,9 +40082,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * true, then the request returns a crc64 for the range, as long as the range size is less than
          * or equal to 4 MB. If both x-ms-range-get-content-crc64 & x-ms-range-get-content-md5 is
          * specified in the same request, it will fail with 400(Bad Request)
-         *
-         * @type {(Uint8Array | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse.contentCrc64;
@@ -38383,8 +40095,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * Always undefined in node.js.
          *
          * @readonly
-         * @type {(Promise<Blob> | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return undefined;
@@ -38400,8 +40110,6 @@ var BlobQueryResponse = /** @class */ (function () {
          * It will parse avor data returned by blob query.
          *
          * @readonly
-         * @type {(NodeJS.ReadableStream | undefined)}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return coreHttp.isNode ? this.blobDownloadStream : undefined;
@@ -38412,9 +40120,6 @@ var BlobQueryResponse = /** @class */ (function () {
     Object.defineProperty(BlobQueryResponse.prototype, "_response", {
         /**
          * The HTTP response.
-         *
-         * @type {HttpResponse}
-         * @memberof BlobQueryResponse
          */
         get: function () {
             return this.originalResponse._response;
@@ -38425,253 +40130,7 @@ var BlobQueryResponse = /** @class */ (function () {
     return BlobQueryResponse;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-/**
- * StorageSharedKeyCredentialPolicy is a policy used to sign HTTP request with a shared key.
- *
- * @export
- * @class StorageSharedKeyCredentialPolicy
- * @extends {CredentialPolicy}
- */
-var StorageSharedKeyCredentialPolicy = /** @class */ (function (_super) {
-    tslib.__extends(StorageSharedKeyCredentialPolicy, _super);
-    /**
-     * Creates an instance of StorageSharedKeyCredentialPolicy.
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @param {StorageSharedKeyCredential} factory
-     * @memberof StorageSharedKeyCredentialPolicy
-     */
-    function StorageSharedKeyCredentialPolicy(nextPolicy, options, factory) {
-        var _this = _super.call(this, nextPolicy, options) || this;
-        _this.factory = factory;
-        return _this;
-    }
-    /**
-     * Signs request.
-     *
-     * @protected
-     * @param {WebResource} request
-     * @returns {WebResource}
-     * @memberof StorageSharedKeyCredentialPolicy
-     */
-    StorageSharedKeyCredentialPolicy.prototype.signRequest = function (request) {
-        request.headers.set(HeaderConstants.X_MS_DATE, new Date().toUTCString());
-        if (request.body && typeof request.body === "string" && request.body.length > 0) {
-            request.headers.set(HeaderConstants.CONTENT_LENGTH, Buffer.byteLength(request.body));
-        }
-        var stringToSign = [
-            request.method.toUpperCase(),
-            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_LANGUAGE),
-            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_ENCODING),
-            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_LENGTH),
-            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_MD5),
-            this.getHeaderValueToSign(request, HeaderConstants.CONTENT_TYPE),
-            this.getHeaderValueToSign(request, HeaderConstants.DATE),
-            this.getHeaderValueToSign(request, HeaderConstants.IF_MODIFIED_SINCE),
-            this.getHeaderValueToSign(request, HeaderConstants.IF_MATCH),
-            this.getHeaderValueToSign(request, HeaderConstants.IF_NONE_MATCH),
-            this.getHeaderValueToSign(request, HeaderConstants.IF_UNMODIFIED_SINCE),
-            this.getHeaderValueToSign(request, HeaderConstants.RANGE)
-        ].join("\n") +
-            "\n" +
-            this.getCanonicalizedHeadersString(request) +
-            this.getCanonicalizedResourceString(request);
-        var signature = this.factory.computeHMACSHA256(stringToSign);
-        request.headers.set(HeaderConstants.AUTHORIZATION, "SharedKey " + this.factory.accountName + ":" + signature);
-        // console.log(`[URL]:${request.url}`);
-        // console.log(`[HEADERS]:${request.headers.toString()}`);
-        // console.log(`[STRING TO SIGN]:${JSON.stringify(stringToSign)}`);
-        // console.log(`[KEY]: ${request.headers.get(HeaderConstants.AUTHORIZATION)}`);
-        return request;
-    };
-    /**
-     * Retrieve header value according to shared key sign rules.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/authenticate-with-shared-key
-     *
-     * @private
-     * @param {WebResource} request
-     * @param {string} headerName
-     * @returns {string}
-     * @memberof StorageSharedKeyCredentialPolicy
-     */
-    StorageSharedKeyCredentialPolicy.prototype.getHeaderValueToSign = function (request, headerName) {
-        var value = request.headers.get(headerName);
-        if (!value) {
-            return "";
-        }
-        // When using version 2015-02-21 or later, if Content-Length is zero, then
-        // set the Content-Length part of the StringToSign to an empty string.
-        // https://docs.microsoft.com/en-us/rest/api/storageservices/authenticate-with-shared-key
-        if (headerName === HeaderConstants.CONTENT_LENGTH && value === "0") {
-            return "";
-        }
-        return value;
-    };
-    /**
-     * To construct the CanonicalizedHeaders portion of the signature string, follow these steps:
-     * 1. Retrieve all headers for the resource that begin with x-ms-, including the x-ms-date header.
-     * 2. Convert each HTTP header name to lowercase.
-     * 3. Sort the headers lexicographically by header name, in ascending order.
-     *    Each header may appear only once in the string.
-     * 4. Replace any linear whitespace in the header value with a single space.
-     * 5. Trim any whitespace around the colon in the header.
-     * 6. Finally, append a new-line character to each canonicalized header in the resulting list.
-     *    Construct the CanonicalizedHeaders string by concatenating all headers in this list into a single string.
-     *
-     * @private
-     * @param {WebResource} request
-     * @returns {string}
-     * @memberof StorageSharedKeyCredentialPolicy
-     */
-    StorageSharedKeyCredentialPolicy.prototype.getCanonicalizedHeadersString = function (request) {
-        var headersArray = request.headers.headersArray().filter(function (value) {
-            return value.name.toLowerCase().startsWith(HeaderConstants.PREFIX_FOR_STORAGE);
-        });
-        headersArray.sort(function (a, b) {
-            return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-        });
-        // Remove duplicate headers
-        headersArray = headersArray.filter(function (value, index, array) {
-            if (index > 0 && value.name.toLowerCase() === array[index - 1].name.toLowerCase()) {
-                return false;
-            }
-            return true;
-        });
-        var canonicalizedHeadersStringToSign = "";
-        headersArray.forEach(function (header) {
-            canonicalizedHeadersStringToSign += header.name
-                .toLowerCase()
-                .trimRight() + ":" + header.value.trimLeft() + "\n";
-        });
-        return canonicalizedHeadersStringToSign;
-    };
-    /**
-     * Retrieves the webResource canonicalized resource string.
-     *
-     * @private
-     * @param {WebResource} request
-     * @returns {string}
-     * @memberof StorageSharedKeyCredentialPolicy
-     */
-    StorageSharedKeyCredentialPolicy.prototype.getCanonicalizedResourceString = function (request) {
-        var path = getURLPath(request.url) || "/";
-        var canonicalizedResourceString = "";
-        canonicalizedResourceString += "/" + this.factory.accountName + path;
-        var queries = getURLQueries(request.url);
-        var lowercaseQueries = {};
-        if (queries) {
-            var queryKeys = [];
-            for (var key in queries) {
-                if (queries.hasOwnProperty(key)) {
-                    var lowercaseKey = key.toLowerCase();
-                    lowercaseQueries[lowercaseKey] = queries[key];
-                    queryKeys.push(lowercaseKey);
-                }
-            }
-            queryKeys.sort();
-            for (var _i = 0, queryKeys_1 = queryKeys; _i < queryKeys_1.length; _i++) {
-                var key = queryKeys_1[_i];
-                canonicalizedResourceString += "\n" + key + ":" + decodeURIComponent(lowercaseQueries[key]);
-            }
-        }
-        return canonicalizedResourceString;
-    };
-    return StorageSharedKeyCredentialPolicy;
-}(CredentialPolicy));
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- *
- * StorageSharedKeyCredential for account key authorization of Azure Storage service.
- *
- * @export
- * @class StorageSharedKeyCredential
- * @extends {Credential}
- */
-var StorageSharedKeyCredential = /** @class */ (function (_super) {
-    tslib.__extends(StorageSharedKeyCredential, _super);
-    /**
-     * Creates an instance of StorageSharedKeyCredential.
-     * @param {string} accountName
-     * @param {string} accountKey
-     * @memberof StorageSharedKeyCredential
-     */
-    function StorageSharedKeyCredential(accountName, accountKey) {
-        var _this = _super.call(this) || this;
-        _this.accountName = accountName;
-        _this.accountKey = Buffer.from(accountKey, "base64");
-        return _this;
-    }
-    /**
-     * Creates a StorageSharedKeyCredentialPolicy object.
-     *
-     * @param {RequestPolicy} nextPolicy
-     * @param {RequestPolicyOptions} options
-     * @returns {StorageSharedKeyCredentialPolicy}
-     * @memberof StorageSharedKeyCredential
-     */
-    StorageSharedKeyCredential.prototype.create = function (nextPolicy, options) {
-        return new StorageSharedKeyCredentialPolicy(nextPolicy, options, this);
-    };
-    /**
-     * Generates a hash signature for an HTTP request or for a SAS.
-     *
-     * @param {string} stringToSign
-     * @returns {string}
-     * @memberof StorageSharedKeyCredential
-     */
-    StorageSharedKeyCredential.prototype.computeHMACSHA256 = function (stringToSign) {
-        return crypto.createHmac("sha256", this.accountKey)
-            .update(stringToSign, "utf8")
-            .digest("base64");
-    };
-    return StorageSharedKeyCredential;
-}(Credential));
-
-/*
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for
- * license information.
- *
- * Code generated by Microsoft (R) AutoRest Code Generator.
- * Changes may cause incorrect behavior and will be lost if the code is
- * regenerated.
- */
-var packageName = "azure-storage-blob";
-var packageVersion = "12.4.1";
-var StorageClientContext = /** @class */ (function (_super) {
-    tslib.__extends(StorageClientContext, _super);
-    /**
-     * Initializes a new instance of the StorageClientContext class.
-     * @param url The URL of the service account, container, or blob that is the targe of the desired
-     * operation.
-     * @param [options] The parameter options
-     */
-    function StorageClientContext(url, options) {
-        var _this = this;
-        if (url == undefined) {
-            throw new Error("'url' cannot be null.");
-        }
-        if (!options) {
-            options = {};
-        }
-        if (!options.userAgent) {
-            var defaultUserAgent = coreHttp.getDefaultUserAgentValue();
-            options.userAgent = packageName + "/" + packageVersion + " " + defaultUserAgent;
-        }
-        _this = _super.call(this, undefined, options) || this;
-        _this.version = '2020-04-08';
-        _this.baseUri = "{url}";
-        _this.requestContentType = "application/json; charset=utf-8";
-        _this.url = url;
-        return _this;
-    }
-    return StorageClientContext;
-}(coreHttp.ServiceClient));
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 (function (BlockBlobTier) {
     /**
      * Optimized for storing data that is accessed frequently.
@@ -38748,11 +40207,12 @@ function ensureCpkIfSpecified(cpk, isHttps) {
     }
 }
 
+// Copyright (c) Microsoft Corporation.
 /**
  * Function that converts PageRange and ClearRange to a common Range object.
  * PageRange and ClearRange have start and end while Range offset and count
  * this function normalizes to Range.
- * @param response Model PageBlob Range response
+ * @param response - Model PageBlob Range response
  */
 function rangeResponseFromModel(response) {
     var pageRange = (response._response.parsedBody.pageRange || []).map(function (x) { return ({
@@ -38770,7 +40230,7 @@ function rangeResponseFromModel(response) {
             } }) });
 }
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * This is the poller returned by {@link BlobClient.beginCopyFromURL}.
  * This can not be instantiated directly outside of this package.
@@ -38929,16 +40389,14 @@ function makeBlobBeginCopyFromURLPollOperation(state) {
     };
 }
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 /**
  * Generate a range string. For example:
  *
  * "bytes=255-" or "bytes=0-511"
  *
- * @export
- * @param {Range} iRange
- * @returns {string}
+ * @param iRange -
  */
 function rangeToString(iRange) {
     if (iRange.offset < 0) {
@@ -38952,53 +40410,9 @@ function rangeToString(iRange) {
         : "bytes=" + iRange.offset + "-";
 }
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-/**
- * A StorageClient represents a based URL class for {@link BlobServiceClient}, {@link ContainerClient}
- * and etc.
- *
- * @export
- * @class StorageClient
- */
-var StorageClient = /** @class */ (function () {
-    /**
-     * Creates an instance of StorageClient.
-     * @param {string} url url to resource
-     * @param {Pipeline} pipeline request policy pipeline.
-     * @memberof StorageClient
-     */
-    function StorageClient(url, pipeline) {
-        // URL should be encoded and only once, protocol layer shouldn't encode URL again
-        this.url = escapeURLPath(url);
-        this.accountName = getAccountNameFromUrl(url);
-        this.pipeline = pipeline;
-        this.storageClientContext = new StorageClientContext(this.url, pipeline.toServiceClientOptions());
-        this.isHttps = iEqual(getURLScheme(this.url) || "", "https");
-        this.credential = new AnonymousCredential();
-        for (var _i = 0, _a = this.pipeline.factories; _i < _a.length; _i++) {
-            var factory = _a[_i];
-            if ((coreHttp.isNode && factory instanceof StorageSharedKeyCredential) ||
-                factory instanceof AnonymousCredential) {
-                this.credential = factory;
-            }
-            else if (coreHttp.isTokenCredential(factory.credential)) {
-                // Only works if the factory has been attached a "credential" property.
-                // We do that in newPipeline() when using TokenCredential.
-                this.credential = factory.credential;
-            }
-        }
-        // Override protocol layer's default content-type
-        var storageClientContext = this.storageClientContext;
-        storageClientContext.requestContentType = undefined;
-    }
-    return StorageClient;
-}());
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * States for Batch.
- *
- * @enum {number}
  */
 var BatchStates;
 (function (BatchStates) {
@@ -39009,57 +40423,33 @@ var BatchStates;
  * Batch provides basic parallel execution with concurrency limits.
  * Will stop execute left operations when one of the executed operation throws an error.
  * But Batch cannot cancel ongoing operations, you need to cancel them by yourself.
- *
- * @export
- * @class Batch
  */
 var Batch = /** @class */ (function () {
     /**
      * Creates an instance of Batch.
-     * @param {number} [concurrency=5]
-     * @memberof Batch
+     * @param concurrency -
      */
     function Batch(concurrency) {
         if (concurrency === void 0) { concurrency = 5; }
         /**
          * Number of active operations under execution.
-         *
-         * @private
-         * @type {number}
-         * @memberof Batch
          */
         this.actives = 0;
         /**
          * Number of completed operations under execution.
-         *
-         * @private
-         * @type {number}
-         * @memberof Batch
          */
         this.completed = 0;
         /**
          * Offset of next operation to be executed.
-         *
-         * @private
-         * @type {number}
-         * @memberof Batch
          */
         this.offset = 0;
         /**
          * Operation array to be executed.
-         *
-         * @private
-         * @type {Operation[]}
-         * @memberof Batch
          */
         this.operations = [];
         /**
          * States of Batch. When an error happens, state will turn into error.
          * Batch will stop execute left operations.
-         *
-         * @private
-         * @type {BatchStates}
-         * @memberof Batch
          */
         this.state = BatchStates.Good;
         if (concurrency < 1) {
@@ -39071,8 +40461,7 @@ var Batch = /** @class */ (function () {
     /**
      * Add a operation into queue.
      *
-     * @param {Operation} operation
-     * @memberof Batch
+     * @param operation -
      */
     Batch.prototype.addOperation = function (operation) {
         var _this = this;
@@ -39102,8 +40491,6 @@ var Batch = /** @class */ (function () {
     /**
      * Start execute operations in the queue.
      *
-     * @returns {Promise<void>}
-     * @memberof Batch
      */
     Batch.prototype.do = function () {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39126,9 +40513,6 @@ var Batch = /** @class */ (function () {
     /**
      * Get next operation to be executed. Return null when reaching ends.
      *
-     * @private
-     * @returns {(Operation | null)}
-     * @memberof Batch
      */
     Batch.prototype.nextOperation = function () {
         if (this.offset < this.operations.length) {
@@ -39140,9 +40524,6 @@ var Batch = /** @class */ (function () {
      * Start execute operations. One one the most important difference between
      * this method with do() is that do() wraps as an sync method.
      *
-     * @private
-     * @returns {void}
-     * @memberof Batch
      */
     Batch.prototype.parallelExecute = function () {
         if (this.state === BatchStates.Error) {
@@ -39165,12 +40546,9 @@ var Batch = /** @class */ (function () {
     return Batch;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * This class generates a readable stream from the data in an array of buffers.
- *
- * @export
- * @class BuffersStream
  */
 var BuffersStream = /** @class */ (function (_super) {
     tslib.__extends(BuffersStream, _super);
@@ -39178,9 +40556,8 @@ var BuffersStream = /** @class */ (function (_super) {
      * Creates an instance of BuffersStream that will emit the data
      * contained in the array of buffers.
      *
-     * @param {Buffer[]} buffers Array of buffers containing the data
-     * @param {number} byteLength The total length of data contained in the buffers
-     * @memberof BuffersStream
+     * @param buffers - Array of buffers containing the data
+     * @param byteLength - The total length of data contained in the buffers
      */
     function BuffersStream(buffers, byteLength, options) {
         var _this = _super.call(this, options) || this;
@@ -39203,8 +40580,7 @@ var BuffersStream = /** @class */ (function (_super) {
     /**
      * Internal _read() that will be called when the stream wants to pull more data in.
      *
-     * @param {number} size Optional. The size of data to be read
-     * @memberof BuffersStream
+     * @param size - Optional. The size of data to be read
      */
     BuffersStream.prototype._read = function (size) {
         if (this.pushedBytesLength >= this.byteLength) {
@@ -39255,7 +40631,7 @@ var BuffersStream = /** @class */ (function (_super) {
     return BuffersStream;
 }(stream.Readable));
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * maxBufferLength is max size of each buffer in the pooled buffers.
  */
@@ -39268,19 +40644,12 @@ var maxBufferLength = __nccwpck_require__(4293).constants.MAX_LENGTH;
  * into the internal "buffer" serially with respect to the total length.
  * Then by calling PooledBuffer.getReadableStream(), you can get a readable stream
  * assembled from all the data in the internal "buffer".
- *
- * @export
- * @class BufferScheduler
  */
 var PooledBuffer = /** @class */ (function () {
     function PooledBuffer(capacity, buffers, totalLength) {
         /**
          * Internal buffers used to keep the data.
          * Each buffer has a length of the maxBufferLength except last one.
-         *
-         * @private
-         * @type {Buffer[]}
-         * @memberof PooledBuffer
          */
         this.buffers = [];
         this.capacity = capacity;
@@ -39313,11 +40682,9 @@ var PooledBuffer = /** @class */ (function () {
      * with respect to the total length and the total capacity of the internal buffers.
      * Data copied will be shift out of the input buffers.
      *
-     * @param {Buffer[]} buffers Input buffers containing the data to be filled in the pooled buffer
-     * @param {number} totalLength Total length of the data to be filled in.
+     * @param buffers - Input buffers containing the data to be filled in the pooled buffer
+     * @param totalLength - Total length of the data to be filled in.
      *
-     * @returns {void}
-     * @memberof PooledBuffer
      */
     PooledBuffer.prototype.fill = function (buffers, totalLength) {
         this._size = Math.min(this.capacity, totalLength);
@@ -39347,8 +40714,6 @@ var PooledBuffer = /** @class */ (function () {
     /**
      * Get the readable stream assembled from all the data in the internal buffers.
      *
-     * @returns {Readable}
-     * @memberof PooledBuffer
      */
     PooledBuffer.prototype.getReadableStream = function () {
         return new BuffersStream(this.buffers, this.size);
@@ -39356,7 +40721,7 @@ var PooledBuffer = /** @class */ (function () {
     return PooledBuffer;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * This class accepts a Node.js Readable stream as input, and keeps reading data
  * from the stream into the internal buffer structure, until it reaches maxBuffers.
@@ -39369,7 +40734,7 @@ var PooledBuffer = /** @class */ (function () {
  *
  * NUM_OF_ALL_BUFFERS = BUFFERS_IN_INCOMING + BUFFERS_IN_OUTGOING + BUFFERS_UNDER_HANDLING
  *
- * NUM_OF_ALL_BUFFERS <= maxBuffers
+ * NUM_OF_ALL_BUFFERS lesser than or equal to maxBuffers
  *
  * PERFORMANCE IMPROVEMENT TIPS:
  * 1. Input stream highWaterMark is better to set a same value with bufferSize
@@ -39378,70 +40743,43 @@ var PooledBuffer = /** @class */ (function () {
  *    reduce the possibility when a outgoing handler waits for the stream data.
  *    in this situation, outgoing handlers are blocked.
  *    Outgoing queue shouldn't be empty.
- * @export
- * @class BufferScheduler
  */
 var BufferScheduler = /** @class */ (function () {
     /**
      * Creates an instance of BufferScheduler.
      *
-     * @param {Readable} readable A Node.js Readable stream
-     * @param {number} bufferSize Buffer size of every maintained buffer
-     * @param {number} maxBuffers How many buffers can be allocated
-     * @param {OutgoingHandler} outgoingHandler An async function scheduled to be
+     * @param readable - A Node.js Readable stream
+     * @param bufferSize - Buffer size of every maintained buffer
+     * @param maxBuffers - How many buffers can be allocated
+     * @param outgoingHandler - An async function scheduled to be
      *                                          triggered when a buffer fully filled
      *                                          with stream data
-     * @param {number} concurrency Concurrency of executing outgoingHandlers (>0)
-     * @param {string} [encoding] [Optional] Encoding of Readable stream when it's a string stream
-     * @memberof BufferScheduler
+     * @param concurrency - Concurrency of executing outgoingHandlers (>0)
+     * @param encoding - [Optional] Encoding of Readable stream when it's a string stream
      */
     function BufferScheduler(readable, bufferSize, maxBuffers, outgoingHandler, concurrency, encoding) {
         /**
          * An internal event emitter.
-         *
-         * @private
-         * @type {EventEmitter}
-         * @memberof BufferScheduler
          */
         this.emitter = new events.EventEmitter();
         /**
          * An internal offset marker to track data offset in bytes of next outgoingHandler.
-         *
-         * @private
-         * @type {number}
-         * @memberof BufferScheduler
          */
         this.offset = 0;
         /**
          * An internal marker to track whether stream is end.
-         *
-         * @private
-         * @type {boolean}
-         * @memberof BufferScheduler
          */
         this.isStreamEnd = false;
         /**
          * An internal marker to track whether stream or outgoingHandler returns error.
-         *
-         * @private
-         * @type {boolean}
-         * @memberof BufferScheduler
          */
         this.isError = false;
         /**
          * How many handlers are executing.
-         *
-         * @private
-         * @type {number}
-         * @memberof BufferScheduler
          */
         this.executingOutgoingHandlers = 0;
         /**
          * How many buffers have been allocated.
-         *
-         * @private
-         * @type {number}
-         * @memberof BufferScheduler
          */
         this.numBuffers = 0;
         /**
@@ -39450,34 +40788,18 @@ var BufferScheduler = /** @class */ (function () {
          * data received from the stream, when data in unresolvedDataArray exceeds the
          * blockSize defined, it will try to concat a blockSize of buffer, fill into available
          * buffers from incoming and push to outgoing array.
-         *
-         * @private
-         * @type {Buffer[]}
-         * @memberof BufferScheduler
          */
         this.unresolvedDataArray = [];
         /**
          * How much data consisted in unresolvedDataArray.
-         *
-         * @private
-         * @type {number}
-         * @memberof BufferScheduler
          */
         this.unresolvedLength = 0;
         /**
          * The array includes all the available buffers can be used to fill data from stream.
-         *
-         * @private
-         * @type {PooledBuffer[]}
-         * @memberof BufferScheduler
          */
         this.incoming = [];
         /**
          * The array (queue) includes all the buffers filled from stream data.
-         *
-         * @private
-         * @type {PooledBuffer[]}
-         * @memberof BufferScheduler
          */
         this.outgoing = [];
         if (bufferSize <= 0) {
@@ -39500,8 +40822,6 @@ var BufferScheduler = /** @class */ (function () {
      * Start the scheduler, will return error when stream of any of the outgoingHandlers
      * returns error.
      *
-     * @returns {Promise<void>}
-     * @memberof BufferScheduler
      */
     BufferScheduler.prototype.do = function () {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39554,9 +40874,7 @@ var BufferScheduler = /** @class */ (function () {
     /**
      * Insert a new data into unresolved array.
      *
-     * @private
-     * @param {Buffer} data
-     * @memberof BufferScheduler
+     * @param data -
      */
     BufferScheduler.prototype.appendUnresolvedData = function (data) {
         this.unresolvedDataArray.push(data);
@@ -39566,9 +40884,6 @@ var BufferScheduler = /** @class */ (function () {
      * Try to shift a buffer with size in blockSize. The buffer returned may be less
      * than blockSize when data in unresolvedDataArray is less than bufferSize.
      *
-     * @private
-     * @returns {PooledBuffer}
-     * @memberof BufferScheduler
      */
     BufferScheduler.prototype.shiftBufferFromUnresolvedDataArray = function (buffer) {
         if (!buffer) {
@@ -39587,9 +40902,7 @@ var BufferScheduler = /** @class */ (function () {
      *
      * Return false when available buffers in incoming are not enough, else true.
      *
-     * @private
-     * @returns {boolean} Return false when buffers in incoming are not enough, else true.
-     * @memberof BufferScheduler
+     * @returns Return false when buffers in incoming are not enough, else true.
      */
     BufferScheduler.prototype.resolveData = function () {
         while (this.unresolvedLength >= this.bufferSize) {
@@ -39616,9 +40929,6 @@ var BufferScheduler = /** @class */ (function () {
     /**
      * Try to trigger a outgoing handler for every buffer in outgoing. Stop when
      * concurrency reaches.
-     *
-     * @private
-     * @memberof BufferScheduler
      */
     BufferScheduler.prototype.triggerOutgoingHandlers = function () {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39640,10 +40950,7 @@ var BufferScheduler = /** @class */ (function () {
     /**
      * Trigger a outgoing handler for a buffer shifted from outgoing.
      *
-     * @private
-     * @param {Buffer} buffer
-     * @returns {Promise<any>}
-     * @memberof BufferScheduler
+     * @param buffer -
      */
     BufferScheduler.prototype.triggerOutgoingHandler = function (buffer) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39677,9 +40984,7 @@ var BufferScheduler = /** @class */ (function () {
     /**
      * Return buffer used by outgoing handler into incoming.
      *
-     * @private
-     * @param {Buffer} buffer
-     * @memberof BufferScheduler
+     * @param buffer -
      */
     BufferScheduler.prototype.reuseBuffer = function (buffer) {
         this.incoming.push(buffer);
@@ -39692,37 +40997,13 @@ var BufferScheduler = /** @class */ (function () {
 
 // Copyright (c) Microsoft Corporation.
 /**
- * Creates a span using the global tracer.
- * @param name The name of the operation being performed.
- * @param tracingOptions The options for the underlying http request.
- */
-function createSpan(operationName, tracingOptions) {
-    if (tracingOptions === void 0) { tracingOptions = {}; }
-    var tracer = coreTracing.getTracer();
-    var spanOptions = tslib.__assign(tslib.__assign({}, tracingOptions.spanOptions), { kind: api.SpanKind.INTERNAL });
-    var span = tracer.startSpan("Azure.Storage.Blob." + operationName, spanOptions);
-    span.setAttribute("az.namespace", "Microsoft.Storage");
-    var newOptions = tracingOptions.spanOptions || {};
-    if (span.isRecording()) {
-        newOptions = tslib.__assign(tslib.__assign({}, tracingOptions.spanOptions), { parent: span.context(), attributes: tslib.__assign(tslib.__assign({}, spanOptions.attributes), { "az.namespace": "Microsoft.Storage" }) });
-    }
-    return {
-        span: span,
-        spanOptions: newOptions
-    };
-}
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-/**
  * Reads a readable stream into buffer. Fill the buffer from offset to end.
  *
- * @export
- * @param {NodeJS.ReadableStream} stream A Node.js Readable stream
- * @param {Buffer} buffer Buffer to be filled, length must >= offset
- * @param {number} offset From which position in the buffer to be filled, inclusive
- * @param {number} end To which position in the buffer to be filled, exclusive
- * @param {string} [encoding] Encoding of the Readable stream
- * @returns {Promise<void>}
+ * @param stream - A Node.js Readable stream
+ * @param buffer - Buffer to be filled, length must greater than or equal to offset
+ * @param offset - From which position in the buffer to be filled, inclusive
+ * @param end - To which position in the buffer to be filled, exclusive
+ * @param encoding - Encoding of the Readable stream
  */
 function streamToBuffer(stream, buffer, offset, end, encoding) {
     return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39762,12 +41043,11 @@ function streamToBuffer(stream, buffer, offset, end, encoding) {
 /**
  * Reads a readable stream into buffer entirely.
  *
- * @export
- * @param {NodeJS.ReadableStream} stream A Node.js Readable stream
- * @param {Buffer} buffer Buffer to be filled, length must >= offset
- * @param {string} [encoding] Encoding of the Readable stream
- * @returns {Promise<number>} with the count of bytes read.
- * @throws {RangeError} If buffer size is not big enough.
+ * @param stream - A Node.js Readable stream
+ * @param buffer - Buffer to be filled, length must greater than or equal to offset
+ * @param encoding - Encoding of the Readable stream
+ * @returns with the count of bytes read.
+ * @throws `RangeError` If buffer size is not big enough.
  */
 function streamToBuffer2(stream, buffer, encoding) {
     return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39804,10 +41084,8 @@ function streamToBuffer2(stream, buffer, encoding) {
  *
  * Writes the content of a readstream to a local file. Returns a Promise which is completed after the file handle is closed.
  *
- * @export
- * @param {NodeJS.ReadableStream} rs The read stream.
- * @param {string} file Destination file path.
- * @returns {Promise<void>}
+ * @param rs - The read stream.
+ * @param file - Destination file path.
  */
 function readStreamToLocalFile(rs, file) {
     return tslib.__awaiter(this, void 0, void 0, function () {
@@ -39834,1107 +41112,9 @@ function readStreamToLocalFile(rs, file) {
 var fsStat = util.promisify(fs.stat);
 var fsCreateReadStream = fs.createReadStream;
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- *
- * This is a helper class to construct a string representing the permissions granted by a ServiceSAS to a blob. Setting
- * a value to true means that any SAS which uses these permissions will grant permissions for that operation. Once all
- * the values are set, this should be serialized with toString and set as the permissions field on a
- * {@link BlobSASSignatureValues} object. It is possible to construct the permissions string without this class, but
- * the order of the permissions is particular and this class guarantees correctness.
- *
- * @export
- * @class BlobSASPermissions
- */
-var BlobSASPermissions = /** @class */ (function () {
-    function BlobSASPermissions() {
-        /**
-         * Specifies Read access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.read = false;
-        /**
-         * Specifies Add access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.add = false;
-        /**
-         * Specifies Create access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.create = false;
-        /**
-         * Specifies Write access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.write = false;
-        /**
-         * Specifies Delete access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.delete = false;
-        /**
-         * Specifies Delete version access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.deleteVersion = false;
-        /**
-         * Specfies Tag access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.tag = false;
-        /**
-         * Specifies Move access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.move = false;
-        /**
-         * Specifies Execute access granted.
-         *
-         * @type {boolean}
-         * @memberof BlobSASPermissions
-         */
-        this.execute = false;
-    }
-    /**
-     * Creates a {@link BlobSASPermissions} from the specified permissions string. This method will throw an
-     * Error if it encounters a character that does not correspond to a valid permission.
-     *
-     * @static
-     * @param {string} permissions
-     * @returns {BlobSASPermissions}
-     * @memberof BlobSASPermissions
-     */
-    BlobSASPermissions.parse = function (permissions) {
-        var blobSASPermissions = new BlobSASPermissions();
-        for (var _i = 0, permissions_1 = permissions; _i < permissions_1.length; _i++) {
-            var char = permissions_1[_i];
-            switch (char) {
-                case "r":
-                    blobSASPermissions.read = true;
-                    break;
-                case "a":
-                    blobSASPermissions.add = true;
-                    break;
-                case "c":
-                    blobSASPermissions.create = true;
-                    break;
-                case "w":
-                    blobSASPermissions.write = true;
-                    break;
-                case "d":
-                    blobSASPermissions.delete = true;
-                    break;
-                case "x":
-                    blobSASPermissions.deleteVersion = true;
-                    break;
-                case "t":
-                    blobSASPermissions.tag = true;
-                    break;
-                case "m":
-                    blobSASPermissions.move = true;
-                    break;
-                case "e":
-                    blobSASPermissions.execute = true;
-                    break;
-                default:
-                    throw new RangeError("Invalid permission: " + char);
-            }
-        }
-        return blobSASPermissions;
-    };
-    /**
-     * Creates a {@link BlobSASPermissions} from a raw object which contains same keys as it
-     * and boolean values for them.
-     *
-     * @static
-     * @param {BlobSASPermissionsLike} permissionLike
-     * @returns {BlobSASPermissions}
-     * @memberof BlobSASPermissions
-     */
-    BlobSASPermissions.from = function (permissionLike) {
-        var blobSASPermissions = new BlobSASPermissions();
-        if (permissionLike.read) {
-            blobSASPermissions.read = true;
-        }
-        if (permissionLike.add) {
-            blobSASPermissions.add = true;
-        }
-        if (permissionLike.create) {
-            blobSASPermissions.create = true;
-        }
-        if (permissionLike.write) {
-            blobSASPermissions.write = true;
-        }
-        if (permissionLike.delete) {
-            blobSASPermissions.delete = true;
-        }
-        if (permissionLike.deleteVersion) {
-            blobSASPermissions.deleteVersion = true;
-        }
-        if (permissionLike.tag) {
-            blobSASPermissions.tag = true;
-        }
-        if (permissionLike.move) {
-            blobSASPermissions.move = true;
-        }
-        if (permissionLike.execute) {
-            blobSASPermissions.execute = true;
-        }
-        return blobSASPermissions;
-    };
-    /**
-     * Converts the given permissions to a string. Using this method will guarantee the permissions are in an
-     * order accepted by the service.
-     *
-     * @returns {string} A string which represents the BlobSASPermissions
-     * @memberof BlobSASPermissions
-     */
-    BlobSASPermissions.prototype.toString = function () {
-        var permissions = [];
-        if (this.read) {
-            permissions.push("r");
-        }
-        if (this.add) {
-            permissions.push("a");
-        }
-        if (this.create) {
-            permissions.push("c");
-        }
-        if (this.write) {
-            permissions.push("w");
-        }
-        if (this.delete) {
-            permissions.push("d");
-        }
-        if (this.deleteVersion) {
-            permissions.push("x");
-        }
-        if (this.tag) {
-            permissions.push("t");
-        }
-        if (this.move) {
-            permissions.push("m");
-        }
-        if (this.execute) {
-            permissions.push("e");
-        }
-        return permissions.join("");
-    };
-    return BlobSASPermissions;
-}());
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-/**
- * This is a helper class to construct a string representing the permissions granted by a ServiceSAS to a container.
- * Setting a value to true means that any SAS which uses these permissions will grant permissions for that operation.
- * Once all the values are set, this should be serialized with toString and set as the permissions field on a
- * {@link BlobSASSignatureValues} object. It is possible to construct the permissions string without this class, but
- * the order of the permissions is particular and this class guarantees correctness.
- *
- * @export
- * @class ContainerSASPermissions
- */
-var ContainerSASPermissions = /** @class */ (function () {
-    function ContainerSASPermissions() {
-        /**
-         * Specifies Read access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.read = false;
-        /**
-         * Specifies Add access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.add = false;
-        /**
-         * Specifies Create access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.create = false;
-        /**
-         * Specifies Write access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.write = false;
-        /**
-         * Specifies Delete access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.delete = false;
-        /**
-         * Specifies Delete version access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.deleteVersion = false;
-        /**
-         * Specifies List access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.list = false;
-        /**
-         * Specfies Tag access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.tag = false;
-        /**
-         * Specifies Move access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.move = false;
-        /**
-         * Specifies Execute access granted.
-         *
-         * @type {boolean}
-         * @memberof ContainerSASPermissions
-         */
-        this.execute = false;
-    }
-    /**
-     * Creates an {@link ContainerSASPermissions} from the specified permissions string. This method will throw an
-     * Error if it encounters a character that does not correspond to a valid permission.
-     *
-     * @static
-     * @param {string} permissions
-     * @returns {ContainerSASPermissions}
-     * @memberof ContainerSASPermissions
-     */
-    ContainerSASPermissions.parse = function (permissions) {
-        var containerSASPermissions = new ContainerSASPermissions();
-        for (var _i = 0, permissions_1 = permissions; _i < permissions_1.length; _i++) {
-            var char = permissions_1[_i];
-            switch (char) {
-                case "r":
-                    containerSASPermissions.read = true;
-                    break;
-                case "a":
-                    containerSASPermissions.add = true;
-                    break;
-                case "c":
-                    containerSASPermissions.create = true;
-                    break;
-                case "w":
-                    containerSASPermissions.write = true;
-                    break;
-                case "d":
-                    containerSASPermissions.delete = true;
-                    break;
-                case "l":
-                    containerSASPermissions.list = true;
-                    break;
-                case "t":
-                    containerSASPermissions.tag = true;
-                    break;
-                case "x":
-                    containerSASPermissions.deleteVersion = true;
-                    break;
-                case "m":
-                    containerSASPermissions.move = true;
-                    break;
-                case "e":
-                    containerSASPermissions.execute = true;
-                    break;
-                default:
-                    throw new RangeError("Invalid permission " + char);
-            }
-        }
-        return containerSASPermissions;
-    };
-    /**
-     * Creates a {@link ContainerSASPermissions} from a raw object which contains same keys as it
-     * and boolean values for them.
-     *
-     * @static
-     * @param {ContainerSASPermissionsLike} permissionLike
-     * @returns {ContainerSASPermissions}
-     * @memberof ContainerSASPermissions
-     */
-    ContainerSASPermissions.from = function (permissionLike) {
-        var containerSASPermissions = new ContainerSASPermissions();
-        if (permissionLike.read) {
-            containerSASPermissions.read = true;
-        }
-        if (permissionLike.add) {
-            containerSASPermissions.add = true;
-        }
-        if (permissionLike.create) {
-            containerSASPermissions.create = true;
-        }
-        if (permissionLike.write) {
-            containerSASPermissions.write = true;
-        }
-        if (permissionLike.delete) {
-            containerSASPermissions.delete = true;
-        }
-        if (permissionLike.list) {
-            containerSASPermissions.list = true;
-        }
-        if (permissionLike.deleteVersion) {
-            containerSASPermissions.deleteVersion = true;
-        }
-        if (permissionLike.tag) {
-            containerSASPermissions.tag = true;
-        }
-        if (permissionLike.move) {
-            containerSASPermissions.move = true;
-        }
-        if (permissionLike.execute) {
-            containerSASPermissions.execute = true;
-        }
-        return containerSASPermissions;
-    };
-    /**
-     * Converts the given permissions to a string. Using this method will guarantee the permissions are in an
-     * order accepted by the service.
-     *
-     * The order of the characters should be as specified here to ensure correctness.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas
-     *
-     * @returns {string}
-     * @memberof ContainerSASPermissions
-     */
-    ContainerSASPermissions.prototype.toString = function () {
-        var permissions = [];
-        if (this.read) {
-            permissions.push("r");
-        }
-        if (this.add) {
-            permissions.push("a");
-        }
-        if (this.create) {
-            permissions.push("c");
-        }
-        if (this.write) {
-            permissions.push("w");
-        }
-        if (this.delete) {
-            permissions.push("d");
-        }
-        if (this.deleteVersion) {
-            permissions.push("x");
-        }
-        if (this.list) {
-            permissions.push("l");
-        }
-        if (this.tag) {
-            permissions.push("t");
-        }
-        if (this.move) {
-            permissions.push("m");
-        }
-        if (this.execute) {
-            permissions.push("e");
-        }
-        return permissions.join("");
-    };
-    return ContainerSASPermissions;
-}());
-
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- *
- * UserDelegationKeyCredential is only used for generation of user delegation SAS.
- * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas
- *
- * @export
- * @class UserDelegationKeyCredential
- */
-var UserDelegationKeyCredential = /** @class */ (function () {
-    /**
-     * Creates an instance of UserDelegationKeyCredential.
-     * @param {string} accountName
-     * @param {UserDelegationKey} userDelegationKey
-     * @memberof UserDelegationKeyCredential
-     */
-    function UserDelegationKeyCredential(accountName, userDelegationKey) {
-        this.accountName = accountName;
-        this.userDelegationKey = userDelegationKey;
-        this.key = Buffer.from(userDelegationKey.value, "base64");
-    }
-    /**
-     * Generates a hash signature for an HTTP request or for a SAS.
-     *
-     * @param {string} stringToSign
-     * @returns {string}
-     * @memberof UserDelegationKeyCredential
-     */
-    UserDelegationKeyCredential.prototype.computeHMACSHA256 = function (stringToSign) {
-        // console.log(`stringToSign: ${JSON.stringify(stringToSign)}`);
-        return crypto.createHmac("sha256", this.key)
-            .update(stringToSign, "utf8")
-            .digest("base64");
-    };
-    return UserDelegationKeyCredential;
-}());
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
-/**
- * Generate SasIPRange format string. For example:
- *
- * "8.8.8.8" or "1.1.1.1-255.255.255.255"
- *
- * @export
- * @param {SasIPRange} ipRange
- * @returns {string}
- */
-function ipRangeToString(ipRange) {
-    return ipRange.end ? ipRange.start + "-" + ipRange.end : ipRange.start;
-}
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-(function (SASProtocol) {
-    /**
-     * Protocol that allows HTTPS only
-     */
-    SASProtocol["Https"] = "https";
-    /**
-     * Protocol that allows both HTTPS and HTTP
-     */
-    SASProtocol["HttpsAndHttp"] = "https,http";
-})(exports.SASProtocol || (exports.SASProtocol = {}));
-/**
- * Represents the components that make up an Azure Storage SAS' query parameters. This type is not constructed directly
- * by the user; it is only generated by the {@link AccountSASSignatureValues} and {@link BlobSASSignatureValues}
- * types. Once generated, it can be encoded into a {@code String} and appended to a URL directly (though caution should
- * be taken here in case there are existing query parameters, which might affect the appropriate means of appending
- * these query parameters).
- *
- * NOTE: Instances of this class are immutable.
- *
- * @export
- * @class SASQueryParameters
- */
-var SASQueryParameters = /** @class */ (function () {
-    function SASQueryParameters(version, signature, permissionsOrOptions, services, resourceTypes, protocol, startsOn, expiresOn, ipRange, identifier, resource, cacheControl, contentDisposition, contentEncoding, contentLanguage, contentType, userDelegationKey, preauthorizedAgentObjectId, correlationId) {
-        this.version = version;
-        this.signature = signature;
-        if (permissionsOrOptions !== undefined && typeof permissionsOrOptions !== "string") {
-            // SASQueryParametersOptions
-            this.permissions = permissionsOrOptions.permissions;
-            this.services = permissionsOrOptions.services;
-            this.resourceTypes = permissionsOrOptions.resourceTypes;
-            this.protocol = permissionsOrOptions.protocol;
-            this.startsOn = permissionsOrOptions.startsOn;
-            this.expiresOn = permissionsOrOptions.expiresOn;
-            this.ipRangeInner = permissionsOrOptions.ipRange;
-            this.identifier = permissionsOrOptions.identifier;
-            this.resource = permissionsOrOptions.resource;
-            this.cacheControl = permissionsOrOptions.cacheControl;
-            this.contentDisposition = permissionsOrOptions.contentDisposition;
-            this.contentEncoding = permissionsOrOptions.contentEncoding;
-            this.contentLanguage = permissionsOrOptions.contentLanguage;
-            this.contentType = permissionsOrOptions.contentType;
-            if (permissionsOrOptions.userDelegationKey) {
-                this.signedOid = permissionsOrOptions.userDelegationKey.signedObjectId;
-                this.signedTenantId = permissionsOrOptions.userDelegationKey.signedTenantId;
-                this.signedStartsOn = permissionsOrOptions.userDelegationKey.signedStartsOn;
-                this.signedExpiresOn = permissionsOrOptions.userDelegationKey.signedExpiresOn;
-                this.signedService = permissionsOrOptions.userDelegationKey.signedService;
-                this.signedVersion = permissionsOrOptions.userDelegationKey.signedVersion;
-                this.preauthorizedAgentObjectId = permissionsOrOptions.preauthorizedAgentObjectId;
-                this.correlationId = permissionsOrOptions.correlationId;
-            }
-        }
-        else {
-            this.services = services;
-            this.resourceTypes = resourceTypes;
-            this.expiresOn = expiresOn;
-            this.permissions = permissionsOrOptions;
-            this.protocol = protocol;
-            this.startsOn = startsOn;
-            this.ipRangeInner = ipRange;
-            this.identifier = identifier;
-            this.resource = resource;
-            this.cacheControl = cacheControl;
-            this.contentDisposition = contentDisposition;
-            this.contentEncoding = contentEncoding;
-            this.contentLanguage = contentLanguage;
-            this.contentType = contentType;
-            if (userDelegationKey) {
-                this.signedOid = userDelegationKey.signedObjectId;
-                this.signedTenantId = userDelegationKey.signedTenantId;
-                this.signedStartsOn = userDelegationKey.signedStartsOn;
-                this.signedExpiresOn = userDelegationKey.signedExpiresOn;
-                this.signedService = userDelegationKey.signedService;
-                this.signedVersion = userDelegationKey.signedVersion;
-                this.preauthorizedAgentObjectId = preauthorizedAgentObjectId;
-                this.correlationId = correlationId;
-            }
-        }
-    }
-    Object.defineProperty(SASQueryParameters.prototype, "ipRange", {
-        /**
-         * Optional. IP range allowed for this SAS.
-         *
-         * @readonly
-         * @type {(SasIPRange | undefined)}
-         * @memberof SASQueryParameters
-         */
-        get: function () {
-            if (this.ipRangeInner) {
-                return {
-                    end: this.ipRangeInner.end,
-                    start: this.ipRangeInner.start
-                };
-            }
-            return undefined;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    /**
-     * Encodes all SAS query parameters into a string that can be appended to a URL.
-     *
-     * @returns {string}
-     * @memberof SASQueryParameters
-     */
-    SASQueryParameters.prototype.toString = function () {
-        var params = [
-            "sv",
-            "ss",
-            "srt",
-            "spr",
-            "st",
-            "se",
-            "sip",
-            "si",
-            "skoid",
-            "sktid",
-            "skt",
-            "ske",
-            "sks",
-            "skv",
-            "sr",
-            "sp",
-            "sig",
-            "rscc",
-            "rscd",
-            "rsce",
-            "rscl",
-            "rsct",
-            "saoid",
-            "scid"
-        ];
-        var queries = [];
-        for (var _i = 0, params_1 = params; _i < params_1.length; _i++) {
-            var param = params_1[_i];
-            switch (param) {
-                case "sv":
-                    this.tryAppendQueryParameter(queries, param, this.version);
-                    break;
-                case "ss":
-                    this.tryAppendQueryParameter(queries, param, this.services);
-                    break;
-                case "srt":
-                    this.tryAppendQueryParameter(queries, param, this.resourceTypes);
-                    break;
-                case "spr":
-                    this.tryAppendQueryParameter(queries, param, this.protocol);
-                    break;
-                case "st":
-                    this.tryAppendQueryParameter(queries, param, this.startsOn ? truncatedISO8061Date(this.startsOn, false) : undefined);
-                    break;
-                case "se":
-                    this.tryAppendQueryParameter(queries, param, this.expiresOn ? truncatedISO8061Date(this.expiresOn, false) : undefined);
-                    break;
-                case "sip":
-                    this.tryAppendQueryParameter(queries, param, this.ipRange ? ipRangeToString(this.ipRange) : undefined);
-                    break;
-                case "si":
-                    this.tryAppendQueryParameter(queries, param, this.identifier);
-                    break;
-                case "skoid": // Signed object ID
-                    this.tryAppendQueryParameter(queries, param, this.signedOid);
-                    break;
-                case "sktid": // Signed tenant ID
-                    this.tryAppendQueryParameter(queries, param, this.signedTenantId);
-                    break;
-                case "skt": // Signed key start time
-                    this.tryAppendQueryParameter(queries, param, this.signedStartsOn ? truncatedISO8061Date(this.signedStartsOn, false) : undefined);
-                    break;
-                case "ske": // Signed key expiry time
-                    this.tryAppendQueryParameter(queries, param, this.signedExpiresOn ? truncatedISO8061Date(this.signedExpiresOn, false) : undefined);
-                    break;
-                case "sks": // Signed key service
-                    this.tryAppendQueryParameter(queries, param, this.signedService);
-                    break;
-                case "skv": // Signed key version
-                    this.tryAppendQueryParameter(queries, param, this.signedVersion);
-                    break;
-                case "sr":
-                    this.tryAppendQueryParameter(queries, param, this.resource);
-                    break;
-                case "sp":
-                    this.tryAppendQueryParameter(queries, param, this.permissions);
-                    break;
-                case "sig":
-                    this.tryAppendQueryParameter(queries, param, this.signature);
-                    break;
-                case "rscc":
-                    this.tryAppendQueryParameter(queries, param, this.cacheControl);
-                    break;
-                case "rscd":
-                    this.tryAppendQueryParameter(queries, param, this.contentDisposition);
-                    break;
-                case "rsce":
-                    this.tryAppendQueryParameter(queries, param, this.contentEncoding);
-                    break;
-                case "rscl":
-                    this.tryAppendQueryParameter(queries, param, this.contentLanguage);
-                    break;
-                case "rsct":
-                    this.tryAppendQueryParameter(queries, param, this.contentType);
-                    break;
-                case "saoid":
-                    this.tryAppendQueryParameter(queries, param, this.preauthorizedAgentObjectId);
-                    break;
-                case "scid":
-                    this.tryAppendQueryParameter(queries, param, this.correlationId);
-                    break;
-            }
-        }
-        return queries.join("&");
-    };
-    /**
-     * A private helper method used to filter and append query key/value pairs into an array.
-     *
-     * @private
-     * @param {string[]} queries
-     * @param {string} key
-     * @param {string} [value]
-     * @returns {void}
-     * @memberof SASQueryParameters
-     */
-    SASQueryParameters.prototype.tryAppendQueryParameter = function (queries, key, value) {
-        if (!value) {
-            return;
-        }
-        key = encodeURIComponent(key);
-        value = encodeURIComponent(value);
-        if (key.length > 0 && value.length > 0) {
-            queries.push(key + "=" + value);
-        }
-    };
-    return SASQueryParameters;
-}());
-
-// Copyright (c) Microsoft Corporation. All rights reserved.
-function generateBlobSASQueryParameters(blobSASSignatureValues, sharedKeyCredentialOrUserDelegationKey, accountName) {
-    var version = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
-    var sharedKeyCredential = sharedKeyCredentialOrUserDelegationKey instanceof StorageSharedKeyCredential
-        ? sharedKeyCredentialOrUserDelegationKey
-        : undefined;
-    var userDelegationKeyCredential;
-    if (sharedKeyCredential === undefined && accountName !== undefined) {
-        userDelegationKeyCredential = new UserDelegationKeyCredential(accountName, sharedKeyCredentialOrUserDelegationKey);
-    }
-    if (sharedKeyCredential === undefined && userDelegationKeyCredential === undefined) {
-        throw TypeError("Invalid sharedKeyCredential, userDelegationKey or accountName.");
-    }
-    // Version 2019-12-12 adds support for the blob tags permission.
-    // Version 2018-11-09 adds support for the signed resource and signed blob snapshot time fields.
-    // https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas#constructing-the-signature-string
-    if (version >= "2018-11-09") {
-        if (sharedKeyCredential !== undefined) {
-            return generateBlobSASQueryParameters20181109(blobSASSignatureValues, sharedKeyCredential);
-        }
-        else {
-            // Version 2020-02-10 delegation SAS signature construction includes preauthorizedAgentObjectId, agentObjectId, correlationId.
-            if (version >= "2020-02-10") {
-                return generateBlobSASQueryParametersUDK20200210(blobSASSignatureValues, userDelegationKeyCredential);
-            }
-            else {
-                return generateBlobSASQueryParametersUDK20181109(blobSASSignatureValues, userDelegationKeyCredential);
-            }
-        }
-    }
-    if (version >= "2015-04-05") {
-        if (sharedKeyCredential !== undefined) {
-            return generateBlobSASQueryParameters20150405(blobSASSignatureValues, sharedKeyCredential);
-        }
-        else {
-            throw new RangeError("'version' must be >= '2018-11-09' when generating user delegation SAS using user delegation key.");
-        }
-    }
-    throw new RangeError("'version' must be >= '2015-04-05'.");
-}
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- * IMPLEMENTATION FOR API VERSION FROM 2015-04-05 AND BEFORE 2018-11-09.
- *
- * Creates an instance of SASQueryParameters.
- *
- * Only accepts required settings needed to create a SAS. For optional settings please
- * set corresponding properties directly, such as permissions, startsOn and identifier.
- *
- * WARNING: When identifier is not provided, permissions and expiresOn are required.
- * You MUST assign value to identifier or expiresOn & permissions manually if you initial with
- * this constructor.
- *
- * @param {BlobSASSignatureValues} blobSASSignatureValues
- * @param {StorageSharedKeyCredential} sharedKeyCredential
- * @returns {SASQueryParameters}
- */
-function generateBlobSASQueryParameters20150405(blobSASSignatureValues, sharedKeyCredential) {
-    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
-    if (!blobSASSignatureValues.identifier &&
-        !(blobSASSignatureValues.permissions && blobSASSignatureValues.expiresOn)) {
-        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when 'identifier' is not provided.");
-    }
-    var resource = "c";
-    if (blobSASSignatureValues.blobName) {
-        resource = "b";
-    }
-    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
-    var verifiedPermissions;
-    if (blobSASSignatureValues.permissions) {
-        if (blobSASSignatureValues.blobName) {
-            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-        else {
-            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-    }
-    // Signature is generated on the un-url-encoded values.
-    var stringToSign = [
-        verifiedPermissions ? verifiedPermissions : "",
-        blobSASSignatureValues.startsOn
-            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
-            : "",
-        blobSASSignatureValues.expiresOn
-            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
-            : "",
-        getCanonicalName(sharedKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
-        blobSASSignatureValues.identifier,
-        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
-        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
-        blobSASSignatureValues.version,
-        blobSASSignatureValues.cacheControl ? blobSASSignatureValues.cacheControl : "",
-        blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
-        blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
-        blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
-        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : ""
-    ].join("\n");
-    var signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
-    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType);
-}
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- * IMPLEMENTATION FOR API VERSION FROM 2018-11-09.
- *
- * Creates an instance of SASQueryParameters.
- *
- * Only accepts required settings needed to create a SAS. For optional settings please
- * set corresponding properties directly, such as permissions, startsOn and identifier.
- *
- * WARNING: When identifier is not provided, permissions and expiresOn are required.
- * You MUST assign value to identifier or expiresOn & permissions manually if you initial with
- * this constructor.
- *
- * @param {BlobSASSignatureValues} blobSASSignatureValues
- * @param {StorageSharedKeyCredential} sharedKeyCredential
- * @returns {SASQueryParameters}
- */
-function generateBlobSASQueryParameters20181109(blobSASSignatureValues, sharedKeyCredential) {
-    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
-    if (!blobSASSignatureValues.identifier &&
-        !(blobSASSignatureValues.permissions && blobSASSignatureValues.expiresOn)) {
-        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when 'identifier' is not provided.");
-    }
-    var resource = "c";
-    var timestamp = blobSASSignatureValues.snapshotTime;
-    if (blobSASSignatureValues.blobName) {
-        resource = "b";
-        if (blobSASSignatureValues.snapshotTime) {
-            resource = "bs";
-        }
-        else if (blobSASSignatureValues.versionId) {
-            resource = "bv";
-            timestamp = blobSASSignatureValues.versionId;
-        }
-    }
-    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
-    var verifiedPermissions;
-    if (blobSASSignatureValues.permissions) {
-        if (blobSASSignatureValues.blobName) {
-            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-        else {
-            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-    }
-    // Signature is generated on the un-url-encoded values.
-    var stringToSign = [
-        verifiedPermissions ? verifiedPermissions : "",
-        blobSASSignatureValues.startsOn
-            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
-            : "",
-        blobSASSignatureValues.expiresOn
-            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
-            : "",
-        getCanonicalName(sharedKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
-        blobSASSignatureValues.identifier,
-        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
-        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
-        blobSASSignatureValues.version,
-        resource,
-        timestamp,
-        blobSASSignatureValues.cacheControl ? blobSASSignatureValues.cacheControl : "",
-        blobSASSignatureValues.contentDisposition ? blobSASSignatureValues.contentDisposition : "",
-        blobSASSignatureValues.contentEncoding ? blobSASSignatureValues.contentEncoding : "",
-        blobSASSignatureValues.contentLanguage ? blobSASSignatureValues.contentLanguage : "",
-        blobSASSignatureValues.contentType ? blobSASSignatureValues.contentType : ""
-    ].join("\n");
-    var signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
-    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType);
-}
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- * IMPLEMENTATION FOR API VERSION FROM 2018-11-09.
- *
- * Creates an instance of SASQueryParameters.
- *
- * Only accepts required settings needed to create a SAS. For optional settings please
- * set corresponding properties directly, such as permissions, startsOn.
- *
- * WARNING: identifier will be ignored, permissions and expiresOn are required.
- *
- * @param {BlobSASSignatureValues} blobSASSignatureValues
- * @param {UserDelegationKeyCredential} userDelegationKeyCredential
- * @returns {SASQueryParameters}
- */
-function generateBlobSASQueryParametersUDK20181109(blobSASSignatureValues, userDelegationKeyCredential) {
-    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
-    // Stored access policies are not supported for a user delegation SAS.
-    if (!blobSASSignatureValues.permissions || !blobSASSignatureValues.expiresOn) {
-        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when generating user delegation SAS.");
-    }
-    var resource = "c";
-    var timestamp = blobSASSignatureValues.snapshotTime;
-    if (blobSASSignatureValues.blobName) {
-        resource = "b";
-        if (blobSASSignatureValues.snapshotTime) {
-            resource = "bs";
-        }
-        else if (blobSASSignatureValues.versionId) {
-            resource = "bv";
-            timestamp = blobSASSignatureValues.versionId;
-        }
-    }
-    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
-    var verifiedPermissions;
-    if (blobSASSignatureValues.permissions) {
-        if (blobSASSignatureValues.blobName) {
-            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-        else {
-            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-    }
-    // Signature is generated on the un-url-encoded values.
-    var stringToSign = [
-        verifiedPermissions ? verifiedPermissions : "",
-        blobSASSignatureValues.startsOn
-            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
-            : "",
-        blobSASSignatureValues.expiresOn
-            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
-            : "",
-        getCanonicalName(userDelegationKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
-        userDelegationKeyCredential.userDelegationKey.signedObjectId,
-        userDelegationKeyCredential.userDelegationKey.signedTenantId,
-        userDelegationKeyCredential.userDelegationKey.signedStartsOn
-            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedStartsOn, false)
-            : "",
-        userDelegationKeyCredential.userDelegationKey.signedExpiresOn
-            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedExpiresOn, false)
-            : "",
-        userDelegationKeyCredential.userDelegationKey.signedService,
-        userDelegationKeyCredential.userDelegationKey.signedVersion,
-        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
-        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
-        blobSASSignatureValues.version,
-        resource,
-        timestamp,
-        blobSASSignatureValues.cacheControl,
-        blobSASSignatureValues.contentDisposition,
-        blobSASSignatureValues.contentEncoding,
-        blobSASSignatureValues.contentLanguage,
-        blobSASSignatureValues.contentType
-    ].join("\n");
-    var signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
-    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey);
-}
-/**
- * ONLY AVAILABLE IN NODE.JS RUNTIME.
- * IMPLEMENTATION FOR API VERSION FROM 2020-02-10.
- *
- * Creates an instance of SASQueryParameters.
- *
- * Only accepts required settings needed to create a SAS. For optional settings please
- * set corresponding properties directly, such as permissions, startsOn.
- *
- * WARNING: identifier will be ignored, permissions and expiresOn are required.
- *
- * @param {BlobSASSignatureValues} blobSASSignatureValues
- * @param {UserDelegationKeyCredential} userDelegationKeyCredential
- * @returns {SASQueryParameters}
- */
-function generateBlobSASQueryParametersUDK20200210(blobSASSignatureValues, userDelegationKeyCredential) {
-    blobSASSignatureValues = SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues);
-    // Stored access policies are not supported for a user delegation SAS.
-    if (!blobSASSignatureValues.permissions || !blobSASSignatureValues.expiresOn) {
-        throw new RangeError("Must provide 'permissions' and 'expiresOn' for Blob SAS generation when generating user delegation SAS.");
-    }
-    var resource = "c";
-    var timestamp = blobSASSignatureValues.snapshotTime;
-    if (blobSASSignatureValues.blobName) {
-        resource = "b";
-        if (blobSASSignatureValues.snapshotTime) {
-            resource = "bs";
-        }
-        else if (blobSASSignatureValues.versionId) {
-            resource = "bv";
-            timestamp = blobSASSignatureValues.versionId;
-        }
-    }
-    // Calling parse and toString guarantees the proper ordering and throws on invalid characters.
-    var verifiedPermissions;
-    if (blobSASSignatureValues.permissions) {
-        if (blobSASSignatureValues.blobName) {
-            verifiedPermissions = BlobSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-        else {
-            verifiedPermissions = ContainerSASPermissions.parse(blobSASSignatureValues.permissions.toString()).toString();
-        }
-    }
-    // Signature is generated on the un-url-encoded values.
-    var stringToSign = [
-        verifiedPermissions ? verifiedPermissions : "",
-        blobSASSignatureValues.startsOn
-            ? truncatedISO8061Date(blobSASSignatureValues.startsOn, false)
-            : "",
-        blobSASSignatureValues.expiresOn
-            ? truncatedISO8061Date(blobSASSignatureValues.expiresOn, false)
-            : "",
-        getCanonicalName(userDelegationKeyCredential.accountName, blobSASSignatureValues.containerName, blobSASSignatureValues.blobName),
-        userDelegationKeyCredential.userDelegationKey.signedObjectId,
-        userDelegationKeyCredential.userDelegationKey.signedTenantId,
-        userDelegationKeyCredential.userDelegationKey.signedStartsOn
-            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedStartsOn, false)
-            : "",
-        userDelegationKeyCredential.userDelegationKey.signedExpiresOn
-            ? truncatedISO8061Date(userDelegationKeyCredential.userDelegationKey.signedExpiresOn, false)
-            : "",
-        userDelegationKeyCredential.userDelegationKey.signedService,
-        userDelegationKeyCredential.userDelegationKey.signedVersion,
-        blobSASSignatureValues.preauthorizedAgentObjectId,
-        undefined,
-        blobSASSignatureValues.correlationId,
-        blobSASSignatureValues.ipRange ? ipRangeToString(blobSASSignatureValues.ipRange) : "",
-        blobSASSignatureValues.protocol ? blobSASSignatureValues.protocol : "",
-        blobSASSignatureValues.version,
-        resource,
-        timestamp,
-        blobSASSignatureValues.cacheControl,
-        blobSASSignatureValues.contentDisposition,
-        blobSASSignatureValues.contentEncoding,
-        blobSASSignatureValues.contentLanguage,
-        blobSASSignatureValues.contentType
-    ].join("\n");
-    var signature = userDelegationKeyCredential.computeHMACSHA256(stringToSign);
-    return new SASQueryParameters(blobSASSignatureValues.version, signature, verifiedPermissions, undefined, undefined, blobSASSignatureValues.protocol, blobSASSignatureValues.startsOn, blobSASSignatureValues.expiresOn, blobSASSignatureValues.ipRange, blobSASSignatureValues.identifier, resource, blobSASSignatureValues.cacheControl, blobSASSignatureValues.contentDisposition, blobSASSignatureValues.contentEncoding, blobSASSignatureValues.contentLanguage, blobSASSignatureValues.contentType, userDelegationKeyCredential.userDelegationKey, blobSASSignatureValues.preauthorizedAgentObjectId, blobSASSignatureValues.correlationId);
-}
-function getCanonicalName(accountName, containerName, blobName) {
-    // Container: "/blob/account/containerName"
-    // Blob:      "/blob/account/containerName/blobName"
-    var elements = ["/blob/" + accountName + "/" + containerName];
-    if (blobName) {
-        elements.push("/" + blobName);
-    }
-    return elements.join("");
-}
-function SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues) {
-    var version = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
-    if (blobSASSignatureValues.snapshotTime && version < "2018-11-09") {
-        throw RangeError("'version' must be >= '2018-11-09' when providing 'snapshotTime'.");
-    }
-    if (blobSASSignatureValues.blobName === undefined && blobSASSignatureValues.snapshotTime) {
-        throw RangeError("Must provide 'blobName' when providing 'snapshotTime'.");
-    }
-    if (blobSASSignatureValues.versionId && version < "2019-10-10") {
-        throw RangeError("'version' must be >= '2019-10-10' when providing 'versionId'.");
-    }
-    if (blobSASSignatureValues.blobName === undefined && blobSASSignatureValues.versionId) {
-        throw RangeError("Must provide 'blobName' when providing 'versionId'.");
-    }
-    if (blobSASSignatureValues.permissions &&
-        blobSASSignatureValues.permissions.deleteVersion &&
-        version < "2019-10-10") {
-        throw RangeError("'version' must be >= '2019-10-10' when providing 'x' permission.");
-    }
-    if (blobSASSignatureValues.permissions &&
-        blobSASSignatureValues.permissions.tag &&
-        version < "2019-12-12") {
-        throw RangeError("'version' must be >= '2019-12-12' when providing 't' permission.");
-    }
-    if (version < "2020-02-10" &&
-        blobSASSignatureValues.permissions &&
-        (blobSASSignatureValues.permissions.move || blobSASSignatureValues.permissions.execute)) {
-        throw RangeError("'version' must be >= '2020-02-10' when providing the 'm' or 'e' permission.");
-    }
-    if (version < "2020-02-10" &&
-        (blobSASSignatureValues.preauthorizedAgentObjectId || blobSASSignatureValues.correlationId)) {
-        throw RangeError("'version' must be >= '2020-02-10' when providing 'preauthorizedAgentObjectId' or 'correlationId'.");
-    }
-    blobSASSignatureValues.version = version;
-    return blobSASSignatureValues;
-}
-
 /**
  * A BlobClient represents a URL to an Azure Storage blob; the blob may be a block blob,
  * append blob, or page blob.
- *
- * @export
- * @class BlobClient
  */
 var BlobClient = /** @class */ (function (_super) {
     tslib.__extends(BlobClient, _super);
@@ -41025,9 +41205,8 @@ var BlobClient = /** @class */ (function (_super) {
      * Creates a new BlobClient object identical to the source but with the specified snapshot timestamp.
      * Provide "" will remove the snapshot and return a Client to the base blob.
      *
-     * @param {string} snapshot The snapshot timestamp.
-     * @returns {BlobClient} A new BlobClient object identical to the source but with the specified snapshot timestamp
-     * @memberof BlobClient
+     * @param snapshot - The snapshot timestamp.
+     * @returns A new BlobClient object identical to the source but with the specified snapshot timestamp
      */
     BlobClient.prototype.withSnapshot = function (snapshot) {
         return new BlobClient(setURLParameter(this.url, URLConstants.Parameters.SNAPSHOT, snapshot.length === 0 ? undefined : snapshot), this.pipeline);
@@ -41036,9 +41215,8 @@ var BlobClient = /** @class */ (function (_super) {
      * Creates a new BlobClient object pointing to a version of this blob.
      * Provide "" will remove the versionId and return a Client to the base blob.
      *
-     * @param {string} versionId The versionId.
-     * @returns {BlobClient} A new BlobClient object pointing to the version of this blob.
-     * @memberof BlobClient
+     * @param versionId - The versionId.
+     * @returns A new BlobClient object pointing to the version of this blob.
      */
     BlobClient.prototype.withVersion = function (versionId) {
         return new BlobClient(setURLParameter(this.url, URLConstants.Parameters.VERSIONID, versionId.length === 0 ? undefined : versionId), this.pipeline);
@@ -41046,8 +41224,6 @@ var BlobClient = /** @class */ (function (_super) {
     /**
      * Creates a AppendBlobClient object.
      *
-     * @returns {AppendBlobClient}
-     * @memberof BlobClient
      */
     BlobClient.prototype.getAppendBlobClient = function () {
         return new AppendBlobClient(this.url, this.pipeline);
@@ -41055,8 +41231,6 @@ var BlobClient = /** @class */ (function (_super) {
     /**
      * Creates a BlockBlobClient object.
      *
-     * @returns {BlockBlobClient}
-     * @memberof BlobClient
      */
     BlobClient.prototype.getBlockBlobClient = function () {
         return new BlockBlobClient(this.url, this.pipeline);
@@ -41064,8 +41238,6 @@ var BlobClient = /** @class */ (function (_super) {
     /**
      * Creates a PageBlobClient object.
      *
-     * @returns {PageBlobClient}
-     * @memberof BlobClient
      */
     BlobClient.prototype.getPageBlobClient = function () {
         return new PageBlobClient(this.url, this.pipeline);
@@ -41079,11 +41251,10 @@ var BlobClient = /** @class */ (function (_super) {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob
      *
-     * @param {number} [offset] From which position of the blob to download, >= 0
-     * @param {number} [count] How much data to be downloaded, > 0. Will download to the end when undefined
-     * @param {BlobDownloadOptions} [options] Optional options to Blob Download operation.
-     * @returns {Promise<BlobDownloadResponseParsed>}
-     * @memberof BlobClient
+     * @param offset - From which position of the blob to download, greater than or equal to 0
+     * @param count - How much data to be downloaded, greater than 0. Will download to the end when undefined
+     * @param options - Optional options to Blob Download operation.
+     *
      *
      * Example usage (Node.js):
      *
@@ -41135,7 +41306,7 @@ var BlobClient = /** @class */ (function (_super) {
         if (offset === void 0) { offset = 0; }
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, res_1, wrappedRes, e_1;
+            var _b, span, updatedOptions, res_1, wrappedRes, e_1;
             var _this = this;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
@@ -41143,22 +41314,11 @@ var BlobClient = /** @class */ (function (_super) {
                         options.conditions = options.conditions || {};
                         options.conditions = options.conditions || {};
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        _b = createSpan("BlobClient-download", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-download", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.download({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                onDownloadProgress: coreHttp.isNode ? undefined : options.onProgress,
-                                range: offset === 0 && !count ? undefined : rangeToString({ offset: offset, count: count }),
-                                rangeGetContentMD5: options.rangeGetContentMD5,
-                                rangeGetContentCRC64: options.rangeGetContentCrc64,
-                                snapshot: options.snapshot,
-                                cpkInfo: options.customerProvidedKey,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.download(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), onDownloadProgress: coreHttp.isNode ? undefined : options.onProgress, range: offset === 0 && !count ? undefined : rangeToString({ offset: offset, count: count }), rangeGetContentMD5: options.rangeGetContentMD5, rangeGetContentCRC64: options.rangeGetContentCrc64, snapshot: options.snapshot, cpkInfo: options.customerProvidedKey }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         res_1 = _c.sent();
                         wrappedRes = tslib.__assign(tslib.__assign({}, res_1), { _response: res_1._response, objectReplicationDestinationPolicyId: res_1.objectReplicationPolicyId, objectReplicationSourceProperties: parseObjectReplicationRecord(res_1.objectReplicationRules) });
@@ -41238,18 +41398,16 @@ var BlobClient = /** @class */ (function (_super) {
      * applications. Vice versa new blobs might be added by other clients or applications after this
      * function completes.
      *
-     * @param {BlobExistsOptions} [options] options to Exists operation.
-     * @returns {Promise<boolean>}
-     * @memberof BlobClient
+     * @param options - options to Exists operation.
      */
     BlobClient.prototype.exists = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_2;
+            var _a, span, updatedOptions, e_2;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobClient-exists", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobClient-exists", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
@@ -41258,7 +41416,7 @@ var BlobClient = /** @class */ (function (_super) {
                                 abortSignal: options.abortSignal,
                                 customerProvidedKey: options.customerProvidedKey,
                                 conditions: options.conditions,
-                                tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions })
+                                tracingOptions: updatedOptions.tracingOptions
                             })];
                     case 2:
                         _b.sent();
@@ -41295,31 +41453,23 @@ var BlobClient = /** @class */ (function (_super) {
      * the methods of {@link ContainerClient} that list blobs using the `includeMetadata` option, which
      * will retain their original casing.
      *
-     * @param {BlobGetPropertiesOptions} [options] Optional options to Get Properties operation.
-     * @returns {Promise<BlobGetPropertiesResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to Get Properties operation.
      */
     BlobClient.prototype.getProperties = function (options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, res, e_3;
+            var _b, span, updatedOptions, res, e_3;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-getProperties", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-getProperties", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         options.conditions = options.conditions || {};
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blobContext.getProperties({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.getProperties(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         res = _c.sent();
                         return [2 /*return*/, tslib.__assign(tslib.__assign({}, res), { _response: res._response, objectReplicationDestinationPolicyId: res.objectReplicationPolicyId, objectReplicationSourceProperties: parseObjectReplicationRecord(res.objectReplicationRules) })];
@@ -41345,30 +41495,22 @@ var BlobClient = /** @class */ (function (_super) {
      * Blob operation.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-blob
      *
-     * @param {BlobDeleteOptions} [options] Optional options to Blob Delete operation.
-     * @returns {Promise<BlobDeleteResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to Blob Delete operation.
      */
     BlobClient.prototype.delete = function (options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_4;
+            var _b, span, updatedOptions, e_4;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-delete", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-delete", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.deleteMethod({
-                                abortSignal: options.abortSignal,
-                                deleteSnapshots: options.deleteSnapshots,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.deleteMethod(tslib.__assign({ abortSignal: options.abortSignal, deleteSnapshots: options.deleteSnapshots, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_4 = _c.sent();
@@ -41392,23 +41534,21 @@ var BlobClient = /** @class */ (function (_super) {
      * Blob operation.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-blob
      *
-     * @param {BlobDeleteOptions} [options] Optional options to Blob Delete operation.
-     * @returns {Promise<BlobDeleteIfExistsResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to Blob Delete operation.
      */
     BlobClient.prototype.deleteIfExists = function (options) {
         var _a, _b;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _c, span, spanOptions, res, e_5;
+            var _c, span, updatedOptions, res, e_5;
             return tslib.__generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
-                        _c = createSpan("BlobClient-deleteIfExists", options.tracingOptions), span = _c.span, spanOptions = _c.spanOptions;
+                        _c = createSpan("BlobClient-deleteIfExists", options), span = _c.span, updatedOptions = _c.updatedOptions;
                         _d.label = 1;
                     case 1:
                         _d.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.delete(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.delete(updatedOptions)];
                     case 2:
                         res = _d.sent();
                         return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
@@ -41441,25 +41581,20 @@ var BlobClient = /** @class */ (function (_super) {
      * or later.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/undelete-blob
      *
-     * @param {BlobUndeleteOptions} [options] Optional options to Blob Undelete operation.
-     * @returns {Promise<BlobUndeleteResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to Blob Undelete operation.
      */
     BlobClient.prototype.undelete = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_6;
+            var _a, span, updatedOptions, e_6;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobClient-undelete", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobClient-undelete", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.undelete({
-                                abortSignal: options.abortSignal,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.undelete(tslib.__assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_6 = _b.sent();
@@ -41483,35 +41618,26 @@ var BlobClient = /** @class */ (function (_super) {
      * these blob HTTP headers without a value will be cleared.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-blob-properties
      *
-     * @param {BlobHTTPHeaders} [blobHTTPHeaders] If no value provided, or no value provided for
+     * @param blobHTTPHeaders - If no value provided, or no value provided for
      *                                                   the specified blob HTTP headers, these blob HTTP
      *                                                   headers without a value will be cleared.
-     * @param {BlobSetHTTPHeadersOptions} [options] Optional options to Blob Set HTTP Headers operation.
-     * @returns {Promise<BlobSetHTTPHeadersResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to Blob Set HTTP Headers operation.
      */
     BlobClient.prototype.setHTTPHeaders = function (blobHTTPHeaders, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_7;
+            var _b, span, updatedOptions, e_7;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-setHTTPHeaders", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-setHTTPHeaders", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blobContext.setHTTPHeaders({
-                                abortSignal: options.abortSignal,
-                                blobHTTPHeaders: blobHTTPHeaders,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.setHTTPHeaders(tslib.__assign({ abortSignal: options.abortSignal, blobHTTPHeaders: blobHTTPHeaders, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_7 = _c.sent();
@@ -41535,35 +41661,25 @@ var BlobClient = /** @class */ (function (_super) {
      * metadata will be removed.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-blob-metadata
      *
-     * @param {Metadata} [metadata] Replace existing metadata with this value.
+     * @param metadata - Replace existing metadata with this value.
      *                               If no value provided the existing metadata will be removed.
-     * @param {BlobSetMetadataOptions} [options] Optional options to Set Metadata operation.
-     * @returns {Promise<BlobSetMetadataResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to Set Metadata operation.
      */
     BlobClient.prototype.setMetadata = function (metadata, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_8;
+            var _b, span, updatedOptions, e_8;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-setMetadata", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-setMetadata", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blobContext.setMetadata({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                metadata: metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.setMetadata(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, metadata: metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_8 = _c.sent();
@@ -41586,30 +41702,22 @@ var BlobClient = /** @class */ (function (_super) {
      * Valid tag key and value characters include lower and upper case letters, digits (0-9),
      * space (' '), plus ('+'), minus ('-'), period ('.'), foward slash ('/'), colon (':'), equals ('='), and underscore ('_').
      *
-     * @param {Tags} tags
-     * @param {BlobSetTagsOptions} [options={}]
-     * @returns {Promise<BlobSetTagsResponse>}
-     * @memberof BlobClient
+     * @param tags -
+     * @param options -
      */
     BlobClient.prototype.setTags = function (tags, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_9;
+            var _b, span, updatedOptions, e_9;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-setTags", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-setTags", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.setTags({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions,
-                                tags: toBlobTags(tags)
-                            })];
+                        return [4 /*yield*/, this.blobContext.setTags(tslib.__assign(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)), { tags: toBlobTags(tags) }))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_9 = _c.sent();
@@ -41629,28 +41737,21 @@ var BlobClient = /** @class */ (function (_super) {
     /**
      * Gets the tags associated with the underlying blob.
      *
-     * @param {BlobGetTagsOptions} [options={}]
-     * @returns {Promise<BlobGetTagsResponse>}
-     * @memberof BlobClient
+     * @param options -
      */
     BlobClient.prototype.getTags = function (options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, response, wrappedResponse, e_10;
+            var _b, span, updatedOptions, response, wrappedResponse, e_10;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-getTags", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-getTags", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.getTags({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.getTags(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         response = _c.sent();
                         wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, tags: toTags({ blobTagSet: response.blobTagSet }) || {} });
@@ -41673,9 +41774,8 @@ var BlobClient = /** @class */ (function (_super) {
     /**
      * Get a {@link BlobLeaseClient} that manages leases on the blob.
      *
-     * @param {string} [proposeLeaseId] Initial proposed lease Id.
-     * @returns {BlobLeaseClient} A new BlobLeaseClient object for managing leases on the blob.
-     * @memberof BlobClient
+     * @param proposeLeaseId - Initial proposed lease Id.
+     * @returns A new BlobLeaseClient object for managing leases on the blob.
      */
     BlobClient.prototype.getBlobLeaseClient = function (proposeLeaseId) {
         return new BlobLeaseClient(this, proposeLeaseId);
@@ -41684,33 +41784,23 @@ var BlobClient = /** @class */ (function (_super) {
      * Creates a read-only snapshot of a blob.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/snapshot-blob
      *
-     * @param {BlobCreateSnapshotOptions} [options] Optional options to the Blob Create Snapshot operation.
-     * @returns {Promise<BlobCreateSnapshotResponse>}
-     * @memberof BlobClient
+     * @param options - Optional options to the Blob Create Snapshot operation.
      */
     BlobClient.prototype.createSnapshot = function (options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_11;
+            var _b, span, updatedOptions, e_11;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-createSnapshot", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-createSnapshot", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blobContext.createSnapshot({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                metadata: options.metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.createSnapshot(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_11 = _c.sent();
@@ -41796,8 +41886,8 @@ var BlobClient = /** @class */ (function (_super) {
      * }
      * ```
      *
-     * @param {string} copySource url to the source Azure Blob/File.
-     * @param {BlobBeginCopyFromURLOptions} [options] Optional options to the Blob Start Copy From URL operation.
+     * @param copySource - url to the source Azure Blob/File.
+     * @param options - Optional options to the Blob Start Copy From URL operation.
      */
     BlobClient.prototype.beginCopyFromURL = function (copySource, options) {
         if (options === void 0) { options = {}; }
@@ -41855,27 +41945,21 @@ var BlobClient = /** @class */ (function (_super) {
      * length and full metadata. Version 2012-02-12 and newer.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/abort-copy-blob
      *
-     * @param {string} copyId Id of the Copy From URL operation.
-     * @param {BlobAbortCopyFromURLOptions} [options] Optional options to the Blob Abort Copy From URL operation.
-     * @returns {Promise<BlobAbortCopyFromURLResponse>}
-     * @memberof BlobClient
+     * @param copyId - Id of the Copy From URL operation.
+     * @param options - Optional options to the Blob Abort Copy From URL operation.
      */
     BlobClient.prototype.abortCopyFromURL = function (copyId, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_12;
+            var _a, span, updatedOptions, e_12;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobClient-abortCopyFromURL", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobClient-abortCopyFromURL", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.abortCopyFromURL(copyId, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.abortCopyFromURL(copyId, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_12 = _b.sent();
@@ -41897,40 +41981,29 @@ var BlobClient = /** @class */ (function (_super) {
      * return a response until the copy is complete.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/copy-blob-from-url
      *
-     * @param {string} copySource The source URL to copy from, Shared Access Signature(SAS) maybe needed for authentication
-     * @param {BlobSyncCopyFromURLOptions} [options={}]
-     * @returns {Promise<BlobCopyFromURLResponse>}
-     * @memberof BlobClient
+     * @param copySource - The source URL to copy from, Shared Access Signature(SAS) maybe needed for authentication
+     * @param options -
      */
     BlobClient.prototype.syncCopyFromURL = function (copySource, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_13;
+            var _b, span, updatedOptions, e_13;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-syncCopyFromURL", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-syncCopyFromURL", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         options.sourceConditions = options.sourceConditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.copyFromURL(copySource, {
-                                abortSignal: options.abortSignal,
-                                metadata: options.metadata,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                sourceModifiedAccessConditions: {
+                        return [4 /*yield*/, this.blobContext.copyFromURL(copySource, tslib.__assign({ abortSignal: options.abortSignal, metadata: options.metadata, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), sourceModifiedAccessConditions: {
                                     sourceIfMatch: options.sourceConditions.ifMatch,
                                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
                                     sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince
-                                },
-                                sourceContentMD5: options.sourceContentMD5,
-                                blobTagsString: toBlobTagsString(options.tags),
-                                spanOptions: spanOptions
-                            })];
+                                }, sourceContentMD5: options.sourceContentMD5, blobTagsString: toBlobTagsString(options.tags) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_13 = _c.sent();
@@ -41955,30 +42028,22 @@ var BlobClient = /** @class */ (function (_super) {
      * storage type. This operation does not update the blob's ETag.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-blob-tier
      *
-     * @param {BlockBlobTier | PremiumPageBlobTier | string} tier The tier to be set on the blob. Valid values are Hot, Cool, or Archive.
-     * @param {BlobSetTierOptions} [options] Optional options to the Blob Set Tier operation.
-     * @returns {Promise<BlobsSetTierResponse>}
-     * @memberof BlobClient
+     * @param tier - The tier to be set on the blob. Valid values are Hot, Cool, or Archive.
+     * @param options - Optional options to the Blob Set Tier operation.
      */
     BlobClient.prototype.setAccessTier = function (tier, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_14;
+            var _b, span, updatedOptions, e_14;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-setAccessTier", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-setAccessTier", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.setTier(toAccessTier(tier), {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                rehydratePriority: options.rehydratePriority,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blobContext.setTier(toAccessTier(tier), tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), rehydratePriority: options.rehydratePriority }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_14 = _c.sent();
@@ -41998,7 +42063,7 @@ var BlobClient = /** @class */ (function (_super) {
     BlobClient.prototype.downloadToBuffer = function (param1, param2, param3, param4) {
         if (param4 === void 0) { param4 = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var buffer, offset, count, options, _a, span, spanOptions, response, transferProgress_1, batch, _loop_1, off, e_15;
+            var buffer, offset, count, options, _a, span, updatedOptions, response, transferProgress_1, batch, _loop_1, off, e_15;
             var _this = this;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
@@ -42016,7 +42081,7 @@ var BlobClient = /** @class */ (function (_super) {
                             count = typeof param2 === "number" ? param2 : 0;
                             options = param3 || {};
                         }
-                        _a = createSpan("BlobClient-downloadToBuffer", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobClient-downloadToBuffer", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 5, 6, 7]);
@@ -42033,13 +42098,13 @@ var BlobClient = /** @class */ (function (_super) {
                             throw new RangeError("offset option must be >= 0");
                         }
                         if (count && count <= 0) {
-                            throw new RangeError("count option must be > 0");
+                            throw new RangeError("count option must be greater than 0");
                         }
                         if (!options.conditions) {
                             options.conditions = {};
                         }
                         if (!!count) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.getProperties(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.getProperties(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions)) }))];
                     case 2:
                         response = _b.sent();
                         count = response.contentLength - offset;
@@ -42077,7 +42142,7 @@ var BlobClient = /** @class */ (function (_super) {
                                                     conditions: options.conditions,
                                                     maxRetryRequests: options.maxRetryRequestsPerBlock,
                                                     customerProvidedKey: options.customerProvidedKey,
-                                                    tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions })
+                                                    tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions))
                                                 })];
                                         case 1:
                                             response = _a.sent();
@@ -42126,29 +42191,28 @@ var BlobClient = /** @class */ (function (_super) {
      * Fails if the the given file path already exits.
      * Offset and count are optional, pass 0 and undefined respectively to download the entire blob.
      *
-     * @param {string} filePath
-     * @param {number} [offset] From which position of the block blob to download.
-     * @param {number} [count] How much data to be downloaded. Will download to the end when passing undefined.
-     * @param {BlobDownloadOptions} [options] Options to Blob download options.
-     * @returns {Promise<BlobDownloadResponseParsed>} The response data for blob download operation,
+     * @param filePath -
+     * @param offset - From which position of the block blob to download.
+     * @param count - How much data to be downloaded. Will download to the end when passing undefined.
+     * @param options - Options to Blob download options.
+     * @returns The response data for blob download operation,
      *                                                 but with readableStreamBody set to undefined since its
      *                                                 content is already read and written into a local file
      *                                                 at the specified path.
-     * @memberof BlobClient
      */
     BlobClient.prototype.downloadToFile = function (filePath, offset, count, options) {
         if (offset === void 0) { offset = 0; }
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, response, e_16;
+            var _a, span, updatedOptions, response, e_16;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobClient-downloadToFile", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobClient-downloadToFile", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 5, 6, 7]);
-                        return [4 /*yield*/, this.download(offset, count, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.download(offset, count, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions)) }))];
                     case 2:
                         response = _b.sent();
                         if (!response.readableStreamBody) return [3 /*break*/, 4];
@@ -42234,43 +42298,30 @@ var BlobClient = /** @class */ (function (_super) {
      * operation to copy from another storage account.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/copy-blob
      *
-     * @param {string} copySource url to the source Azure Blob/File.
-     * @param {BlobStartCopyFromURLOptions} [options] Optional options to the Blob Start Copy From URL operation.
-     * @returns {Promise<BlobStartCopyFromURLResponse>}
-     * @memberof BlobClient
+     * @param copySource - url to the source Azure Blob/File.
+     * @param options - Optional options to the Blob Start Copy From URL operation.
      */
     BlobClient.prototype.startCopyFromURL = function (copySource, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_17;
+            var _b, span, updatedOptions, e_17;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlobClient-startCopyFromURL", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlobClient-startCopyFromURL", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         options.sourceConditions = options.sourceConditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blobContext.startCopyFromURL(copySource, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                metadata: options.metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                sourceModifiedAccessConditions: {
+                        return [4 /*yield*/, this.blobContext.startCopyFromURL(copySource, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), sourceModifiedAccessConditions: {
                                     sourceIfMatch: options.sourceConditions.ifMatch,
                                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
                                     sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince,
                                     sourceIfTags: options.sourceConditions.tagConditions
-                                },
-                                rehydratePriority: options.rehydratePriority,
-                                tier: toAccessTier(options.tier),
-                                blobTagsString: toBlobTagsString(options.tags),
-                                sealBlob: options.sealBlob,
-                                spanOptions: spanOptions
-                            })];
+                                }, rehydratePriority: options.rehydratePriority, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags), sealBlob: options.sealBlob }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_17 = _c.sent();
@@ -42295,9 +42346,8 @@ var BlobClient = /** @class */ (function (_super) {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas
      *
-     * @param {BlobGenerateSasUrlOptions} options Optional parameters.
-     * @returns {Promise<string>} The SAS URI consisting of the URI to the resource represented by this client, followed by the generated SAS token.
-     * @memberof BlobClient
+     * @param options - Optional parameters.
+     * @returns The SAS URI consisting of the URI to the resource represented by this client, followed by the generated SAS token.
      */
     BlobClient.prototype.generateSasUrl = function (options) {
         var _this = this;
@@ -42313,10 +42363,6 @@ var BlobClient = /** @class */ (function (_super) {
 }(StorageClient));
 /**
  * AppendBlobClient defines a set of operations applicable to append blobs.
- *
- * @export
- * @class AppendBlobClient
- * @extends {BlobClient}
  */
 var AppendBlobClient = /** @class */ (function (_super) {
     tslib.__extends(AppendBlobClient, _super);
@@ -42386,9 +42432,8 @@ var AppendBlobClient = /** @class */ (function (_super) {
      * specified snapshot timestamp.
      * Provide "" will remove the snapshot and return a Client to the base blob.
      *
-     * @param {string} snapshot The snapshot timestamp.
-     * @returns {AppendBlobClient} A new AppendBlobClient object identical to the source but with the specified snapshot timestamp.
-     * @memberof AppendBlobClient
+     * @param snapshot - The snapshot timestamp.
+     * @returns A new AppendBlobClient object identical to the source but with the specified snapshot timestamp.
      */
     AppendBlobClient.prototype.withSnapshot = function (snapshot) {
         return new AppendBlobClient(setURLParameter(this.url, URLConstants.Parameters.SNAPSHOT, snapshot.length === 0 ? undefined : snapshot), this.pipeline);
@@ -42397,9 +42442,8 @@ var AppendBlobClient = /** @class */ (function (_super) {
      * Creates a 0-length append blob. Call AppendBlock to append data to an append blob.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
      *
-     * @param {AppendBlobCreateOptions} [options] Options to the Append Block Create operation.
-     * @returns {Promise<AppendBlobCreateResponse>}
-     * @memberof AppendBlobClient
+     * @param options - Options to the Append Block Create operation.
+     *
      *
      * Example usage:
      *
@@ -42412,27 +42456,17 @@ var AppendBlobClient = /** @class */ (function (_super) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_18;
+            var _b, span, updatedOptions, e_18;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("AppendBlobClient-create", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("AppendBlobClient-create", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.appendBlobContext.create(0, {
-                                abortSignal: options.abortSignal,
-                                blobHTTPHeaders: options.blobHTTPHeaders,
-                                leaseAccessConditions: options.conditions,
-                                metadata: options.metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                blobTagsString: toBlobTagsString(options.tags),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.appendBlobContext.create(0, tslib.__assign({ abortSignal: options.abortSignal, blobHTTPHeaders: options.blobHTTPHeaders, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope, blobTagsString: toBlobTagsString(options.tags) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_18 = _c.sent();
@@ -42454,24 +42488,22 @@ var AppendBlobClient = /** @class */ (function (_super) {
      * If the blob with the same name already exists, the content of the existing blob will remain unchanged.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
      *
-     * @param {AppendBlobCreateIfNotExistsOptions} [options]
-     * @returns {Promise<AppendBlobCreateIfNotExistsResponse>}
-     * @memberof AppendBlobClient
+     * @param options -
      */
     AppendBlobClient.prototype.createIfNotExists = function (options) {
         var _a, _b;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _c, span, spanOptions, conditions, res, e_19;
+            var _c, span, updatedOptions, conditions, res, e_19;
             return tslib.__generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
-                        _c = createSpan("AppendBlobClient-createIfNotExists", options.tracingOptions), span = _c.span, spanOptions = _c.spanOptions;
+                        _c = createSpan("AppendBlobClient-createIfNotExists", options), span = _c.span, updatedOptions = _c.updatedOptions;
                         conditions = { ifNoneMatch: ETagAny };
                         _d.label = 1;
                     case 1:
                         _d.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.create(tslib.__assign(tslib.__assign({}, options), { conditions: conditions, tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.create(tslib.__assign(tslib.__assign({}, updatedOptions), { conditions: conditions }))];
                     case 2:
                         res = _d.sent();
                         return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
@@ -42501,30 +42533,22 @@ var AppendBlobClient = /** @class */ (function (_super) {
     /**
      * Seals the append blob, making it read only.
      *
-     * @param {AppendBlobSealOptions} [options={}]
-     * @returns {Promise<AppendBlobAppendBlockResponse>}
-     * @memberof AppendBlobClient
+     * @param options -
      */
     AppendBlobClient.prototype.seal = function (options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_20;
+            var _b, span, updatedOptions, e_20;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("AppendBlobClient-seal", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("AppendBlobClient-seal", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.appendBlobContext.seal({
-                                abortSignal: options.abortSignal,
-                                appendPositionAccessConditions: options.conditions,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.appendBlobContext.seal(tslib.__assign({ abortSignal: options.abortSignal, appendPositionAccessConditions: options.conditions, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_20 = _c.sent();
@@ -42545,11 +42569,10 @@ var AppendBlobClient = /** @class */ (function (_super) {
      * Commits a new block of data to the end of the existing append blob.
      * @see https://docs.microsoft.com/rest/api/storageservices/append-block
      *
-     * @param {HttpRequestBody} body Data to be appended.
-     * @param {number} contentLength Length of the body in bytes.
-     * @param {AppendBlobAppendBlockOptions} [options] Options to the Append Block operation.
-     * @returns {Promise<AppendBlobAppendBlockResponse>}
-     * @memberof AppendBlobClient
+     * @param body - Data to be appended.
+     * @param contentLength - Length of the body in bytes.
+     * @param options - Options to the Append Block operation.
+     *
      *
      * Example usage:
      *
@@ -42570,28 +42593,17 @@ var AppendBlobClient = /** @class */ (function (_super) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_21;
+            var _b, span, updatedOptions, e_21;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("AppendBlobClient-appendBlock", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("AppendBlobClient-appendBlock", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.appendBlobContext.appendBlock(body, contentLength, {
-                                abortSignal: options.abortSignal,
-                                appendPositionAccessConditions: options.conditions,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                onUploadProgress: options.onProgress,
-                                transactionalContentMD5: options.transactionalContentMD5,
-                                transactionalContentCrc64: options.transactionalContentCrc64,
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.appendBlobContext.appendBlock(body, contentLength, tslib.__assign({ abortSignal: options.abortSignal, appendPositionAccessConditions: options.conditions, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), onUploadProgress: options.onProgress, transactionalContentMD5: options.transactionalContentMD5, transactionalContentCrc64: options.transactionalContentCrc64, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_21 = _c.sent();
@@ -42613,50 +42625,36 @@ var AppendBlobClient = /** @class */ (function (_super) {
      * where the contents are read from a source url.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/append-block-from-url
      *
-     * @param {string} sourceURL
+     * @param sourceURL -
      *                 The url to the blob that will be the source of the copy. A source blob in the same storage account can
      *                 be authenticated via Shared Key. However, if the source is a blob in another account, the source blob
      *                 must either be public or must be authenticated via a shared access signature. If the source blob is
      *                 public, no authentication is required to perform the operation.
-     * @param {number} sourceOffset Offset in source to be appended
-     * @param {number} count Number of bytes to be appended as a block
-     * @param {AppendBlobAppendBlockFromURLOptions} [options={}]
-     * @returns {Promise<AppendBlobAppendBlockFromUrlResponse>}
-     * @memberof AppendBlobClient
+     * @param sourceOffset - Offset in source to be appended
+     * @param count - Number of bytes to be appended as a block
+     * @param options -
      */
     AppendBlobClient.prototype.appendBlockFromURL = function (sourceURL, sourceOffset, count, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_22;
+            var _b, span, updatedOptions, e_22;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("AppendBlobClient-appendBlockFromURL", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("AppendBlobClient-appendBlockFromURL", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         options.conditions = options.conditions || {};
                         options.sourceConditions = options.sourceConditions || {};
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.appendBlobContext.appendBlockFromUrl(sourceURL, 0, {
-                                abortSignal: options.abortSignal,
-                                sourceRange: rangeToString({ offset: sourceOffset, count: count }),
-                                sourceContentMD5: options.sourceContentMD5,
-                                sourceContentCrc64: options.sourceContentCrc64,
-                                leaseAccessConditions: options.conditions,
-                                appendPositionAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                sourceModifiedAccessConditions: {
+                        return [4 /*yield*/, this.appendBlobContext.appendBlockFromUrl(sourceURL, 0, tslib.__assign({ abortSignal: options.abortSignal, sourceRange: rangeToString({ offset: sourceOffset, count: count }), sourceContentMD5: options.sourceContentMD5, sourceContentCrc64: options.sourceContentCrc64, leaseAccessConditions: options.conditions, appendPositionAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), sourceModifiedAccessConditions: {
                                     sourceIfMatch: options.sourceConditions.ifMatch,
                                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
                                     sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince
-                                },
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                                }, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_22 = _c.sent();
@@ -42677,10 +42675,6 @@ var AppendBlobClient = /** @class */ (function (_super) {
 }(BlobClient));
 /**
  * BlockBlobClient defines a set of operations applicable to block blobs.
- *
- * @export
- * @class BlockBlobClient
- * @extends {BlobClient}
  */
 var BlockBlobClient = /** @class */ (function (_super) {
     tslib.__extends(BlockBlobClient, _super);
@@ -42751,9 +42745,8 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * specified snapshot timestamp.
      * Provide "" will remove the snapshot and return a URL to the base blob.
      *
-     * @param {string} snapshot The snapshot timestamp.
-     * @returns {BlockBlobClient} A new BlockBlobClient object identical to the source but with the specified snapshot timestamp.
-     * @memberof BlockBlobClient
+     * @param snapshot - The snapshot timestamp.
+     * @returns A new BlockBlobClient object identical to the source but with the specified snapshot timestamp.
      */
     BlockBlobClient.prototype.withSnapshot = function (snapshot) {
         return new BlockBlobClient(setURLParameter(this.url, URLConstants.Parameters.SNAPSHOT, snapshot.length === 0 ? undefined : snapshot), this.pipeline);
@@ -42785,35 +42778,27 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * }
      * ```
      *
-     * @param {string} query
-     * @param {BlockBlobQueryOptions} [options={}]
-     * @returns {Promise<BlobDownloadResponseModel>}
-     * @memberof BlockBlobClient
+     * @param query -
+     * @param options -
      */
     BlockBlobClient.prototype.query = function (query, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, response, e_23;
+            var _b, span, updatedOptions, response, e_23;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        _b = createSpan("BlockBlobClient-query", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlockBlobClient-query", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this._blobContext.query({
-                                abortSignal: options.abortSignal,
-                                queryRequest: {
+                        return [4 /*yield*/, this._blobContext.query(tslib.__assign({ abortSignal: options.abortSignal, queryRequest: {
                                     expression: query,
                                     inputSerialization: toQuerySerialization(options.inputTextConfiguration),
                                     outputSerialization: toQuerySerialization(options.outputTextConfiguration)
-                                },
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                                }, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         response = _c.sent();
                         return [2 /*return*/, new BlobQueryResponse(response, {
@@ -42849,13 +42834,12 @@ var BlockBlobClient = /** @class */ (function (_super) {
      *
      * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
      *
-     * @param {HttpRequestBody} body Blob, string, ArrayBuffer, ArrayBufferView or a function
+     * @param body - Blob, string, ArrayBuffer, ArrayBufferView or a function
      *                               which returns a new Readable stream whose offset is from data source beginning.
-     * @param {number} contentLength Length of body in bytes. Use Buffer.byteLength() to calculate body length for a
+     * @param contentLength - Length of body in bytes. Use Buffer.byteLength() to calculate body length for a
      *                               string including non non-Base64/Hex-encoded characters.
-     * @param {BlockBlobUploadOptions} [options] Options to the Block Blob Upload operation.
-     * @returns {Promise<BlockBlobUploadResponse>} Response data for the Block Blob Upload operation.
-     * @memberof BlockBlobClient
+     * @param options - Options to the Block Blob Upload operation.
+     * @returns Response data for the Block Blob Upload operation.
      *
      * Example usage:
      *
@@ -42868,29 +42852,17 @@ var BlockBlobClient = /** @class */ (function (_super) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_24;
+            var _b, span, updatedOptions, e_24;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("BlockBlobClient-upload", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlockBlobClient-upload", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blockBlobContext.upload(body, contentLength, {
-                                abortSignal: options.abortSignal,
-                                blobHTTPHeaders: options.blobHTTPHeaders,
-                                leaseAccessConditions: options.conditions,
-                                metadata: options.metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                onUploadProgress: options.onProgress,
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                tier: toAccessTier(options.tier),
-                                blobTagsString: toBlobTagsString(options.tags),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blockBlobContext.upload(body, contentLength, tslib.__assign({ abortSignal: options.abortSignal, blobHTTPHeaders: options.blobHTTPHeaders, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), onUploadProgress: options.onProgress, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_24 = _c.sent();
@@ -42914,7 +42886,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * the content of the new blob.  To perform partial updates to a block blob’s contents using a
      * source URL, use {@link stageBlockFromURL} and {@link commitBlockList}.
      *
-     * @param {string} sourceURL Specifies the URL of the blob. The value
+     * @param sourceURL - Specifies the URL of the blob. The value
      *                           may be a URL of up to 2 KB in length that specifies a blob.
      *                           The value should be URL-encoded as it would appear
      *                           in a request URI. The source blob must either be public
@@ -42923,31 +42895,29 @@ var BlockBlobClient = /** @class */ (function (_super) {
      *                           to perform the operation. Here are some examples of source object URLs:
      *                           - https://myaccount.blob.core.windows.net/mycontainer/myblob
      *                           - https://myaccount.blob.core.windows.net/mycontainer/myblob?snapshot=<DateTime>
-     * @param {BlockBlobSyncUploadFromURLOptions} [options={}] Optional parameters.
-     * @returns Promise<Models.BlockBlobPutBlobFromUrlResponse>
-     * @memberof BlockBlobClient
+     * @param options - Optional parameters.
      */
     BlockBlobClient.prototype.syncUploadFromURL = function (sourceURL, options) {
         var _a, _b, _c, _d, _e;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _f, span, spanOptions, e_25;
+            var _f, span, updatedOptions, e_25;
             return tslib.__generator(this, function (_g) {
                 switch (_g.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _f = createSpan("BlockBlobClient-syncUploadFromURL", options.tracingOptions), span = _f.span, spanOptions = _f.spanOptions;
+                        _f = createSpan("BlockBlobClient-syncUploadFromURL", options), span = _f.span, updatedOptions = _f.updatedOptions;
                         _g.label = 1;
                     case 1:
                         _g.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blockBlobContext.putBlobFromUrl(0, sourceURL, tslib.__assign(tslib.__assign({}, options), { leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: options.conditions.tagConditions }), sourceModifiedAccessConditions: {
+                        return [4 /*yield*/, this.blockBlobContext.putBlobFromUrl(0, sourceURL, tslib.__assign(tslib.__assign(tslib.__assign({}, options), { leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: options.conditions.tagConditions }), sourceModifiedAccessConditions: {
                                     sourceIfMatch: (_a = options.sourceConditions) === null || _a === void 0 ? void 0 : _a.ifMatch,
                                     sourceIfModifiedSince: (_b = options.sourceConditions) === null || _b === void 0 ? void 0 : _b.ifModifiedSince,
                                     sourceIfNoneMatch: (_c = options.sourceConditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch,
                                     sourceIfUnmodifiedSince: (_d = options.sourceConditions) === null || _d === void 0 ? void 0 : _d.ifUnmodifiedSince,
                                     sourceIfTags: (_e = options.sourceConditions) === null || _e === void 0 ? void 0 : _e.tagConditions
-                                }, cpkInfo: options.customerProvidedKey, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags), spanOptions: spanOptions }))];
+                                }, cpkInfo: options.customerProvidedKey, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags) }), convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _g.sent()];
                     case 3:
                         e_25 = _g.sent();
@@ -42969,35 +42939,25 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * committed by a call to commitBlockList.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-block
      *
-     * @param {string} blockId A 64-byte value that is base64-encoded
-     * @param {HttpRequestBody} body Data to upload to the staging area.
-     * @param {number} contentLength Number of bytes to upload.
-     * @param {BlockBlobStageBlockOptions} [options] Options to the Block Blob Stage Block operation.
-     * @returns {Promise<BlockBlobStageBlockResponse>} Response data for the Block Blob Stage Block operation.
-     * @memberof BlockBlobClient
+     * @param blockId - A 64-byte value that is base64-encoded
+     * @param body - Data to upload to the staging area.
+     * @param contentLength - Number of bytes to upload.
+     * @param options - Options to the Block Blob Stage Block operation.
+     * @returns Response data for the Block Blob Stage Block operation.
      */
     BlockBlobClient.prototype.stageBlock = function (blockId, body, contentLength, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_26;
+            var _a, span, updatedOptions, e_26;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlockBlobClient-stageBlock", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlockBlobClient-stageBlock", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blockBlobContext.stageBlock(blockId, contentLength, body, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                onUploadProgress: options.onProgress,
-                                transactionalContentMD5: options.transactionalContentMD5,
-                                transactionalContentCrc64: options.transactionalContentCrc64,
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blockBlobContext.stageBlock(blockId, contentLength, body, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, onUploadProgress: options.onProgress, transactionalContentMD5: options.transactionalContentMD5, transactionalContentCrc64: options.transactionalContentCrc64, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_26 = _b.sent();
@@ -43020,8 +42980,8 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * This API is available starting in version 2018-03-28.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-from-url
      *
-     * @param {string} blockId A 64-byte value that is base64-encoded
-     * @param {string} sourceURL Specifies the URL of the blob. The value
+     * @param blockId - A 64-byte value that is base64-encoded
+     * @param sourceURL - Specifies the URL of the blob. The value
      *                           may be a URL of up to 2 KB in length that specifies a blob.
      *                           The value should be URL-encoded as it would appear
      *                           in a request URI. The source blob must either be public
@@ -43030,35 +42990,25 @@ var BlockBlobClient = /** @class */ (function (_super) {
      *                           to perform the operation. Here are some examples of source object URLs:
      *                           - https://myaccount.blob.core.windows.net/mycontainer/myblob
      *                           - https://myaccount.blob.core.windows.net/mycontainer/myblob?snapshot=<DateTime>
-     * @param {number} [offset] From which position of the blob to download, >= 0
-     * @param {number} [count] How much data to be downloaded, > 0. Will download to the end when undefined
-     * @param {BlockBlobStageBlockFromURLOptions} [options={}] Options to the Block Blob Stage Block From URL operation.
-     * @returns {Promise<BlockBlobStageBlockFromURLResponse>} Response data for the Block Blob Stage Block From URL operation.
-     * @memberof BlockBlobClient
+     * @param offset - From which position of the blob to download, greater than or equal to 0
+     * @param count - How much data to be downloaded, greater than 0. Will download to the end when undefined
+     * @param options - Options to the Block Blob Stage Block From URL operation.
+     * @returns Response data for the Block Blob Stage Block From URL operation.
      */
     BlockBlobClient.prototype.stageBlockFromURL = function (blockId, sourceURL, offset, count, options) {
         if (offset === void 0) { offset = 0; }
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_27;
+            var _a, span, updatedOptions, e_27;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlockBlobClient-stageBlockFromURL", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlockBlobClient-stageBlockFromURL", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blockBlobContext.stageBlockFromURL(blockId, 0, sourceURL, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                sourceContentMD5: options.sourceContentMD5,
-                                sourceContentCrc64: options.sourceContentCrc64,
-                                sourceRange: offset === 0 && !count ? undefined : rangeToString({ offset: offset, count: count }),
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blockBlobContext.stageBlockFromURL(blockId, 0, sourceURL, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, sourceContentMD5: options.sourceContentMD5, sourceContentCrc64: options.sourceContentCrc64, sourceRange: offset === 0 && !count ? undefined : rangeToString({ offset: offset, count: count }), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_27 = _b.sent();
@@ -43083,37 +43033,25 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * blocks together. Any blocks not specified in the block list and permanently deleted.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-block-list
      *
-     * @param {string[]} blocks  Array of 64-byte value that is base64-encoded
-     * @param {BlockBlobCommitBlockListOptions} [options] Options to the Block Blob Commit Block List operation.
-     * @returns {Promise<BlockBlobCommitBlockListResponse>} Response data for the Block Blob Commit Block List operation.
-     * @memberof BlockBlobClient
+     * @param blocks -  Array of 64-byte value that is base64-encoded
+     * @param options - Options to the Block Blob Commit Block List operation.
+     * @returns Response data for the Block Blob Commit Block List operation.
      */
     BlockBlobClient.prototype.commitBlockList = function (blocks, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_28;
+            var _b, span, updatedOptions, e_28;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("BlockBlobClient-commitBlockList", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlockBlobClient-commitBlockList", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.blockBlobContext.commitBlockList({ latest: blocks }, {
-                                abortSignal: options.abortSignal,
-                                blobHTTPHeaders: options.blobHTTPHeaders,
-                                leaseAccessConditions: options.conditions,
-                                metadata: options.metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                tier: toAccessTier(options.tier),
-                                blobTagsString: toBlobTagsString(options.tags),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blockBlobContext.commitBlockList({ latest: blocks }, tslib.__assign({ abortSignal: options.abortSignal, blobHTTPHeaders: options.blobHTTPHeaders, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_28 = _c.sent();
@@ -43135,30 +43073,24 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * using the specified block list filter.
      * @see https://docs.microsoft.com/rest/api/storageservices/get-block-list
      *
-     * @param {BlockListType} listType Specifies whether to return the list of committed blocks,
+     * @param listType - Specifies whether to return the list of committed blocks,
      *                                        the list of uncommitted blocks, or both lists together.
-     * @param {BlockBlobGetBlockListOptions} [options] Options to the Block Blob Get Block List operation.
-     * @returns {Promise<BlockBlobGetBlockListResponse>} Response data for the Block Blob Get Block List operation.
-     * @memberof BlockBlobClient
+     * @param options - Options to the Block Blob Get Block List operation.
+     * @returns Response data for the Block Blob Get Block List operation.
      */
     BlockBlobClient.prototype.getBlockList = function (listType, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, res, e_29;
+            var _b, span, updatedOptions, res, e_29;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("BlockBlobClient-getBlockList", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("BlockBlobClient-getBlockList", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.blockBlobContext.getBlockList(listType, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.blockBlobContext.getBlockList(listType, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         res = _c.sent();
                         if (!res.committedBlocks) {
@@ -43192,18 +43124,15 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * Otherwise, this method will call {@link stageBlock} to upload blocks, and finally call {@link commitBlockList}
      * to commit the block list.
      *
-     * @export
-     * @param {Buffer | Blob | ArrayBuffer | ArrayBufferView} data Buffer(Node.js), Blob, ArrayBuffer or ArrayBufferView
-     * @param {BlockBlobParallelUploadOptions} [options]
-     * @returns {Promise<BlobUploadCommonResponse>}
-     * @memberof BlockBlobClient
+     * @param data - Buffer(Node.js), Blob, ArrayBuffer or ArrayBufferView
+     * @param options -
      */
     BlockBlobClient.prototype.uploadData = function (data, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, buffer_1, browserBlob_1;
+            var _a, span, updatedOptions, buffer_1, browserBlob_1;
             return tslib.__generator(this, function (_b) {
-                _a = createSpan("BlockBlobClient-uploadData", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                _a = createSpan("BlockBlobClient-uploadData", options), span = _a.span, updatedOptions = _a.updatedOptions;
                 try {
                     if (true) {
                         if (data instanceof Buffer) {
@@ -43216,7 +43145,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                             data = data;
                             buffer_1 = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
                         }
-                        return [2 /*return*/, this.uploadSeekableInternal(function (offset, size) { return buffer_1.slice(offset, offset + size); }, buffer_1.byteLength, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [2 /*return*/, this.uploadSeekableInternal(function (offset, size) { return buffer_1.slice(offset, offset + size); }, buffer_1.byteLength, updatedOptions)];
                     }
                     else {}
                 }
@@ -43239,31 +43168,29 @@ var BlockBlobClient = /** @class */ (function (_super) {
      *
      * Uploads a browser Blob/File/ArrayBuffer/ArrayBufferView object to block blob.
      *
-     * When buffer length <= 256MB, this method will use 1 upload call to finish the upload.
+     * When buffer length lesser than or equal to 256MB, this method will use 1 upload call to finish the upload.
      * Otherwise, this method will call {@link stageBlock} to upload blocks, and finally call
      * {@link commitBlockList} to commit the block list.
      *
      * @deprecated Use {@link uploadData} instead.
      *
-     * @export
-     * @param {Blob | ArrayBuffer | ArrayBufferView} browserData Blob, File, ArrayBuffer or ArrayBufferView
-     * @param {BlockBlobParallelUploadOptions} [options] Options to upload browser data.
-     * @returns {Promise<BlobUploadCommonResponse>} Response data for the Blob Upload operation.
-     * @memberof BlockBlobClient
+     * @param browserData - Blob, File, ArrayBuffer or ArrayBufferView
+     * @param options - Options to upload browser data.
+     * @returns Response data for the Blob Upload operation.
      */
     BlockBlobClient.prototype.uploadBrowserData = function (browserData, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, browserBlob_2, e_30;
+            var _a, span, updatedOptions, browserBlob_2, e_30;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlockBlobClient-uploadBrowserData", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlockBlobClient-uploadBrowserData", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         browserBlob_2 = new Blob([browserData]);
-                        return [4 /*yield*/, this.uploadSeekableInternal(function (offset, size) { return browserBlob_2.slice(offset, offset + size); }, browserBlob_2.size, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.uploadSeekableInternal(function (offset, size) { return browserBlob_2.slice(offset, offset + size); }, browserBlob_2.size, updatedOptions)];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_30 = _b.sent();
@@ -43290,16 +43217,15 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * Otherwise, this method will call {@link stageBlock} to upload blocks, and finally call {@link commitBlockList}
      * to commit the block list.
      *
-     * @param {(offset: number, size: number) => HttpRequestBody} bodyFactory
-     * @param {number} size size of the data to upload.
-     * @param {BlockBlobParallelUploadOptions} [options] Options to Upload to Block Blob operation.
-     * @returns {Promise<BlobUploadCommonResponse>} Response data for the Blob Upload operation.
-     * @memberof BlockBlobClient
+     * @param bodyFactory -
+     * @param size - size of the data to upload.
+     * @param options - Options to Upload to Block Blob operation.
+     * @returns Response data for the Blob Upload operation.
      */
     BlockBlobClient.prototype.uploadSeekableInternal = function (bodyFactory, size, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, numBlocks_1, blockList_1, blockIDPrefix_1, transferProgress_2, batch, _loop_2, i, e_31;
+            var _a, span, updatedOptions, numBlocks_1, blockList_1, blockIDPrefix_1, transferProgress_2, batch, _loop_2, i, e_31;
             var _this = this;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
@@ -43334,12 +43260,12 @@ var BlockBlobClient = /** @class */ (function (_super) {
                         if (!options.conditions) {
                             options.conditions = {};
                         }
-                        _a = createSpan("BlockBlobClient-uploadSeekableInternal", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlockBlobClient-uploadSeekableInternal", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 5, 6, 7]);
                         if (!(size <= options.maxSingleShotSize)) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.upload(bodyFactory(0, size), size, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.upload(bodyFactory(0, size), size, updatedOptions)];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         numBlocks_1 = Math.floor((size - 1) / options.blockSize) + 1;
@@ -43366,7 +43292,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                                                     abortSignal: options.abortSignal,
                                                     conditions: options.conditions,
                                                     encryptionScope: options.encryptionScope,
-                                                    tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions })
+                                                    tracingOptions: updatedOptions.tracingOptions
                                                 })];
                                         case 1:
                                             _a.sent();
@@ -43389,7 +43315,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                         return [4 /*yield*/, batch.do()];
                     case 4:
                         _b.sent();
-                        return [2 /*return*/, this.commitBlockList(blockList_1, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [2 /*return*/, this.commitBlockList(blockList_1, updatedOptions)];
                     case 5:
                         e_31 = _b.sent();
                         span.setStatus({
@@ -43410,23 +43336,22 @@ var BlockBlobClient = /** @class */ (function (_super) {
      *
      * Uploads a local file in blocks to a block blob.
      *
-     * When file size <= 256MB, this method will use 1 upload call to finish the upload.
+     * When file size lesser than or equal to 256MB, this method will use 1 upload call to finish the upload.
      * Otherwise, this method will call stageBlock to upload blocks, and finally call commitBlockList
      * to commit the block list.
      *
-     * @param {string} filePath Full path of local file
-     * @param {BlockBlobParallelUploadOptions} [options] Options to Upload to Block Blob operation.
-     * @returns {(Promise<BlobUploadCommonResponse>)}  Response data for the Blob Upload operation.
-     * @memberof BlockBlobClient
+     * @param filePath - Full path of local file
+     * @param options - Options to Upload to Block Blob operation.
+     * @returns Response data for the Blob Upload operation.
      */
     BlockBlobClient.prototype.uploadFile = function (filePath, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, size, e_32;
+            var _a, span, updatedOptions, size, e_32;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlockBlobClient-uploadFile", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlockBlobClient-uploadFile", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 4, 5, 6]);
@@ -43441,7 +43366,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                                         start: offset
                                     });
                                 };
-                            }, size, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                            }, size, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions)) }))];
                     case 3: return [2 /*return*/, _b.sent()];
                     case 4:
                         e_32 = _b.sent();
@@ -43467,20 +43392,19 @@ var BlockBlobClient = /** @class */ (function (_super) {
      * * Input stream highWaterMark is better to set a same value with bufferSize
      *    parameter, which will avoid Buffer.concat() operations.
      *
-     * @param {Readable} stream Node.js Readable stream
-     * @param {number} bufferSize Size of every buffer allocated, also the block size in the uploaded block blob. Default value is 8MB
-     * @param {number} maxConcurrency  Max concurrency indicates the max number of buffers that can be allocated,
+     * @param stream - Node.js Readable stream
+     * @param bufferSize - Size of every buffer allocated, also the block size in the uploaded block blob. Default value is 8MB
+     * @param maxConcurrency -  Max concurrency indicates the max number of buffers that can be allocated,
      *                                 positive correlation with max uploading concurrency. Default value is 5
-     * @param {BlockBlobUploadStreamOptions} [options] Options to Upload Stream to Block Blob operation.
-     * @returns {Promise<BlobUploadCommonResponse>} Response data for the Blob Upload operation.
-     * @memberof BlockBlobClient
+     * @param options - Options to Upload Stream to Block Blob operation.
+     * @returns Response data for the Blob Upload operation.
      */
     BlockBlobClient.prototype.uploadStream = function (stream, bufferSize, maxConcurrency, options) {
         if (bufferSize === void 0) { bufferSize = DEFAULT_BLOCK_BUFFER_SIZE_BYTES; }
         if (maxConcurrency === void 0) { maxConcurrency = 5; }
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, blockNum_1, blockIDPrefix_2, transferProgress_3, blockList_2, scheduler, e_33;
+            var _a, span, updatedOptions, blockNum_1, blockIDPrefix_2, transferProgress_3, blockList_2, scheduler, e_33;
             var _this = this;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
@@ -43491,7 +43415,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                         if (!options.conditions) {
                             options.conditions = {};
                         }
-                        _a = createSpan("BlockBlobClient-uploadStream", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlockBlobClient-uploadStream", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 4, 5, 6]);
@@ -43510,7 +43434,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                                         return [4 /*yield*/, this.stageBlock(blockID, body, length, {
                                                 conditions: options.conditions,
                                                 encryptionScope: options.encryptionScope,
-                                                tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions })
+                                                tracingOptions: updatedOptions.tracingOptions
                                             })];
                                     case 1:
                                         _a.sent();
@@ -43531,7 +43455,7 @@ var BlockBlobClient = /** @class */ (function (_super) {
                         return [4 /*yield*/, scheduler.do()];
                     case 2:
                         _b.sent();
-                        return [4 /*yield*/, this.commitBlockList(blockList_2, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.commitBlockList(blockList_2, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), convertTracingToRequestOptionsBase(updatedOptions)) }))];
                     case 3: return [2 /*return*/, _b.sent()];
                     case 4:
                         e_33 = _b.sent();
@@ -43552,10 +43476,6 @@ var BlockBlobClient = /** @class */ (function (_super) {
 }(BlobClient));
 /**
  * PageBlobClient defines a set of operations applicable to page blobs.
- *
- * @export
- * @class PageBlobClient
- * @extends {BlobClient}
  */
 var PageBlobClient = /** @class */ (function (_super) {
     tslib.__extends(PageBlobClient, _super);
@@ -43625,9 +43545,8 @@ var PageBlobClient = /** @class */ (function (_super) {
      * specified snapshot timestamp.
      * Provide "" will remove the snapshot and return a Client to the base blob.
      *
-     * @param {string} snapshot The snapshot timestamp.
-     * @returns {PageBlobClient} A new PageBlobClient object identical to the source but with the specified snapshot timestamp.
-     * @memberof PageBlobClient
+     * @param snapshot - The snapshot timestamp.
+     * @returns A new PageBlobClient object identical to the source but with the specified snapshot timestamp.
      */
     PageBlobClient.prototype.withSnapshot = function (snapshot) {
         return new PageBlobClient(setURLParameter(this.url, URLConstants.Parameters.SNAPSHOT, snapshot.length === 0 ? undefined : snapshot), this.pipeline);
@@ -43637,38 +43556,25 @@ var PageBlobClient = /** @class */ (function (_super) {
      * data to a page blob.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
      *
-     * @param {number} size size of the page blob.
-     * @param {PageBlobCreateOptions} [options] Options to the Page Blob Create operation.
-     * @returns {Promise<PageBlobCreateResponse>} Response data for the Page Blob Create operation.
-     * @memberof PageBlobClient
+     * @param size - size of the page blob.
+     * @param options - Options to the Page Blob Create operation.
+     * @returns Response data for the Page Blob Create operation.
      */
     PageBlobClient.prototype.create = function (size, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_34;
+            var _b, span, updatedOptions, e_34;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-create", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-create", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.pageBlobContext.create(0, size, {
-                                abortSignal: options.abortSignal,
-                                blobHTTPHeaders: options.blobHTTPHeaders,
-                                blobSequenceNumber: options.blobSequenceNumber,
-                                leaseAccessConditions: options.conditions,
-                                metadata: options.metadata,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                tier: toAccessTier(options.tier),
-                                blobTagsString: toBlobTagsString(options.tags),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.pageBlobContext.create(0, size, tslib.__assign({ abortSignal: options.abortSignal, blobHTTPHeaders: options.blobHTTPHeaders, blobSequenceNumber: options.blobSequenceNumber, leaseAccessConditions: options.conditions, metadata: options.metadata, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope, tier: toAccessTier(options.tier), blobTagsString: toBlobTagsString(options.tags) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_34 = _c.sent();
@@ -43691,25 +43597,23 @@ var PageBlobClient = /** @class */ (function (_super) {
      * of the existing blob will remain unchanged.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
      *
-     * @param {number} size size of the page blob.
-     * @param {PageBlobCreateIfNotExistsOptions} [options]
-     * @returns {Promise<PageBlobCreateIfNotExistsResponse>}
-     * @memberof PageBlobClient
+     * @param size - size of the page blob.
+     * @param options -
      */
     PageBlobClient.prototype.createIfNotExists = function (size, options) {
         var _a, _b;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _c, span, spanOptions, conditions, res, e_35;
+            var _c, span, updatedOptions, conditions, res, e_35;
             return tslib.__generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
-                        _c = createSpan("PageBlobClient-createIfNotExists", options.tracingOptions), span = _c.span, spanOptions = _c.spanOptions;
+                        _c = createSpan("PageBlobClient-createIfNotExists", options), span = _c.span, updatedOptions = _c.updatedOptions;
                         _d.label = 1;
                     case 1:
                         _d.trys.push([1, 3, 4, 5]);
                         conditions = { ifNoneMatch: ETagAny };
-                        return [4 /*yield*/, this.create(size, tslib.__assign(tslib.__assign({}, options), { conditions: conditions, tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, this.create(size, tslib.__assign(tslib.__assign({}, options), { conditions: conditions, tracingOptions: updatedOptions.tracingOptions }))];
                     case 2:
                         res = _d.sent();
                         return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
@@ -43740,40 +43644,27 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Writes 1 or more pages to the page blob. The start and end offsets must be a multiple of 512.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-page
      *
-     * @param {HttpRequestBody} body Data to upload
-     * @param {number} offset Offset of destination page blob
-     * @param {number} count Content length of the body, also number of bytes to be uploaded
-     * @param {PageBlobUploadPagesOptions} [options] Options to the Page Blob Upload Pages operation.
-     * @returns {Promise<PageBlobsUploadPagesResponse>} Response data for the Page Blob Upload Pages operation.
-     * @memberof PageBlobClient
+     * @param body - Data to upload
+     * @param offset - Offset of destination page blob
+     * @param count - Content length of the body, also number of bytes to be uploaded
+     * @param options - Options to the Page Blob Upload Pages operation.
+     * @returns Response data for the Page Blob Upload Pages operation.
      */
     PageBlobClient.prototype.uploadPages = function (body, offset, count, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_36;
+            var _b, span, updatedOptions, e_36;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-uploadPages", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-uploadPages", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.pageBlobContext.uploadPages(body, count, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                onUploadProgress: options.onProgress,
-                                range: rangeToString({ offset: offset, count: count }),
-                                sequenceNumberAccessConditions: options.conditions,
-                                transactionalContentMD5: options.transactionalContentMD5,
-                                transactionalContentCrc64: options.transactionalContentCrc64,
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.pageBlobContext.uploadPages(body, count, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), onUploadProgress: options.onProgress, range: rangeToString({ offset: offset, count: count }), sequenceNumberAccessConditions: options.conditions, transactionalContentMD5: options.transactionalContentMD5, transactionalContentCrc64: options.transactionalContentCrc64, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_36 = _c.sent();
@@ -43795,46 +43686,33 @@ var PageBlobClient = /** @class */ (function (_super) {
      * contents are read from a URL.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/put-page-from-url
      *
-     * @param {string} sourceURL Specify a URL to the copy source, Shared Access Signature(SAS) maybe needed for authentication
-     * @param {number} sourceOffset The source offset to copy from. Pass 0 to copy from the beginning of source page blob
-     * @param {number} destOffset Offset of destination page blob
-     * @param {number} count Number of bytes to be uploaded from source page blob
-     * @param {PageBlobUploadPagesFromURLOptions} [options={}]
-     * @returns {Promise<PageBlobUploadPagesFromURLResponse>}
-     * @memberof PageBlobClient
+     * @param sourceURL - Specify a URL to the copy source, Shared Access Signature(SAS) maybe needed for authentication
+     * @param sourceOffset - The source offset to copy from. Pass 0 to copy from the beginning of source page blob
+     * @param destOffset - Offset of destination page blob
+     * @param count - Number of bytes to be uploaded from source page blob
+     * @param options -
      */
     PageBlobClient.prototype.uploadPagesFromURL = function (sourceURL, sourceOffset, destOffset, count, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_37;
+            var _b, span, updatedOptions, e_37;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
                         options.sourceConditions = options.sourceConditions || {};
-                        _b = createSpan("PageBlobClient-uploadPagesFromURL", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-uploadPagesFromURL", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         ensureCpkIfSpecified(options.customerProvidedKey, this.isHttps);
-                        return [4 /*yield*/, this.pageBlobContext.uploadPagesFromURL(sourceURL, rangeToString({ offset: sourceOffset, count: count }), 0, rangeToString({ offset: destOffset, count: count }), {
-                                abortSignal: options.abortSignal,
-                                sourceContentMD5: options.sourceContentMD5,
-                                sourceContentCrc64: options.sourceContentCrc64,
-                                leaseAccessConditions: options.conditions,
-                                sequenceNumberAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                sourceModifiedAccessConditions: {
+                        return [4 /*yield*/, this.pageBlobContext.uploadPagesFromURL(sourceURL, rangeToString({ offset: sourceOffset, count: count }), 0, rangeToString({ offset: destOffset, count: count }), tslib.__assign({ abortSignal: options.abortSignal, sourceContentMD5: options.sourceContentMD5, sourceContentCrc64: options.sourceContentCrc64, leaseAccessConditions: options.conditions, sequenceNumberAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), sourceModifiedAccessConditions: {
                                     sourceIfMatch: options.sourceConditions.ifMatch,
                                     sourceIfModifiedSince: options.sourceConditions.ifModifiedSince,
                                     sourceIfNoneMatch: options.sourceConditions.ifNoneMatch,
                                     sourceIfUnmodifiedSince: options.sourceConditions.ifUnmodifiedSince
-                                },
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                                }, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_37 = _c.sent();
@@ -43855,36 +43733,26 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Frees the specified pages from the page blob.
      * @see https://docs.microsoft.com/rest/api/storageservices/put-page
      *
-     * @param {number} [offset] Starting byte position of the pages to clear.
-     * @param {number} [count] Number of bytes to clear.
-     * @param {PageBlobClearPagesOptions} [options] Options to the Page Blob Clear Pages operation.
-     * @returns {Promise<PageBlobClearPagesResponse>} Response data for the Page Blob Clear Pages operation.
-     * @memberof PageBlobClient
+     * @param offset - Starting byte position of the pages to clear.
+     * @param count - Number of bytes to clear.
+     * @param options - Options to the Page Blob Clear Pages operation.
+     * @returns Response data for the Page Blob Clear Pages operation.
      */
     PageBlobClient.prototype.clearPages = function (offset, count, options) {
         var _a;
         if (offset === void 0) { offset = 0; }
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_38;
+            var _b, span, updatedOptions, e_38;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-clearPages", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-clearPages", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.pageBlobContext.clearPages(0, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                range: rangeToString({ offset: offset, count: count }),
-                                sequenceNumberAccessConditions: options.conditions,
-                                cpkInfo: options.customerProvidedKey,
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.pageBlobContext.clearPages(0, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), range: rangeToString({ offset: offset, count: count }), sequenceNumberAccessConditions: options.conditions, cpkInfo: options.customerProvidedKey, encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_38 = _c.sent();
@@ -43905,34 +43773,27 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Returns the list of valid page ranges for a page blob or snapshot of a page blob.
      * @see https://docs.microsoft.com/rest/api/storageservices/get-page-ranges
      *
-     * @param {number} [offset] Starting byte position of the page ranges.
-     * @param {number} [count] Number of bytes to get.
-     * @param {PageBlobGetPageRangesOptions} [options] Options to the Page Blob Get Ranges operation.
-     * @returns {Promise<PageBlobGetPageRangesResponse>} Response data for the Page Blob Get Ranges operation.
-     * @memberof PageBlobClient
+     * @param offset - Starting byte position of the page ranges.
+     * @param count - Number of bytes to get.
+     * @param options - Options to the Page Blob Get Ranges operation.
+     * @returns Response data for the Page Blob Get Ranges operation.
      */
     PageBlobClient.prototype.getPageRanges = function (offset, count, options) {
         var _a;
         if (offset === void 0) { offset = 0; }
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_39;
+            var _b, span, updatedOptions, e_39;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-getPageRanges", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-getPageRanges", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         return [4 /*yield*/, this.pageBlobContext
-                                .getPageRanges({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                range: rangeToString({ offset: offset, count: count }),
-                                spanOptions: spanOptions
-                            })
+                                .getPageRanges(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), range: rangeToString({ offset: offset, count: count }) }, convertTracingToRequestOptionsBase(updatedOptions)))
                                 .then(rangeResponseFromModel)];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
@@ -43954,35 +43815,27 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Gets the collection of page ranges that differ between a specified snapshot and this page blob.
      * @see https://docs.microsoft.com/rest/api/storageservices/get-page-ranges
      *
-     * @param {number} offset Starting byte position of the page blob
-     * @param {number} count Number of bytes to get ranges diff.
-     * @param {string} prevSnapshot Timestamp of snapshot to retrieve the difference.
-     * @param {PageBlobGetPageRangesDiffOptions} [options] Options to the Page Blob Get Page Ranges Diff operation.
-     * @returns {Promise<PageBlobGetPageRangesDiffResponse>} Response data for the Page Blob Get Page Range Diff operation.
-     * @memberof PageBlobClient
+     * @param offset - Starting byte position of the page blob
+     * @param count - Number of bytes to get ranges diff.
+     * @param prevSnapshot - Timestamp of snapshot to retrieve the difference.
+     * @param options - Options to the Page Blob Get Page Ranges Diff operation.
+     * @returns Response data for the Page Blob Get Page Range Diff operation.
      */
     PageBlobClient.prototype.getPageRangesDiff = function (offset, count, prevSnapshot, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_40;
+            var _b, span, updatedOptions, e_40;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-getPageRangesDiff", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-getPageRangesDiff", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         return [4 /*yield*/, this.pageBlobContext
-                                .getPageRangesDiff({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                prevsnapshot: prevSnapshot,
-                                range: rangeToString({ offset: offset, count: count }),
-                                spanOptions: spanOptions
-                            })
+                                .getPageRangesDiff(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), prevsnapshot: prevSnapshot, range: rangeToString({ offset: offset, count: count }) }, convertTracingToRequestOptionsBase(updatedOptions)))
                                 .then(rangeResponseFromModel)];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
@@ -44004,35 +43857,27 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Gets the collection of page ranges that differ between a specified snapshot and this page blob for managed disks.
      * @see https://docs.microsoft.com/rest/api/storageservices/get-page-ranges
      *
-     * @param {number} offset Starting byte position of the page blob
-     * @param {number} count Number of bytes to get ranges diff.
-     * @param {string} prevSnapshotUrl URL of snapshot to retrieve the difference.
-     * @param {PageBlobGetPageRangesDiffOptions} [options] Options to the Page Blob Get Page Ranges Diff operation.
-     * @returns {Promise<PageBlobGetPageRangesDiffResponse>} Response data for the Page Blob Get Page Range Diff operation.
-     * @memberof PageBlobClient
+     * @param offset - Starting byte position of the page blob
+     * @param count - Number of bytes to get ranges diff.
+     * @param prevSnapshotUrl - URL of snapshot to retrieve the difference.
+     * @param options - Options to the Page Blob Get Page Ranges Diff operation.
+     * @returns Response data for the Page Blob Get Page Range Diff operation.
      */
     PageBlobClient.prototype.getPageRangesDiffForManagedDisks = function (offset, count, prevSnapshotUrl, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_41;
+            var _b, span, updatedOptions, e_41;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-GetPageRangesDiffForManagedDisks", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-GetPageRangesDiffForManagedDisks", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
                         return [4 /*yield*/, this.pageBlobContext
-                                .getPageRangesDiff({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                prevSnapshotUrl: prevSnapshotUrl,
-                                range: rangeToString({ offset: offset, count: count }),
-                                spanOptions: spanOptions
-                            })
+                                .getPageRangesDiff(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), prevSnapshotUrl: prevSnapshotUrl, range: rangeToString({ offset: offset, count: count }) }, convertTracingToRequestOptionsBase(updatedOptions)))
                                 .then(rangeResponseFromModel)];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
@@ -44054,31 +43899,24 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Resizes the page blob to the specified size (which must be a multiple of 512).
      * @see https://docs.microsoft.com/rest/api/storageservices/set-blob-properties
      *
-     * @param {number} size Target size
-     * @param {PageBlobResizeOptions} [options] Options to the Page Blob Resize operation.
-     * @returns {Promise<PageBlobResizeResponse>} Response data for the Page Blob Resize operation.
-     * @memberof PageBlobClient
+     * @param size - Target size
+     * @param options - Options to the Page Blob Resize operation.
+     * @returns Response data for the Page Blob Resize operation.
      */
     PageBlobClient.prototype.resize = function (size, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_42;
+            var _b, span, updatedOptions, e_42;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-resize", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-resize", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.pageBlobContext.resize(size, {
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                encryptionScope: options.encryptionScope,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.pageBlobContext.resize(size, tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }), encryptionScope: options.encryptionScope }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_42 = _c.sent();
@@ -44099,32 +43937,25 @@ var PageBlobClient = /** @class */ (function (_super) {
      * Sets a page blob's sequence number.
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-blob-properties
      *
-     * @param {SequenceNumberActionType} sequenceNumberAction Indicates how the service should modify the blob's sequence number.
-     * @param {number} [sequenceNumber] Required if sequenceNumberAction is max or update
-     * @param {PageBlobUpdateSequenceNumberOptions} [options] Options to the Page Blob Update Sequence Number operation.
-     * @returns {Promise<PageBlobUpdateSequenceNumberResponse>} Response data for the Page Blob Update Sequence Number operation.
-     * @memberof PageBlobClient
+     * @param sequenceNumberAction - Indicates how the service should modify the blob's sequence number.
+     * @param sequenceNumber - Required if sequenceNumberAction is max or update
+     * @param options - Options to the Page Blob Update Sequence Number operation.
+     * @returns Response data for the Page Blob Update Sequence Number operation.
      */
     PageBlobClient.prototype.updateSequenceNumber = function (sequenceNumberAction, sequenceNumber, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_43;
+            var _b, span, updatedOptions, e_43;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
                         options.conditions = options.conditions || {};
-                        _b = createSpan("PageBlobClient-updateSequenceNumber", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-updateSequenceNumber", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.pageBlobContext.updateSequenceNumber(sequenceNumberAction, {
-                                abortSignal: options.abortSignal,
-                                blobSequenceNumber: sequenceNumber,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.pageBlobContext.updateSequenceNumber(sequenceNumberAction, tslib.__assign({ abortSignal: options.abortSignal, blobSequenceNumber: sequenceNumber, leaseAccessConditions: options.conditions, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_43 = _c.sent();
@@ -44149,29 +43980,24 @@ var PageBlobClient = /** @class */ (function (_super) {
      * @see https://docs.microsoft.com/rest/api/storageservices/incremental-copy-blob
      * @see https://docs.microsoft.com/en-us/azure/virtual-machines/windows/incremental-snapshots
      *
-     * @param {string} copySource Specifies the name of the source page blob snapshot. For example,
+     * @param copySource - Specifies the name of the source page blob snapshot. For example,
      *                            https://myaccount.blob.core.windows.net/mycontainer/myblob?snapshot=<DateTime>
-     * @param {PageBlobStartCopyIncrementalOptions} [options] Options to the Page Blob Copy Incremental operation.
-     * @returns {Promise<PageBlobCopyIncrementalResponse>} Response data for the Page Blob Copy Incremental operation.
-     * @memberof PageBlobClient
+     * @param options - Options to the Page Blob Copy Incremental operation.
+     * @returns Response data for the Page Blob Copy Incremental operation.
      */
     PageBlobClient.prototype.startCopyIncremental = function (copySource, options) {
         var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _b, span, spanOptions, e_44;
+            var _b, span, updatedOptions, e_44;
             return tslib.__generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
-                        _b = createSpan("PageBlobClient-startCopyIncremental", options.tracingOptions), span = _b.span, spanOptions = _b.spanOptions;
+                        _b = createSpan("PageBlobClient-startCopyIncremental", options), span = _b.span, updatedOptions = _b.updatedOptions;
                         _c.label = 1;
                     case 1:
                         _c.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.pageBlobContext.copyIncremental(copySource, {
-                                abortSignal: options.abortSignal,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.pageBlobContext.copyIncremental(copySource, tslib.__assign({ abortSignal: options.abortSignal, modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions }) }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _c.sent()];
                     case 3:
                         e_44 = _c.sent();
@@ -44190,1680 +44016,8 @@ var PageBlobClient = /** @class */ (function (_super) {
     };
     return PageBlobClient;
 }(BlobClient));
-/**
- * A client that manages leases for a {@link ContainerClient} or a {@link BlobClient}.
- *
- * @export
- * @class BlobLeaseClient
- */
-var BlobLeaseClient = /** @class */ (function () {
-    /**
-     * Creates an instance of BlobLeaseClient.
-     * @param {(ContainerClient | BlobClient)} client The client to make the lease operation requests.
-     * @param {string} leaseId Initial proposed lease id.
-     * @memberof BlobLeaseClient
-     */
-    function BlobLeaseClient(client, leaseId) {
-        var clientContext = new StorageClientContext(client.url, client.pipeline.toServiceClientOptions());
-        this._url = client.url;
-        if (client instanceof ContainerClient) {
-            this._isContainer = true;
-            this._containerOrBlobOperation = new Container(clientContext);
-        }
-        else {
-            this._isContainer = false;
-            this._containerOrBlobOperation = new Blob$1(clientContext);
-        }
-        if (!leaseId) {
-            leaseId = coreHttp.generateUuid();
-        }
-        this._leaseId = leaseId;
-    }
-    Object.defineProperty(BlobLeaseClient.prototype, "leaseId", {
-        /**
-         * Gets the lease Id.
-         *
-         * @readonly
-         * @memberof BlobLeaseClient
-         * @type {string}
-         */
-        get: function () {
-            return this._leaseId;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(BlobLeaseClient.prototype, "url", {
-        /**
-         * Gets the url.
-         *
-         * @readonly
-         * @memberof BlobLeaseClient
-         * @type {string}
-         */
-        get: function () {
-            return this._url;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    /**
-     * Establishes and manages a lock on a container for delete operations, or on a blob
-     * for write and delete operations.
-     * The lock duration can be 15 to 60 seconds, or can be infinite.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
-     * and
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
-     *
-     * @param {number} duration Must be between 15 to 60 seconds, or infinite (-1)
-     * @param {LeaseOperationOptions} [options={}] option to configure lease management operations.
-     * @returns {Promise<LeaseOperationResponse>} Response data for acquire lease operation.
-     * @memberof BlobLeaseClient
-     */
-    BlobLeaseClient.prototype.acquireLease = function (duration, options) {
-        var _a, _b, _c, _d, _e, _f;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _g, span, spanOptions, e_45;
-            return tslib.__generator(this, function (_h) {
-                switch (_h.label) {
-                    case 0:
-                        _g = createSpan("BlobLeaseClient-acquireLease", options.tracingOptions), span = _g.span, spanOptions = _g.spanOptions;
-                        if (this._isContainer &&
-                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
-                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
-                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
-                        }
-                        _h.label = 1;
-                    case 1:
-                        _h.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this._containerOrBlobOperation.acquireLease({
-                                abortSignal: options.abortSignal,
-                                duration: duration,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }),
-                                proposedLeaseId: this._leaseId,
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _h.sent()];
-                    case 3:
-                        e_45 = _h.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_45.message
-                        });
-                        throw e_45;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * To change the ID of the lease.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
-     * and
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
-     *
-     * @param {string} proposedLeaseId the proposed new lease Id.
-     * @param {LeaseOperationOptions} [options={}] option to configure lease management operations.
-     * @returns {Promise<LeaseOperationResponse>} Response data for change lease operation.
-     * @memberof BlobLeaseClient
-     */
-    BlobLeaseClient.prototype.changeLease = function (proposedLeaseId, options) {
-        var _a, _b, _c, _d, _e, _f;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _g, span, spanOptions, response, e_46;
-            return tslib.__generator(this, function (_h) {
-                switch (_h.label) {
-                    case 0:
-                        _g = createSpan("BlobLeaseClient-changeLease", options.tracingOptions), span = _g.span, spanOptions = _g.spanOptions;
-                        if (this._isContainer &&
-                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
-                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
-                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
-                        }
-                        _h.label = 1;
-                    case 1:
-                        _h.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this._containerOrBlobOperation.changeLease(this._leaseId, proposedLeaseId, {
-                                abortSignal: options.abortSignal,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
-                    case 2:
-                        response = _h.sent();
-                        this._leaseId = proposedLeaseId;
-                        return [2 /*return*/, response];
-                    case 3:
-                        e_46 = _h.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_46.message
-                        });
-                        throw e_46;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * To free the lease if it is no longer needed so that another client may
-     * immediately acquire a lease against the container or the blob.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
-     * and
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
-     *
-     * @param {LeaseOperationOptions} [options={}] option to configure lease management operations.
-     * @returns {Promise<LeaseOperationResponse>} Response data for release lease operation.
-     * @memberof BlobLeaseClient
-     */
-    BlobLeaseClient.prototype.releaseLease = function (options) {
-        var _a, _b, _c, _d, _e, _f;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _g, span, spanOptions, e_47;
-            return tslib.__generator(this, function (_h) {
-                switch (_h.label) {
-                    case 0:
-                        _g = createSpan("BlobLeaseClient-releaseLease", options.tracingOptions), span = _g.span, spanOptions = _g.spanOptions;
-                        if (this._isContainer &&
-                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
-                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
-                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
-                        }
-                        _h.label = 1;
-                    case 1:
-                        _h.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this._containerOrBlobOperation.releaseLease(this._leaseId, {
-                                abortSignal: options.abortSignal,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _h.sent()];
-                    case 3:
-                        e_47 = _h.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_47.message
-                        });
-                        throw e_47;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * To renew the lease.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
-     * and
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
-     *
-     * @param {LeaseOperationOptions} [options={}] Optional option to configure lease management operations.
-     * @returns {Promise<LeaseOperationResponse>} Response data for renew lease operation.
-     * @memberof BlobLeaseClient
-     */
-    BlobLeaseClient.prototype.renewLease = function (options) {
-        var _a, _b, _c, _d, _e, _f;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _g, span, spanOptions, e_48;
-            return tslib.__generator(this, function (_h) {
-                switch (_h.label) {
-                    case 0:
-                        _g = createSpan("BlobLeaseClient-renewLease", options.tracingOptions), span = _g.span, spanOptions = _g.spanOptions;
-                        if (this._isContainer &&
-                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
-                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
-                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
-                        }
-                        _h.label = 1;
-                    case 1:
-                        _h.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this._containerOrBlobOperation.renewLease(this._leaseId, {
-                                abortSignal: options.abortSignal,
-                                modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }),
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _h.sent()];
-                    case 3:
-                        e_48 = _h.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_48.message
-                        });
-                        throw e_48;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * To end the lease but ensure that another client cannot acquire a new lease
-     * until the current lease period has expired.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-container
-     * and
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/lease-blob
-     *
-     * @static
-     * @param {number} breakPeriod Break period
-     * @param {LeaseOperationOptions} [options={}] Optional options to configure lease management operations.
-     * @returns {Promise<LeaseOperationResponse>} Response data for break lease operation.
-     * @memberof BlobLeaseClient
-     */
-    BlobLeaseClient.prototype.breakLease = function (breakPeriod, options) {
-        var _a, _b, _c, _d, _e, _f;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _g, span, spanOptions, operationOptions, e_49;
-            return tslib.__generator(this, function (_h) {
-                switch (_h.label) {
-                    case 0:
-                        _g = createSpan("BlobLeaseClient-breakLease", options.tracingOptions), span = _g.span, spanOptions = _g.spanOptions;
-                        if (this._isContainer &&
-                            ((((_a = options.conditions) === null || _a === void 0 ? void 0 : _a.ifMatch) && ((_b = options.conditions) === null || _b === void 0 ? void 0 : _b.ifMatch) !== ETagNone) ||
-                                (((_c = options.conditions) === null || _c === void 0 ? void 0 : _c.ifNoneMatch) && ((_d = options.conditions) === null || _d === void 0 ? void 0 : _d.ifNoneMatch) !== ETagNone) || ((_e = options.conditions) === null || _e === void 0 ? void 0 : _e.tagConditions))) {
-                            throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
-                        }
-                        _h.label = 1;
-                    case 1:
-                        _h.trys.push([1, 3, 4, 5]);
-                        operationOptions = {
-                            abortSignal: options.abortSignal,
-                            breakPeriod: breakPeriod,
-                            modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), { ifTags: (_f = options.conditions) === null || _f === void 0 ? void 0 : _f.tagConditions }),
-                            spanOptions: spanOptions
-                        };
-                        return [4 /*yield*/, this._containerOrBlobOperation.breakLease(operationOptions)];
-                    case 2: return [2 /*return*/, _h.sent()];
-                    case 3:
-                        e_49 = _h.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_49.message
-                        });
-                        throw e_49;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    return BlobLeaseClient;
-}());
-/**
- * A ContainerClient represents a URL to the Azure Storage container allowing you to manipulate its blobs.
- *
- * @export
- * @class ContainerClient
- */
-var ContainerClient = /** @class */ (function (_super) {
-    tslib.__extends(ContainerClient, _super);
-    function ContainerClient(urlOrConnectionString, credentialOrPipelineOrContainerName, options) {
-        var _this = this;
-        var pipeline;
-        var url;
-        options = options || {};
-        if (credentialOrPipelineOrContainerName instanceof Pipeline) {
-            // (url: string, pipeline: Pipeline)
-            url = urlOrConnectionString;
-            pipeline = credentialOrPipelineOrContainerName;
-        }
-        else if ((coreHttp.isNode && credentialOrPipelineOrContainerName instanceof StorageSharedKeyCredential) ||
-            credentialOrPipelineOrContainerName instanceof AnonymousCredential ||
-            coreHttp.isTokenCredential(credentialOrPipelineOrContainerName)) {
-            // (url: string, credential?: StorageSharedKeyCredential | AnonymousCredential | TokenCredential, options?: StoragePipelineOptions)
-            url = urlOrConnectionString;
-            pipeline = newPipeline(credentialOrPipelineOrContainerName, options);
-        }
-        else if (!credentialOrPipelineOrContainerName &&
-            typeof credentialOrPipelineOrContainerName !== "string") {
-            // (url: string, credential?: StorageSharedKeyCredential | AnonymousCredential | TokenCredential, options?: StoragePipelineOptions)
-            // The second parameter is undefined. Use anonymous credential.
-            url = urlOrConnectionString;
-            pipeline = newPipeline(new AnonymousCredential(), options);
-        }
-        else if (credentialOrPipelineOrContainerName &&
-            typeof credentialOrPipelineOrContainerName === "string") {
-            // (connectionString: string, containerName: string, blobName: string, options?: StoragePipelineOptions)
-            var containerName = credentialOrPipelineOrContainerName;
-            var extractedCreds = extractConnectionStringParts(urlOrConnectionString);
-            if (extractedCreds.kind === "AccountConnString") {
-                {
-                    var sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
-                    url = appendToURLPath(extractedCreds.url, encodeURIComponent(containerName));
-                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
-                    pipeline = newPipeline(sharedKeyCredential, options);
-                }
-            }
-            else if (extractedCreds.kind === "SASConnString") {
-                url =
-                    appendToURLPath(extractedCreds.url, encodeURIComponent(containerName)) +
-                        "?" +
-                        extractedCreds.accountSas;
-                pipeline = newPipeline(new AnonymousCredential(), options);
-            }
-            else {
-                throw new Error("Connection string must be either an Account connection string or a SAS connection string");
-            }
-        }
-        else {
-            throw new Error("Expecting non-empty strings for containerName parameter");
-        }
-        _this = _super.call(this, url, pipeline) || this;
-        _this._containerName = _this.getContainerNameFromUrl();
-        _this.containerContext = new Container(_this.storageClientContext);
-        return _this;
-    }
-    Object.defineProperty(ContainerClient.prototype, "containerName", {
-        /**
-         * The name of the container.
-         */
-        get: function () {
-            return this._containerName;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    /**
-     * Creates a new container under the specified account. If the container with
-     * the same name already exists, the operation fails.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-container
-     *
-     * @param {ContainerCreateOptions} [options] Options to Container Create operation.
-     * @returns {Promise<ContainerCreateResponse>}
-     * @memberof ContainerClient
-     *
-     * Example usage:
-     *
-     * ```js
-     * const containerClient = blobServiceClient.getContainerClient("<container name>");
-     * const createContainerResponse = await containerClient.create();
-     * console.log("Container was created successfully", createContainerResponse.requestId);
-     * ```
-     */
-    ContainerClient.prototype.create = function (options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_50;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _a = createSpan("ContainerClient-create", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.create(tslib.__assign(tslib.__assign({}, options), { spanOptions: spanOptions }))];
-                    case 2: 
-                    // Spread operator in destructuring assignments,
-                    // this will filter out unwanted properties from the response object into result object
-                    return [2 /*return*/, _b.sent()];
-                    case 3:
-                        e_50 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_50.message
-                        });
-                        throw e_50;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Creates a new container under the specified account. If the container with
-     * the same name already exists, it is not changed.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-container
-     *
-     * @param {ContainerCreateOptions} [options]
-     * @returns {Promise<ContainerCreateIfNotExistsResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.createIfNotExists = function (options) {
-        var _a, _b;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _c, span, spanOptions, res, e_51;
-            return tslib.__generator(this, function (_d) {
-                switch (_d.label) {
-                    case 0:
-                        _c = createSpan("ContainerClient-createIfNotExists", options.tracingOptions), span = _c.span, spanOptions = _c.spanOptions;
-                        _d.label = 1;
-                    case 1:
-                        _d.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.create(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
-                    case 2:
-                        res = _d.sent();
-                        return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-                             })];
-                    case 3:
-                        e_51 = _d.sent();
-                        if (((_a = e_51.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "ContainerAlreadyExists") {
-                            span.setStatus({
-                                code: api.CanonicalCode.ALREADY_EXISTS,
-                                message: "Expected exception when creating a container only if it does not already exist."
-                            });
-                            return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: false }, (_b = e_51.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e_51.response })];
-                        }
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_51.message
-                        });
-                        throw e_51;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Returns true if the Azure container resource represented by this client exists; false otherwise.
-     *
-     * NOTE: use this function with care since an existing container might be deleted by other clients or
-     * applications. Vice versa new containers with the same name might be added by other clients or
-     * applications after this function completes.
-     *
-     * @param {ContainerExistsOptions} [options={}]
-     * @returns {Promise<boolean>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.exists = function (options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_52;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _a = createSpan("ContainerClient-exists", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.getProperties({
-                                abortSignal: options.abortSignal,
-                                tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions })
-                            })];
-                    case 2:
-                        _b.sent();
-                        return [2 /*return*/, true];
-                    case 3:
-                        e_52 = _b.sent();
-                        if (e_52.statusCode === 404) {
-                            span.setStatus({
-                                code: api.CanonicalCode.NOT_FOUND,
-                                message: "Expected exception when checking container existence"
-                            });
-                            return [2 /*return*/, false];
-                        }
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_52.message
-                        });
-                        throw e_52;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Creates a {@link BlobClient}
-     *
-     * @param {string} blobName A blob name
-     * @returns {BlobClient} A new BlobClient object for the given blob name.
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.getBlobClient = function (blobName) {
-        return new BlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
-    };
-    /**
-     * Creates an {@link AppendBlobClient}
-     *
-     * @param {string} blobName An append blob name
-     * @returns {AppendBlobClient}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.getAppendBlobClient = function (blobName) {
-        return new AppendBlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
-    };
-    /**
-     * Creates a {@link BlockBlobClient}
-     *
-     * @param {string} blobName A block blob name
-     * @returns {BlockBlobClient}
-     * @memberof ContainerClient
-     *
-     * Example usage:
-     *
-     * ```js
-     * const content = "Hello world!";
-     *
-     * const blockBlobClient = containerClient.getBlockBlobClient("<blob name>");
-     * const uploadBlobResponse = await blockBlobClient.upload(content, content.length);
-     * ```
-     */
-    ContainerClient.prototype.getBlockBlobClient = function (blobName) {
-        return new BlockBlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
-    };
-    /**
-     * Creates a {@link PageBlobClient}
-     *
-     * @param {string} blobName A page blob name
-     * @returns {PageBlobClient}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.getPageBlobClient = function (blobName) {
-        return new PageBlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
-    };
-    /**
-     * Returns all user-defined metadata and system properties for the specified
-     * container. The data returned does not include the container's list of blobs.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-properties
-     *
-     * WARNING: The `metadata` object returned in the response will have its keys in lowercase, even if
-     * they originally contained uppercase characters. This differs from the metadata keys returned by
-     * the `listContainers` method of {@link BlobServiceClient} using the `includeMetadata` option, which
-     * will retain their original casing.
-     *
-     * @param {ContainerGetPropertiesOptions} [options] Options to Container Get Properties operation.
-     * @returns {Promise<ContainerGetPropertiesResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.getProperties = function (options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_53;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        if (!options.conditions) {
-                            options.conditions = {};
-                        }
-                        _a = createSpan("ContainerClient-getProperties", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.getProperties(tslib.__assign(tslib.__assign({ abortSignal: options.abortSignal }, options.conditions), { spanOptions: spanOptions }))];
-                    case 2: return [2 /*return*/, _b.sent()];
-                    case 3:
-                        e_53 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_53.message
-                        });
-                        throw e_53;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Marks the specified container for deletion. The container and any blobs
-     * contained within it are later deleted during garbage collection.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-container
-     *
-     * @param {ContainerDeleteMethodOptions} [options] Options to Container Delete operation.
-     * @returns {Promise<ContainerDeleteResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.delete = function (options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_54;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        if (!options.conditions) {
-                            options.conditions = {};
-                        }
-                        _a = createSpan("ContainerClient-delete", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.deleteMethod({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: options.conditions,
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _b.sent()];
-                    case 3:
-                        e_54 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_54.message
-                        });
-                        throw e_54;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Marks the specified container for deletion if it exists. The container and any blobs
-     * contained within it are later deleted during garbage collection.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-container
-     *
-     * @param {ContainerDeleteMethodOptions} [options] Options to Container Delete operation.
-     * @returns {Promise<ContainerDeleteIfExistsResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.deleteIfExists = function (options) {
-        var _a, _b;
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _c, span, spanOptions, res, e_55;
-            return tslib.__generator(this, function (_d) {
-                switch (_d.label) {
-                    case 0:
-                        _c = createSpan("ContainerClient-deleteIfExists", options.tracingOptions), span = _c.span, spanOptions = _c.spanOptions;
-                        _d.label = 1;
-                    case 1:
-                        _d.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.delete(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
-                    case 2:
-                        res = _d.sent();
-                        return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
-                             })];
-                    case 3:
-                        e_55 = _d.sent();
-                        if (((_a = e_55.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "ContainerNotFound") {
-                            span.setStatus({
-                                code: api.CanonicalCode.NOT_FOUND,
-                                message: "Expected exception when deleting a container only if it exists."
-                            });
-                            return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: false }, (_b = e_55.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e_55.response })];
-                        }
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_55.message
-                        });
-                        throw e_55;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Sets one or more user-defined name-value pairs for the specified container.
-     *
-     * If no option provided, or no metadata defined in the parameter, the container
-     * metadata will be removed.
-     *
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-container-metadata
-     *
-     * @param {Metadata} [metadata] Replace existing metadata with this value.
-     *                            If no value provided the existing metadata will be removed.
-     * @param {ContainerSetMetadataOptions} [options] Options to Container Set Metadata operation.
-     * @returns {Promise<ContainerSetMetadataResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.setMetadata = function (metadata, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_56;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        if (!options.conditions) {
-                            options.conditions = {};
-                        }
-                        if (options.conditions.ifUnmodifiedSince) {
-                            throw new RangeError("the IfUnmodifiedSince must have their default values because they are ignored by the blob service");
-                        }
-                        _a = createSpan("ContainerClient-setMetadata", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.setMetadata({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                metadata: metadata,
-                                modifiedAccessConditions: options.conditions,
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _b.sent()];
-                    case 3:
-                        e_56 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_56.message
-                        });
-                        throw e_56;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Gets the permissions for the specified container. The permissions indicate
-     * whether container data may be accessed publicly.
-     *
-     * WARNING: JavaScript Date will potentially lose precision when parsing startsOn and expiresOn strings.
-     * For example, new Date("2018-12-31T03:44:23.8827891Z").toISOString() will get "2018-12-31T03:44:23.882Z".
-     *
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-acl
-     *
-     * @param {ContainerGetAccessPolicyOptions} [options] Options to Container Get Access Policy operation.
-     * @returns {Promise<ContainerGetAccessPolicyResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.getAccessPolicy = function (options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, response, res, _i, response_1, identifier, accessPolicy, e_57;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        if (!options.conditions) {
-                            options.conditions = {};
-                        }
-                        _a = createSpan("ContainerClient-getAccessPolicy", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.getAccessPolicy({
-                                abortSignal: options.abortSignal,
-                                leaseAccessConditions: options.conditions,
-                                spanOptions: spanOptions
-                            })];
-                    case 2:
-                        response = _b.sent();
-                        res = {
-                            _response: response._response,
-                            blobPublicAccess: response.blobPublicAccess,
-                            date: response.date,
-                            etag: response.etag,
-                            errorCode: response.errorCode,
-                            lastModified: response.lastModified,
-                            requestId: response.requestId,
-                            clientRequestId: response.clientRequestId,
-                            signedIdentifiers: [],
-                            version: response.version
-                        };
-                        for (_i = 0, response_1 = response; _i < response_1.length; _i++) {
-                            identifier = response_1[_i];
-                            accessPolicy = undefined;
-                            if (identifier.accessPolicy) {
-                                accessPolicy = {
-                                    permissions: identifier.accessPolicy.permissions
-                                };
-                                if (identifier.accessPolicy.expiresOn) {
-                                    accessPolicy.expiresOn = new Date(identifier.accessPolicy.expiresOn);
-                                }
-                                if (identifier.accessPolicy.startsOn) {
-                                    accessPolicy.startsOn = new Date(identifier.accessPolicy.startsOn);
-                                }
-                            }
-                            res.signedIdentifiers.push({
-                                accessPolicy: accessPolicy,
-                                id: identifier.id
-                            });
-                        }
-                        return [2 /*return*/, res];
-                    case 3:
-                        e_57 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_57.message
-                        });
-                        throw e_57;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Sets the permissions for the specified container. The permissions indicate
-     * whether blobs in a container may be accessed publicly.
-     *
-     * When you set permissions for a container, the existing permissions are replaced.
-     * If no access or containerAcl provided, the existing container ACL will be
-     * removed.
-     *
-     * When you establish a stored access policy on a container, it may take up to 30 seconds to take effect.
-     * During this interval, a shared access signature that is associated with the stored access policy will
-     * fail with status code 403 (Forbidden), until the access policy becomes active.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-container-acl
-     *
-     * @param {PublicAccessType} [access] The level of public access to data in the container.
-     * @param {SignedIdentifier[]} [containerAcl] Array of elements each having a unique Id and details of the access policy.
-     * @param {ContainerSetAccessPolicyOptions} [options] Options to Container Set Access Policy operation.
-     * @returns {Promise<ContainerSetAccessPolicyResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.setAccessPolicy = function (access, containerAcl, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, acl, _i, _b, identifier, e_58;
-            return tslib.__generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        options.conditions = options.conditions || {};
-                        _a = createSpan("ContainerClient-setAccessPolicy", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _c.label = 1;
-                    case 1:
-                        _c.trys.push([1, 3, 4, 5]);
-                        acl = [];
-                        for (_i = 0, _b = containerAcl || []; _i < _b.length; _i++) {
-                            identifier = _b[_i];
-                            acl.push({
-                                accessPolicy: {
-                                    expiresOn: identifier.accessPolicy.expiresOn
-                                        ? truncatedISO8061Date(identifier.accessPolicy.expiresOn)
-                                        : "",
-                                    permissions: identifier.accessPolicy.permissions,
-                                    startsOn: identifier.accessPolicy.startsOn
-                                        ? truncatedISO8061Date(identifier.accessPolicy.startsOn)
-                                        : ""
-                                },
-                                id: identifier.id
-                            });
-                        }
-                        return [4 /*yield*/, this.containerContext.setAccessPolicy({
-                                abortSignal: options.abortSignal,
-                                access: access,
-                                containerAcl: acl,
-                                leaseAccessConditions: options.conditions,
-                                modifiedAccessConditions: options.conditions,
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _c.sent()];
-                    case 3:
-                        e_58 = _c.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_58.message
-                        });
-                        throw e_58;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Get a {@link BlobLeaseClient} that manages leases on the container.
-     *
-     * @param {string} [proposeLeaseId] Initial proposed lease Id.
-     * @returns {BlobLeaseClient} A new BlobLeaseClient object for managing leases on the container.
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.getBlobLeaseClient = function (proposeLeaseId) {
-        return new BlobLeaseClient(this, proposeLeaseId);
-    };
-    /**
-     * Creates a new block blob, or updates the content of an existing block blob.
-     *
-     * Updating an existing block blob overwrites any existing metadata on the blob.
-     * Partial updates are not supported; the content of the existing blob is
-     * overwritten with the new content. To perform a partial update of a block blob's,
-     * use {@link BlockBlobClient.stageBlock} and {@link BlockBlobClient.commitBlockList}.
-     *
-     * This is a non-parallel uploading method, please use {@link BlockBlobClient.uploadFile},
-     * {@link BlockBlobClient.uploadStream} or {@link BlockBlobClient.uploadBrowserData} for better
-     * performance with concurrency uploading.
-     *
-     * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
-     *
-     * @param {string} blobName Name of the block blob to create or update.
-     * @param {HttpRequestBody} body Blob, string, ArrayBuffer, ArrayBufferView or a function
-     *                               which returns a new Readable stream whose offset is from data source beginning.
-     * @param {number} contentLength Length of body in bytes. Use Buffer.byteLength() to calculate body length for a
-     *                               string including non non-Base64/Hex-encoded characters.
-     * @param {BlockBlobUploadOptions} [options] Options to configure the Block Blob Upload operation.
-     * @returns {Promise<{ blockBlobClient: BlockBlobClient; response: BlockBlobUploadResponse }>} Block Blob upload response data and the corresponding BlockBlobClient instance.
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.uploadBlockBlob = function (blobName, body, contentLength, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, blockBlobClient, response, e_59;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _a = createSpan("ContainerClient-uploadBlockBlob", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        blockBlobClient = this.getBlockBlobClient(blobName);
-                        return [4 /*yield*/, blockBlobClient.upload(body, contentLength, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
-                    case 2:
-                        response = _b.sent();
-                        return [2 /*return*/, {
-                                blockBlobClient: blockBlobClient,
-                                response: response
-                            }];
-                    case 3:
-                        e_59 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_59.message
-                        });
-                        throw e_59;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Marks the specified blob or snapshot for deletion. The blob is later deleted
-     * during garbage collection. Note that in order to delete a blob, you must delete
-     * all of its snapshots. You can delete both at the same time with the Delete
-     * Blob operation.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-blob
-     *
-     * @param {string} blobName
-     * @param {ContainerDeleteBlobOptions} [options] Options to Blob Delete operation.
-     * @returns {Promise<BlobDeleteResponse>} Block blob deletion response data.
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.deleteBlob = function (blobName, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, blobClient, e_60;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _a = createSpan("ContainerClient-deleteBlob", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        blobClient = this.getBlobClient(blobName);
-                        if (options.versionId) {
-                            blobClient = blobClient.withVersion(options.versionId);
-                        }
-                        return [4 /*yield*/, blobClient.delete(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
-                    case 2: return [2 /*return*/, _b.sent()];
-                    case 3:
-                        e_60 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_60.message
-                        });
-                        throw e_60;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * listBlobFlatSegment returns a single segment of blobs starting from the
-     * specified Marker. Use an empty Marker to start enumeration from the beginning.
-     * After getting a segment, process it, and then call listBlobsFlatSegment again
-     * (passing the the previously-returned Marker) to get the next segment.
-     * @see https://docs.microsoft.com/rest/api/storageservices/list-blobs
-     *
-     * @param {string} [marker] A string value that identifies the portion of the list to be returned with the next list operation.
-     * @param {ContainerListBlobsSegmentOptions} [options] Options to Container List Blob Flat Segment operation.
-     * @returns {Promise<ContainerListBlobFlatSegmentResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listBlobFlatSegment = function (marker, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, response, wrappedResponse, e_61;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _a = createSpan("ContainerClient-listBlobFlatSegment", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.listBlobFlatSegment(tslib.__assign(tslib.__assign({ marker: marker }, options), { spanOptions: spanOptions }))];
-                    case 2:
-                        response = _b.sent();
-                        wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, segment: tslib.__assign(tslib.__assign({}, response.segment), { blobItems: response.segment.blobItems.map(function (blobItemInteral) {
-                                    var blobItem = tslib.__assign(tslib.__assign({}, blobItemInteral), { tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
-                                    return blobItem;
-                                }) }) });
-                        return [2 /*return*/, wrappedResponse];
-                    case 3:
-                        e_61 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_61.message
-                        });
-                        throw e_61;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * listBlobHierarchySegment returns a single segment of blobs starting from
-     * the specified Marker. Use an empty Marker to start enumeration from the
-     * beginning. After getting a segment, process it, and then call listBlobsHierarchicalSegment
-     * again (passing the the previously-returned Marker) to get the next segment.
-     * @see https://docs.microsoft.com/rest/api/storageservices/list-blobs
-     *
-     * @param {string} delimiter The character or string used to define the virtual hierarchy
-     * @param {string} [marker] A string value that identifies the portion of the list to be returned with the next list operation.
-     * @param {ContainerListBlobsSegmentOptions} [options] Options to Container List Blob Hierarchy Segment operation.
-     * @returns {Promise<ContainerListBlobHierarchySegmentResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listBlobHierarchySegment = function (delimiter, marker, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, response, wrappedResponse, e_62;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _a = createSpan("ContainerClient-listBlobHierarchySegment", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
-                    case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.containerContext.listBlobHierarchySegment(delimiter, tslib.__assign(tslib.__assign({ marker: marker }, options), { spanOptions: spanOptions }))];
-                    case 2:
-                        response = _b.sent();
-                        wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, segment: tslib.__assign(tslib.__assign({}, response.segment), { blobItems: response.segment.blobItems.map(function (blobItemInteral) {
-                                    var blobItem = tslib.__assign(tslib.__assign({}, blobItemInteral), { tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
-                                    return blobItem;
-                                }) }) });
-                        return [2 /*return*/, wrappedResponse];
-                    case 3:
-                        e_62 = _b.sent();
-                        span.setStatus({
-                            code: api.CanonicalCode.UNKNOWN,
-                            message: e_62.message
-                        });
-                        throw e_62;
-                    case 4:
-                        span.end();
-                        return [7 /*endfinally*/];
-                    case 5: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Returns an AsyncIterableIterator for ContainerListBlobFlatSegmentResponse
-     *
-     * @private
-     * @param {string} [marker] A string value that identifies the portion of
-     *                          the list of blobs to be returned with the next listing operation. The
-     *                          operation returns the ContinuationToken value within the response body if the
-     *                          listing operation did not return all blobs remaining to be listed
-     *                          with the current page. The ContinuationToken value can be used as the value for
-     *                          the marker parameter in a subsequent call to request the next page of list
-     *                          items. The marker value is opaque to the client.
-     * @param {ContainerListBlobsSegmentOptions} [options] Options to list blobs operation.
-     * @returns {AsyncIterableIterator<ContainerListBlobFlatSegmentResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listSegments = function (marker, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__asyncGenerator(this, arguments, function listSegments_1() {
-            var listBlobsFlatSegmentResponse;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!(!!marker || marker === undefined)) return [3 /*break*/, 7];
-                        _a.label = 1;
-                    case 1: return [4 /*yield*/, tslib.__await(this.listBlobFlatSegment(marker, options))];
-                    case 2:
-                        listBlobsFlatSegmentResponse = _a.sent();
-                        marker = listBlobsFlatSegmentResponse.continuationToken;
-                        return [4 /*yield*/, tslib.__await(listBlobsFlatSegmentResponse)];
-                    case 3: return [4 /*yield*/, tslib.__await.apply(void 0, [_a.sent()])];
-                    case 4: return [4 /*yield*/, _a.sent()];
-                    case 5:
-                        _a.sent();
-                        _a.label = 6;
-                    case 6:
-                        if (marker) return [3 /*break*/, 1];
-                        _a.label = 7;
-                    case 7: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Returns an AsyncIterableIterator of {@link BlobItem} objects
-     *
-     * @private
-     * @param {ContainerListBlobsSegmentOptions} [options] Options to list blobs operation.
-     * @returns {AsyncIterableIterator<BlobItem>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listItems = function (options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__asyncGenerator(this, arguments, function listItems_1() {
-            var marker, _a, _b, listBlobsFlatSegmentResponse, e_63_1;
-            var e_63, _c;
-            return tslib.__generator(this, function (_d) {
-                switch (_d.label) {
-                    case 0:
-                        _d.trys.push([0, 7, 8, 13]);
-                        _a = tslib.__asyncValues(this.listSegments(marker, options));
-                        _d.label = 1;
-                    case 1: return [4 /*yield*/, tslib.__await(_a.next())];
-                    case 2:
-                        if (!(_b = _d.sent(), !_b.done)) return [3 /*break*/, 6];
-                        listBlobsFlatSegmentResponse = _b.value;
-                        return [5 /*yield**/, tslib.__values(tslib.__asyncDelegator(tslib.__asyncValues(listBlobsFlatSegmentResponse.segment.blobItems)))];
-                    case 3: return [4 /*yield*/, tslib.__await.apply(void 0, [_d.sent()])];
-                    case 4:
-                        _d.sent();
-                        _d.label = 5;
-                    case 5: return [3 /*break*/, 1];
-                    case 6: return [3 /*break*/, 13];
-                    case 7:
-                        e_63_1 = _d.sent();
-                        e_63 = { error: e_63_1 };
-                        return [3 /*break*/, 13];
-                    case 8:
-                        _d.trys.push([8, , 11, 12]);
-                        if (!(_b && !_b.done && (_c = _a.return))) return [3 /*break*/, 10];
-                        return [4 /*yield*/, tslib.__await(_c.call(_a))];
-                    case 9:
-                        _d.sent();
-                        _d.label = 10;
-                    case 10: return [3 /*break*/, 12];
-                    case 11:
-                        if (e_63) throw e_63.error;
-                        return [7 /*endfinally*/];
-                    case 12: return [7 /*endfinally*/];
-                    case 13: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Returns an async iterable iterator to list all the blobs
-     * under the specified account.
-     *
-     * .byPage() returns an async iterable iterator to list the blobs in pages.
-     *
-     * Example using `for await` syntax:
-     *
-     * ```js
-     * // Get the containerClient before you run these snippets,
-     * // Can be obtained from `blobServiceClient.getContainerClient("<your-container-name>");`
-     * let i = 1;
-     * for await (const blob of containerClient.listBlobsFlat()) {
-     *   console.log(`Blob ${i++}: ${blob.name}`);
-     * }
-     * ```
-     *
-     * Example using `iter.next()`:
-     *
-     * ```js
-     * let i = 1;
-     * let iter = containerClient.listBlobsFlat();
-     * let blobItem = await iter.next();
-     * while (!blobItem.done) {
-     *   console.log(`Blob ${i++}: ${blobItem.value.name}`);
-     *   blobItem = await iter.next();
-     * }
-     * ```
-     *
-     * Example using `byPage()`:
-     *
-     * ```js
-     * // passing optional maxPageSize in the page settings
-     * let i = 1;
-     * for await (const response of containerClient.listBlobsFlat().byPage({ maxPageSize: 20 })) {
-     *   for (const blob of response.segment.blobItems) {
-     *     console.log(`Blob ${i++}: ${blob.name}`);
-     *   }
-     * }
-     * ```
-     *
-     * Example using paging with a marker:
-     *
-     * ```js
-     * let i = 1;
-     * let iterator = containerClient.listBlobsFlat().byPage({ maxPageSize: 2 });
-     * let response = (await iterator.next()).value;
-     *
-     * // Prints 2 blob names
-     * for (const blob of response.segment.blobItems) {
-     *   console.log(`Blob ${i++}: ${blob.name}`);
-     * }
-     *
-     * // Gets next marker
-     * let marker = response.continuationToken;
-     *
-     * // Passing next marker as continuationToken
-     *
-     * iterator = containerClient.listBlobsFlat().byPage({ continuationToken: marker, maxPageSize: 10 });
-     * response = (await iterator.next()).value;
-     *
-     * // Prints 10 blob names
-     * for (const blob of response.segment.blobItems) {
-     *   console.log(`Blob ${i++}: ${blob.name}`);
-     * }
-     * ```
-     *
-     * @param {ContainerListBlobsOptions} [options={}] Options to list blobs.
-     * @returns {PagedAsyncIterableIterator<BlobItem, ContainerListBlobFlatSegmentResponse>} An asyncIterableIterator that supports paging.
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listBlobsFlat = function (options) {
-        var _a;
-        var _this = this;
-        if (options === void 0) { options = {}; }
-        var include = [];
-        if (options.includeCopy) {
-            include.push("copy");
-        }
-        if (options.includeDeleted) {
-            include.push("deleted");
-        }
-        if (options.includeMetadata) {
-            include.push("metadata");
-        }
-        if (options.includeSnapshots) {
-            include.push("snapshots");
-        }
-        if (options.includeVersions) {
-            include.push("versions");
-        }
-        if (options.includeUncommitedBlobs) {
-            include.push("uncommittedblobs");
-        }
-        if (options.includeTags) {
-            include.push("tags");
-        }
-        if (options.prefix === "") {
-            options.prefix = undefined;
-        }
-        var updatedOptions = tslib.__assign(tslib.__assign({}, options), (include.length > 0 ? { include: include } : {}));
-        // AsyncIterableIterator to iterate over blobs
-        var iter = this.listItems(updatedOptions);
-        return _a = {
-                /**
-                 * @member {Promise} [next] The next method, part of the iteration protocol
-                 */
-                next: function () {
-                    return iter.next();
-                }
-            },
-            /**
-             * @member {Symbol} [asyncIterator] The connection to the async iterator, part of the iteration protocol
-             */
-            _a[Symbol.asyncIterator] = function () {
-                return this;
-            },
-            /**
-             * @member {Function} [byPage] Return an AsyncIterableIterator that works a page at a time
-             */
-            _a.byPage = function (settings) {
-                if (settings === void 0) { settings = {}; }
-                return _this.listSegments(settings.continuationToken, tslib.__assign({ maxPageSize: settings.maxPageSize }, updatedOptions));
-            },
-            _a;
-    };
-    /**
-     * Returns an AsyncIterableIterator for ContainerListBlobHierarchySegmentResponse
-     *
-     * @private
-     * @param {string} delimiter The character or string used to define the virtual hierarchy
-     * @param {string} [marker] A string value that identifies the portion of
-     *                          the list of blobs to be returned with the next listing operation. The
-     *                          operation returns the ContinuationToken value within the response body if the
-     *                          listing operation did not return all blobs remaining to be listed
-     *                          with the current page. The ContinuationToken value can be used as the value for
-     *                          the marker parameter in a subsequent call to request the next page of list
-     *                          items. The marker value is opaque to the client.
-     * @param {ContainerListBlobsSegmentOptions} [options] Options to list blobs operation.
-     * @returns {AsyncIterableIterator<ContainerListBlobHierarchySegmentResponse>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listHierarchySegments = function (delimiter, marker, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__asyncGenerator(this, arguments, function listHierarchySegments_1() {
-            var listBlobsHierarchySegmentResponse;
-            return tslib.__generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        if (!(!!marker || marker === undefined)) return [3 /*break*/, 7];
-                        _a.label = 1;
-                    case 1: return [4 /*yield*/, tslib.__await(this.listBlobHierarchySegment(delimiter, marker, options))];
-                    case 2:
-                        listBlobsHierarchySegmentResponse = _a.sent();
-                        marker = listBlobsHierarchySegmentResponse.continuationToken;
-                        return [4 /*yield*/, tslib.__await(listBlobsHierarchySegmentResponse)];
-                    case 3: return [4 /*yield*/, tslib.__await.apply(void 0, [_a.sent()])];
-                    case 4: return [4 /*yield*/, _a.sent()];
-                    case 5:
-                        _a.sent();
-                        _a.label = 6;
-                    case 6:
-                        if (marker) return [3 /*break*/, 1];
-                        _a.label = 7;
-                    case 7: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Returns an AsyncIterableIterator for {@link BlobPrefix} and {@link BlobItem} objects.
-     *
-     * @private
-     * @param {string} delimiter The character or string used to define the virtual hierarchy
-     * @param {ContainerListBlobsSegmentOptions} [options] Options to list blobs operation.
-     * @returns {AsyncIterableIterator<{ kind: "prefix" } & BlobPrefix | { kind: "blob" } & BlobItem>}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listItemsByHierarchy = function (delimiter, options) {
-        if (options === void 0) { options = {}; }
-        return tslib.__asyncGenerator(this, arguments, function listItemsByHierarchy_1() {
-            var marker, _a, _b, listBlobsHierarchySegmentResponse, segment, _i, _c, prefix, _d, _e, blob, e_64_1;
-            var e_64, _f;
-            return tslib.__generator(this, function (_g) {
-                switch (_g.label) {
-                    case 0:
-                        _g.trys.push([0, 14, 15, 20]);
-                        _a = tslib.__asyncValues(this.listHierarchySegments(delimiter, marker, options));
-                        _g.label = 1;
-                    case 1: return [4 /*yield*/, tslib.__await(_a.next())];
-                    case 2:
-                        if (!(_b = _g.sent(), !_b.done)) return [3 /*break*/, 13];
-                        listBlobsHierarchySegmentResponse = _b.value;
-                        segment = listBlobsHierarchySegmentResponse.segment;
-                        if (!segment.blobPrefixes) return [3 /*break*/, 7];
-                        _i = 0, _c = segment.blobPrefixes;
-                        _g.label = 3;
-                    case 3:
-                        if (!(_i < _c.length)) return [3 /*break*/, 7];
-                        prefix = _c[_i];
-                        return [4 /*yield*/, tslib.__await(tslib.__assign({ kind: "prefix" }, prefix))];
-                    case 4: return [4 /*yield*/, _g.sent()];
-                    case 5:
-                        _g.sent();
-                        _g.label = 6;
-                    case 6:
-                        _i++;
-                        return [3 /*break*/, 3];
-                    case 7:
-                        _d = 0, _e = segment.blobItems;
-                        _g.label = 8;
-                    case 8:
-                        if (!(_d < _e.length)) return [3 /*break*/, 12];
-                        blob = _e[_d];
-                        return [4 /*yield*/, tslib.__await(tslib.__assign({ kind: "blob" }, blob))];
-                    case 9: return [4 /*yield*/, _g.sent()];
-                    case 10:
-                        _g.sent();
-                        _g.label = 11;
-                    case 11:
-                        _d++;
-                        return [3 /*break*/, 8];
-                    case 12: return [3 /*break*/, 1];
-                    case 13: return [3 /*break*/, 20];
-                    case 14:
-                        e_64_1 = _g.sent();
-                        e_64 = { error: e_64_1 };
-                        return [3 /*break*/, 20];
-                    case 15:
-                        _g.trys.push([15, , 18, 19]);
-                        if (!(_b && !_b.done && (_f = _a.return))) return [3 /*break*/, 17];
-                        return [4 /*yield*/, tslib.__await(_f.call(_a))];
-                    case 16:
-                        _g.sent();
-                        _g.label = 17;
-                    case 17: return [3 /*break*/, 19];
-                    case 18:
-                        if (e_64) throw e_64.error;
-                        return [7 /*endfinally*/];
-                    case 19: return [7 /*endfinally*/];
-                    case 20: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * Returns an async iterable iterator to list all the blobs by hierarchy.
-     * under the specified account.
-     *
-     * .byPage() returns an async iterable iterator to list the blobs by hierarchy in pages.
-     *
-     * Example using `for await` syntax:
-     *
-     * ```js
-     * for await (const item of containerClient.listBlobsByHierarchy("/")) {
-     *   if (item.kind === "prefix") {
-     *     console.log(`\tBlobPrefix: ${item.name}`);
-     *   } else {
-     *     console.log(`\tBlobItem: name - ${item.name}, last modified - ${item.properties.lastModified}`);
-     *   }
-     * }
-     * ```
-     *
-     * Example using `iter.next()`:
-     *
-     * ```js
-     * let iter = containerClient.listBlobsByHierarchy("/", { prefix: "prefix1/" });
-     * let entity = await iter.next();
-     * while (!entity.done) {
-     *   let item = entity.value;
-     *   if (item.kind === "prefix") {
-     *     console.log(`\tBlobPrefix: ${item.name}`);
-     *   } else {
-     *     console.log(`\tBlobItem: name - ${item.name}, last modified - ${item.properties.lastModified}`);
-     *   }
-     *   entity = await iter.next();
-     * }
-     * ```
-     *
-     * Example using `byPage()`:
-     *
-     * ```js
-     * console.log("Listing blobs by hierarchy by page");
-     * for await (const response of containerClient.listBlobsByHierarchy("/").byPage()) {
-     *   const segment = response.segment;
-     *   if (segment.blobPrefixes) {
-     *     for (const prefix of segment.blobPrefixes) {
-     *       console.log(`\tBlobPrefix: ${prefix.name}`);
-     *     }
-     *   }
-     *   for (const blob of response.segment.blobItems) {
-     *     console.log(`\tBlobItem: name - ${blob.name}, last modified - ${blob.properties.lastModified}`);
-     *   }
-     * }
-     * ```
-     *
-     * Example using paging with a max page size:
-     *
-     * ```js
-     * console.log("Listing blobs by hierarchy by page, specifying a prefix and a max page size");
-     *
-     * let i = 1;
-     * for await (const response of containerClient.listBlobsByHierarchy("/", { prefix: "prefix2/sub1/"}).byPage({ maxPageSize: 2 })) {
-     *   console.log(`Page ${i++}`);
-     *   const segment = response.segment;
-     *
-     *   if (segment.blobPrefixes) {
-     *     for (const prefix of segment.blobPrefixes) {
-     *       console.log(`\tBlobPrefix: ${prefix.name}`);
-     *     }
-     *   }
-     *
-     *   for (const blob of response.segment.blobItems) {
-     *     console.log(`\tBlobItem: name - ${blob.name}, last modified - ${blob.properties.lastModified}`);
-     *   }
-     * }
-     * ```
-     *
-     * @param {string} delimiter The character or string used to define the virtual hierarchy
-     * @param {ContainerListBlobsOptions} [options={}] Options to list blobs operation.
-     * @returns {(PagedAsyncIterableIterator<
-     *   { kind: "prefix" } & BlobPrefix | { kind: "blob" } & BlobItem,
-     *     ContainerListBlobHierarchySegmentResponse>)}
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.listBlobsByHierarchy = function (delimiter, options) {
-        var _a;
-        var _this = this;
-        if (options === void 0) { options = {}; }
-        if (delimiter === "") {
-            throw new RangeError("delimiter should contain one or more characters");
-        }
-        var include = [];
-        if (options.includeCopy) {
-            include.push("copy");
-        }
-        if (options.includeDeleted) {
-            include.push("deleted");
-        }
-        if (options.includeMetadata) {
-            include.push("metadata");
-        }
-        if (options.includeSnapshots) {
-            include.push("snapshots");
-        }
-        if (options.includeVersions) {
-            include.push("versions");
-        }
-        if (options.includeUncommitedBlobs) {
-            include.push("uncommittedblobs");
-        }
-        if (options.includeTags) {
-            include.push("tags");
-        }
-        if (options.prefix === "") {
-            options.prefix = undefined;
-        }
-        var updatedOptions = tslib.__assign(tslib.__assign({}, options), (include.length > 0 ? { include: include } : {}));
-        // AsyncIterableIterator to iterate over blob prefixes and blobs
-        var iter = this.listItemsByHierarchy(delimiter, updatedOptions);
-        return _a = {
-                /**
-                 * @member {Promise} [next] The next method, part of the iteration protocol
-                 */
-                next: function () {
-                    return tslib.__awaiter(this, void 0, void 0, function () {
-                        return tslib.__generator(this, function (_a) {
-                            return [2 /*return*/, iter.next()];
-                        });
-                    });
-                }
-            },
-            /**
-             * @member {Symbol} [asyncIterator] The connection to the async iterator, part of the iteration protocol
-             */
-            _a[Symbol.asyncIterator] = function () {
-                return this;
-            },
-            /**
-             * @member {Function} [byPage] Return an AsyncIterableIterator that works a page at a time
-             */
-            _a.byPage = function (settings) {
-                if (settings === void 0) { settings = {}; }
-                return _this.listHierarchySegments(delimiter, settings.continuationToken, tslib.__assign({ maxPageSize: settings.maxPageSize }, updatedOptions));
-            },
-            _a;
-    };
-    ContainerClient.prototype.getContainerNameFromUrl = function () {
-        var containerName;
-        try {
-            //  URL may look like the following
-            // "https://myaccount.blob.core.windows.net/mycontainer?sasString";
-            // "https://myaccount.blob.core.windows.net/mycontainer";
-            // IPv4/IPv6 address hosts, Endpoints - `http://127.0.0.1:10000/devstoreaccount1/containername`
-            // http://localhost:10001/devstoreaccount1/containername
-            var parsedUrl = coreHttp.URLBuilder.parse(this.url);
-            if (parsedUrl.getHost().split(".")[1] === "blob") {
-                // "https://myaccount.blob.core.windows.net/containername".
-                // "https://customdomain.com/containername".
-                // .getPath() -> /containername
-                containerName = parsedUrl.getPath().split("/")[1];
-            }
-            else if (isIpEndpointStyle(parsedUrl)) {
-                // IPv4/IPv6 address hosts... Example - http://192.0.0.10:10001/devstoreaccount1/containername
-                // Single word domain without a [dot] in the endpoint... Example - http://localhost:10001/devstoreaccount1/containername
-                // .getPath() -> /devstoreaccount1/containername
-                containerName = parsedUrl.getPath().split("/")[2];
-            }
-            else {
-                // "https://customdomain.com/containername".
-                // .getPath() -> /containername
-                containerName = parsedUrl.getPath().split("/")[1];
-            }
-            // decode the encoded containerName - to get all the special characters that might be present in it
-            containerName = decodeURIComponent(containerName);
-            if (!containerName) {
-                throw new Error("Provided containerName is invalid.");
-            }
-            return containerName;
-        }
-        catch (error) {
-            throw new Error("Unable to extract containerName with provided information.");
-        }
-    };
-    /**
-     * Only available for ContainerClient constructed with a shared key credential.
-     *
-     * Generates a Blob Container Service Shared Access Signature (SAS) URI based on the client properties
-     * and parameters passed in. The SAS is signed by the shared key credential of the client.
-     *
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas
-     *
-     * @param {ContainerGenerateSasUrlOptions} options Optional parameters.
-     * @returns {Promise<string>} The SAS URI consisting of the URI to the resource represented by this client, followed by the generated SAS token.
-     * @memberof ContainerClient
-     */
-    ContainerClient.prototype.generateSasUrl = function (options) {
-        var _this = this;
-        return new Promise(function (resolve) {
-            if (!(_this.credential instanceof StorageSharedKeyCredential)) {
-                throw new RangeError("Can only generate the SAS when the client is initialized with a shared key credential");
-            }
-            var sas = generateBlobSASQueryParameters(tslib.__assign({ containerName: _this._containerName }, options), _this.credential).toString();
-            resolve(appendToURLQuery(_this.url, sas));
-        });
-    };
-    return ContainerClient;
-}(StorageClient));
 
+// Copyright (c) Microsoft Corporation.
 function getBodyAsText(batchResponse) {
     return tslib.__awaiter(this, void 0, void 0, function () {
         var buffer, responseLength;
@@ -45885,6 +44039,7 @@ function utf8ByteLength(str) {
     return Buffer.byteLength(str);
 }
 
+// Copyright (c) Microsoft Corporation.
 var HTTP_HEADER_DELIMITER = ": ";
 var SPACE_DELIMITER = " ";
 var NOT_FOUND = -1;
@@ -46026,6 +44181,7 @@ var BatchResponseParser = /** @class */ (function () {
     return BatchResponseParser;
 }());
 
+// Copyright (c) Microsoft Corporation.
 var MutexLockStatus;
 (function (MutexLockStatus) {
     MutexLockStatus[MutexLockStatus["LOCKED"] = 0] = "LOCKED";
@@ -46033,9 +44189,6 @@ var MutexLockStatus;
 })(MutexLockStatus || (MutexLockStatus = {}));
 /**
  * An async mutex lock.
- *
- * @export
- * @class Mutex
  */
 var Mutex = /** @class */ (function () {
     function Mutex() {
@@ -46044,10 +44197,7 @@ var Mutex = /** @class */ (function () {
      * Lock for a specific key. If the lock has been acquired by another customer, then
      * will wait until getting the lock.
      *
-     * @static
-     * @param {string} key lock key
-     * @returns {Promise<void>}
-     * @memberof Mutex
+     * @param key - lock key
      */
     Mutex.lock = function (key) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -46071,10 +44221,7 @@ var Mutex = /** @class */ (function () {
     /**
      * Unlock a key.
      *
-     * @static
-     * @param {string} key
-     * @returns {Promise<void>}
-     * @memberof Mutex
+     * @param key -
      */
     Mutex.unlock = function (key) {
         return tslib.__awaiter(this, void 0, void 0, function () {
@@ -46112,12 +44259,10 @@ var Mutex = /** @class */ (function () {
     return Mutex;
 }());
 
+// Copyright (c) Microsoft Corporation.
 /**
  * A BlobBatch represents an aggregated set of operations on blobs.
  * Currently, only `delete` and `setAccessTier` are supported.
- *
- * @export
- * @class BlobBatch
  */
 var BlobBatch = /** @class */ (function () {
     function BlobBatch() {
@@ -46179,7 +44324,7 @@ var BlobBatch = /** @class */ (function () {
     };
     BlobBatch.prototype.deleteBlob = function (urlOrBlobClient, credentialOrOptions, options) {
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var url, credential, _a, span, spanOptions, e_1;
+            var url, credential, _a, span, updatedOptions, e_1;
             var _this = this;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
@@ -46204,7 +44349,7 @@ var BlobBatch = /** @class */ (function () {
                         if (!options) {
                             options = {};
                         }
-                        _a = createSpan("BatchDeleteRequest-addSubRequest", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BatchDeleteRequest-addSubRequest", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
@@ -46215,7 +44360,7 @@ var BlobBatch = /** @class */ (function () {
                             }, function () { return tslib.__awaiter(_this, void 0, void 0, function () {
                                 return tslib.__generator(this, function (_a) {
                                     switch (_a.label) {
-                                        case 0: return [4 /*yield*/, new BlobClient(url, this.batchRequest.createPipeline(credential)).delete(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                                        case 0: return [4 /*yield*/, new BlobClient(url, this.batchRequest.createPipeline(credential)).delete(updatedOptions)];
                                         case 1:
                                             _a.sent();
                                             return [2 /*return*/];
@@ -46242,7 +44387,7 @@ var BlobBatch = /** @class */ (function () {
     };
     BlobBatch.prototype.setBlobAccessTier = function (urlOrBlobClient, credentialOrTier, tierOrOptions, options) {
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var url, credential, tier, _a, span, spanOptions, e_2;
+            var url, credential, tier, _a, span, updatedOptions, e_2;
             var _this = this;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
@@ -46269,7 +44414,7 @@ var BlobBatch = /** @class */ (function () {
                         if (!options) {
                             options = {};
                         }
-                        _a = createSpan("BatchSetTierRequest-addSubRequest", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BatchSetTierRequest-addSubRequest", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
@@ -46280,7 +44425,7 @@ var BlobBatch = /** @class */ (function () {
                             }, function () { return tslib.__awaiter(_this, void 0, void 0, function () {
                                 return tslib.__generator(this, function (_a) {
                                     switch (_a.label) {
-                                        case 0: return [4 /*yield*/, new BlobClient(url, this.batchRequest.createPipeline(credential)).setAccessTier(tier, tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                                        case 0: return [4 /*yield*/, new BlobClient(url, this.batchRequest.createPipeline(credential)).setAccessTier(tier, updatedOptions)];
                                         case 1:
                                             _a.sent();
                                             return [2 /*return*/];
@@ -46333,7 +44478,7 @@ var InnerBatchRequest = /** @class */ (function () {
      * credential and serialization/deserialization components, with additional policies to
      * filter unnecessary headers, assemble sub requests into request's body
      * and intercept request from going to wire.
-     * @param {StorageSharedKeyCredential | AnonymousCredential | TokenCredential} credential  Such as AnonymousCredential, StorageSharedKeyCredential or any credential from the @azure/identity package to authenticate requests to the service. You can also provide an object that implements the TokenCredential interface. If not specified, AnonymousCredential is used.
+     * @param credential -  Such as AnonymousCredential, StorageSharedKeyCredential or any credential from the `@azure/identity` package to authenticate requests to the service. You can also provide an object that implements the TokenCredential interface. If not specified, AnonymousCredential is used.
      */
     InnerBatchRequest.prototype.createPipeline = function (credential) {
         var isAnonymousCreds = credential instanceof AnonymousCredential;
@@ -46460,7 +44605,7 @@ var BatchHeaderFilterPolicyFactory = /** @class */ (function () {
     return BatchHeaderFilterPolicyFactory;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * A BlobBatchClient allows you to make batched requests to the Azure Storage Blob service.
  *
@@ -46480,7 +44625,14 @@ var BlobBatchClient = /** @class */ (function () {
             pipeline = newPipeline(credentialOrPipeline, options);
         }
         var storageClientContext = new StorageClientContext(url, pipeline.toServiceClientOptions());
-        this._serviceContext = new Service(storageClientContext);
+        var path = getURLPath(url);
+        if (path && path !== "/") {
+            // Container scoped.
+            this.serviceOrContainerContext = new Container(storageClientContext);
+        }
+        else {
+            this.serviceOrContainerContext = new Service(storageClientContext);
+        }
     }
     /**
      * Creates a {@link BlobBatch}.
@@ -46579,27 +44731,25 @@ var BlobBatchClient = /** @class */ (function () {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/blob-batch
      *
-     * @param {BlobBatch} batchRequest A set of Delete or SetTier operations.
-     * @param {BlobBatchSubmitBatchOptionalParams} [options]
-     * @returns {Promise<BlobBatchSubmitBatchResponse>}
-     * @memberof BlobBatchClient
+     * @param batchRequest - A set of Delete or SetTier operations.
+     * @param options -
      */
     BlobBatchClient.prototype.submitBatch = function (batchRequest, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, batchRequestBody, rawBatchResponse, batchResponseParser, responseSummary, res, e_1;
+            var _a, span, updatedOptions, batchRequestBody, rawBatchResponse, batchResponseParser, responseSummary, res, e_1;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         if (!batchRequest || batchRequest.getSubRequests().size == 0) {
                             throw new RangeError("Batch request should contain one or more sub requests.");
                         }
-                        _a = createSpan("BlobBatchClient-submitBatch", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobBatchClient-submitBatch", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 4, 5, 6]);
                         batchRequestBody = batchRequest.getHttpRequestBody();
-                        return [4 /*yield*/, this._serviceContext.submitBatch(batchRequestBody, utf8ByteLength(batchRequestBody), batchRequest.getMultiPartContentType(), tslib.__assign(tslib.__assign({}, options), { spanOptions: spanOptions }))];
+                        return [4 /*yield*/, this.serviceOrContainerContext.submitBatch(batchRequestBody, utf8ByteLength(batchRequestBody), batchRequest.getMultiPartContentType(), tslib.__assign(tslib.__assign({}, options), convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         rawBatchResponse = _b.sent();
                         batchResponseParser = new BatchResponseParser(rawBatchResponse, batchRequest.getSubRequests());
@@ -46636,8 +44786,1305 @@ var BlobBatchClient = /** @class */ (function () {
     return BlobBatchClient;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+/**
+ * A ContainerClient represents a URL to the Azure Storage container allowing you to manipulate its blobs.
+ */
+var ContainerClient = /** @class */ (function (_super) {
+    tslib.__extends(ContainerClient, _super);
+    function ContainerClient(urlOrConnectionString, credentialOrPipelineOrContainerName, options) {
+        var _this = this;
+        var pipeline;
+        var url;
+        options = options || {};
+        if (credentialOrPipelineOrContainerName instanceof Pipeline) {
+            // (url: string, pipeline: Pipeline)
+            url = urlOrConnectionString;
+            pipeline = credentialOrPipelineOrContainerName;
+        }
+        else if ((coreHttp.isNode && credentialOrPipelineOrContainerName instanceof StorageSharedKeyCredential) ||
+            credentialOrPipelineOrContainerName instanceof AnonymousCredential ||
+            coreHttp.isTokenCredential(credentialOrPipelineOrContainerName)) {
+            // (url: string, credential?: StorageSharedKeyCredential | AnonymousCredential | TokenCredential, options?: StoragePipelineOptions)
+            url = urlOrConnectionString;
+            pipeline = newPipeline(credentialOrPipelineOrContainerName, options);
+        }
+        else if (!credentialOrPipelineOrContainerName &&
+            typeof credentialOrPipelineOrContainerName !== "string") {
+            // (url: string, credential?: StorageSharedKeyCredential | AnonymousCredential | TokenCredential, options?: StoragePipelineOptions)
+            // The second parameter is undefined. Use anonymous credential.
+            url = urlOrConnectionString;
+            pipeline = newPipeline(new AnonymousCredential(), options);
+        }
+        else if (credentialOrPipelineOrContainerName &&
+            typeof credentialOrPipelineOrContainerName === "string") {
+            // (connectionString: string, containerName: string, blobName: string, options?: StoragePipelineOptions)
+            var containerName = credentialOrPipelineOrContainerName;
+            var extractedCreds = extractConnectionStringParts(urlOrConnectionString);
+            if (extractedCreds.kind === "AccountConnString") {
+                {
+                    var sharedKeyCredential = new StorageSharedKeyCredential(extractedCreds.accountName, extractedCreds.accountKey);
+                    url = appendToURLPath(extractedCreds.url, encodeURIComponent(containerName));
+                    options.proxyOptions = coreHttp.getDefaultProxySettings(extractedCreds.proxyUri);
+                    pipeline = newPipeline(sharedKeyCredential, options);
+                }
+            }
+            else if (extractedCreds.kind === "SASConnString") {
+                url =
+                    appendToURLPath(extractedCreds.url, encodeURIComponent(containerName)) +
+                        "?" +
+                        extractedCreds.accountSas;
+                pipeline = newPipeline(new AnonymousCredential(), options);
+            }
+            else {
+                throw new Error("Connection string must be either an Account connection string or a SAS connection string");
+            }
+        }
+        else {
+            throw new Error("Expecting non-empty strings for containerName parameter");
+        }
+        _this = _super.call(this, url, pipeline) || this;
+        _this._containerName = _this.getContainerNameFromUrl();
+        _this.containerContext = new Container(_this.storageClientContext);
+        return _this;
+    }
+    Object.defineProperty(ContainerClient.prototype, "containerName", {
+        /**
+         * The name of the container.
+         */
+        get: function () {
+            return this._containerName;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    /**
+     * Creates a new container under the specified account. If the container with
+     * the same name already exists, the operation fails.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-container
+     *
+     * @param options - Options to Container Create operation.
+     *
+     *
+     * Example usage:
+     *
+     * ```js
+     * const containerClient = blobServiceClient.getContainerClient("<container name>");
+     * const createContainerResponse = await containerClient.create();
+     * console.log("Container was created successfully", createContainerResponse.requestId);
+     * ```
+     */
+    ContainerClient.prototype.create = function (options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, e_1;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("ContainerClient-create", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.create(tslib.__assign(tslib.__assign({}, options), convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: 
+                    // Spread operator in destructuring assignments,
+                    // this will filter out unwanted properties from the response object into result object
+                    return [2 /*return*/, _b.sent()];
+                    case 3:
+                        e_1 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_1.message
+                        });
+                        throw e_1;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Creates a new container under the specified account. If the container with
+     * the same name already exists, it is not changed.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-container
+     *
+     * @param options -
+     */
+    ContainerClient.prototype.createIfNotExists = function (options) {
+        var _a, _b;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _c, span, updatedOptions, res, e_2;
+            return tslib.__generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        _c = createSpan("ContainerClient-createIfNotExists", options), span = _c.span, updatedOptions = _c.updatedOptions;
+                        _d.label = 1;
+                    case 1:
+                        _d.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.create(updatedOptions)];
+                    case 2:
+                        res = _d.sent();
+                        return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
+                             })];
+                    case 3:
+                        e_2 = _d.sent();
+                        if (((_a = e_2.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "ContainerAlreadyExists") {
+                            span.setStatus({
+                                code: api.CanonicalCode.ALREADY_EXISTS,
+                                message: "Expected exception when creating a container only if it does not already exist."
+                            });
+                            return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: false }, (_b = e_2.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e_2.response })];
+                        }
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_2.message
+                        });
+                        throw e_2;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns true if the Azure container resource represented by this client exists; false otherwise.
+     *
+     * NOTE: use this function with care since an existing container might be deleted by other clients or
+     * applications. Vice versa new containers with the same name might be added by other clients or
+     * applications after this function completes.
+     *
+     * @param options -
+     */
+    ContainerClient.prototype.exists = function (options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, e_3;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("ContainerClient-exists", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.getProperties({
+                                abortSignal: options.abortSignal,
+                                tracingOptions: updatedOptions.tracingOptions
+                            })];
+                    case 2:
+                        _b.sent();
+                        return [2 /*return*/, true];
+                    case 3:
+                        e_3 = _b.sent();
+                        if (e_3.statusCode === 404) {
+                            span.setStatus({
+                                code: api.CanonicalCode.NOT_FOUND,
+                                message: "Expected exception when checking container existence"
+                            });
+                            return [2 /*return*/, false];
+                        }
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_3.message
+                        });
+                        throw e_3;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Creates a {@link BlobClient}
+     *
+     * @param blobName - A blob name
+     * @returns A new BlobClient object for the given blob name.
+     */
+    ContainerClient.prototype.getBlobClient = function (blobName) {
+        return new BlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
+    };
+    /**
+     * Creates an {@link AppendBlobClient}
+     *
+     * @param blobName - An append blob name
+     */
+    ContainerClient.prototype.getAppendBlobClient = function (blobName) {
+        return new AppendBlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
+    };
+    /**
+     * Creates a {@link BlockBlobClient}
+     *
+     * @param blobName - A block blob name
+     *
+     *
+     * Example usage:
+     *
+     * ```js
+     * const content = "Hello world!";
+     *
+     * const blockBlobClient = containerClient.getBlockBlobClient("<blob name>");
+     * const uploadBlobResponse = await blockBlobClient.upload(content, content.length);
+     * ```
+     */
+    ContainerClient.prototype.getBlockBlobClient = function (blobName) {
+        return new BlockBlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
+    };
+    /**
+     * Creates a {@link PageBlobClient}
+     *
+     * @param blobName - A page blob name
+     */
+    ContainerClient.prototype.getPageBlobClient = function (blobName) {
+        return new PageBlobClient(appendToURLPath(this.url, encodeURIComponent(blobName)), this.pipeline);
+    };
+    /**
+     * Returns all user-defined metadata and system properties for the specified
+     * container. The data returned does not include the container's list of blobs.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-properties
+     *
+     * WARNING: The `metadata` object returned in the response will have its keys in lowercase, even if
+     * they originally contained uppercase characters. This differs from the metadata keys returned by
+     * the `listContainers` method of {@link BlobServiceClient} using the `includeMetadata` option, which
+     * will retain their original casing.
+     *
+     * @param options - Options to Container Get Properties operation.
+     */
+    ContainerClient.prototype.getProperties = function (options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, e_4;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!options.conditions) {
+                            options.conditions = {};
+                        }
+                        _a = createSpan("ContainerClient-getProperties", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.getProperties(tslib.__assign(tslib.__assign({ abortSignal: options.abortSignal }, options.conditions), convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _b.sent()];
+                    case 3:
+                        e_4 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_4.message
+                        });
+                        throw e_4;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Marks the specified container for deletion. The container and any blobs
+     * contained within it are later deleted during garbage collection.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-container
+     *
+     * @param options - Options to Container Delete operation.
+     */
+    ContainerClient.prototype.delete = function (options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, e_5;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!options.conditions) {
+                            options.conditions = {};
+                        }
+                        _a = createSpan("ContainerClient-delete", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.deleteMethod(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, modifiedAccessConditions: options.conditions }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _b.sent()];
+                    case 3:
+                        e_5 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_5.message
+                        });
+                        throw e_5;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Marks the specified container for deletion if it exists. The container and any blobs
+     * contained within it are later deleted during garbage collection.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-container
+     *
+     * @param options - Options to Container Delete operation.
+     */
+    ContainerClient.prototype.deleteIfExists = function (options) {
+        var _a, _b;
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _c, span, updatedOptions, res, e_6;
+            return tslib.__generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        _c = createSpan("ContainerClient-deleteIfExists", options), span = _c.span, updatedOptions = _c.updatedOptions;
+                        _d.label = 1;
+                    case 1:
+                        _d.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.delete(updatedOptions)];
+                    case 2:
+                        res = _d.sent();
+                        return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: true }, res), { _response: res._response // _response is made non-enumerable
+                             })];
+                    case 3:
+                        e_6 = _d.sent();
+                        if (((_a = e_6.details) === null || _a === void 0 ? void 0 : _a.errorCode) === "ContainerNotFound") {
+                            span.setStatus({
+                                code: api.CanonicalCode.NOT_FOUND,
+                                message: "Expected exception when deleting a container only if it exists."
+                            });
+                            return [2 /*return*/, tslib.__assign(tslib.__assign({ succeeded: false }, (_b = e_6.response) === null || _b === void 0 ? void 0 : _b.parsedHeaders), { _response: e_6.response })];
+                        }
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_6.message
+                        });
+                        throw e_6;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Sets one or more user-defined name-value pairs for the specified container.
+     *
+     * If no option provided, or no metadata defined in the parameter, the container
+     * metadata will be removed.
+     *
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-container-metadata
+     *
+     * @param metadata - Replace existing metadata with this value.
+     *                            If no value provided the existing metadata will be removed.
+     * @param options - Options to Container Set Metadata operation.
+     */
+    ContainerClient.prototype.setMetadata = function (metadata, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, e_7;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!options.conditions) {
+                            options.conditions = {};
+                        }
+                        if (options.conditions.ifUnmodifiedSince) {
+                            throw new RangeError("the IfUnmodifiedSince must have their default values because they are ignored by the blob service");
+                        }
+                        _a = createSpan("ContainerClient-setMetadata", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.setMetadata(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions, metadata: metadata, modifiedAccessConditions: options.conditions }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _b.sent()];
+                    case 3:
+                        e_7 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_7.message
+                        });
+                        throw e_7;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Gets the permissions for the specified container. The permissions indicate
+     * whether container data may be accessed publicly.
+     *
+     * WARNING: JavaScript Date will potentially lose precision when parsing startsOn and expiresOn strings.
+     * For example, new Date("2018-12-31T03:44:23.8827891Z").toISOString() will get "2018-12-31T03:44:23.882Z".
+     *
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-container-acl
+     *
+     * @param options - Options to Container Get Access Policy operation.
+     */
+    ContainerClient.prototype.getAccessPolicy = function (options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, response, res, _i, response_1, identifier, accessPolicy, e_8;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        if (!options.conditions) {
+                            options.conditions = {};
+                        }
+                        _a = createSpan("ContainerClient-getAccessPolicy", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.getAccessPolicy(tslib.__assign({ abortSignal: options.abortSignal, leaseAccessConditions: options.conditions }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2:
+                        response = _b.sent();
+                        res = {
+                            _response: response._response,
+                            blobPublicAccess: response.blobPublicAccess,
+                            date: response.date,
+                            etag: response.etag,
+                            errorCode: response.errorCode,
+                            lastModified: response.lastModified,
+                            requestId: response.requestId,
+                            clientRequestId: response.clientRequestId,
+                            signedIdentifiers: [],
+                            version: response.version
+                        };
+                        for (_i = 0, response_1 = response; _i < response_1.length; _i++) {
+                            identifier = response_1[_i];
+                            accessPolicy = undefined;
+                            if (identifier.accessPolicy) {
+                                accessPolicy = {
+                                    permissions: identifier.accessPolicy.permissions
+                                };
+                                if (identifier.accessPolicy.expiresOn) {
+                                    accessPolicy.expiresOn = new Date(identifier.accessPolicy.expiresOn);
+                                }
+                                if (identifier.accessPolicy.startsOn) {
+                                    accessPolicy.startsOn = new Date(identifier.accessPolicy.startsOn);
+                                }
+                            }
+                            res.signedIdentifiers.push({
+                                accessPolicy: accessPolicy,
+                                id: identifier.id
+                            });
+                        }
+                        return [2 /*return*/, res];
+                    case 3:
+                        e_8 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_8.message
+                        });
+                        throw e_8;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Sets the permissions for the specified container. The permissions indicate
+     * whether blobs in a container may be accessed publicly.
+     *
+     * When you set permissions for a container, the existing permissions are replaced.
+     * If no access or containerAcl provided, the existing container ACL will be
+     * removed.
+     *
+     * When you establish a stored access policy on a container, it may take up to 30 seconds to take effect.
+     * During this interval, a shared access signature that is associated with the stored access policy will
+     * fail with status code 403 (Forbidden), until the access policy becomes active.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-container-acl
+     *
+     * @param access - The level of public access to data in the container.
+     * @param containerAcl - Array of elements each having a unique Id and details of the access policy.
+     * @param options - Options to Container Set Access Policy operation.
+     */
+    ContainerClient.prototype.setAccessPolicy = function (access, containerAcl, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, acl, _i, _b, identifier, e_9;
+            return tslib.__generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        options.conditions = options.conditions || {};
+                        _a = createSpan("ContainerClient-setAccessPolicy", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _c.label = 1;
+                    case 1:
+                        _c.trys.push([1, 3, 4, 5]);
+                        acl = [];
+                        for (_i = 0, _b = containerAcl || []; _i < _b.length; _i++) {
+                            identifier = _b[_i];
+                            acl.push({
+                                accessPolicy: {
+                                    expiresOn: identifier.accessPolicy.expiresOn
+                                        ? truncatedISO8061Date(identifier.accessPolicy.expiresOn)
+                                        : "",
+                                    permissions: identifier.accessPolicy.permissions,
+                                    startsOn: identifier.accessPolicy.startsOn
+                                        ? truncatedISO8061Date(identifier.accessPolicy.startsOn)
+                                        : ""
+                                },
+                                id: identifier.id
+                            });
+                        }
+                        return [4 /*yield*/, this.containerContext.setAccessPolicy(tslib.__assign({ abortSignal: options.abortSignal, access: access, containerAcl: acl, leaseAccessConditions: options.conditions, modifiedAccessConditions: options.conditions }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _c.sent()];
+                    case 3:
+                        e_9 = _c.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_9.message
+                        });
+                        throw e_9;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Get a {@link BlobLeaseClient} that manages leases on the container.
+     *
+     * @param proposeLeaseId - Initial proposed lease Id.
+     * @returns A new BlobLeaseClient object for managing leases on the container.
+     */
+    ContainerClient.prototype.getBlobLeaseClient = function (proposeLeaseId) {
+        return new BlobLeaseClient(this, proposeLeaseId);
+    };
+    /**
+     * Creates a new block blob, or updates the content of an existing block blob.
+     *
+     * Updating an existing block blob overwrites any existing metadata on the blob.
+     * Partial updates are not supported; the content of the existing blob is
+     * overwritten with the new content. To perform a partial update of a block blob's,
+     * use {@link BlockBlobClient.stageBlock} and {@link BlockBlobClient.commitBlockList}.
+     *
+     * This is a non-parallel uploading method, please use {@link BlockBlobClient.uploadFile},
+     * {@link BlockBlobClient.uploadStream} or {@link BlockBlobClient.uploadBrowserData} for better
+     * performance with concurrency uploading.
+     *
+     * @see https://docs.microsoft.com/rest/api/storageservices/put-blob
+     *
+     * @param blobName - Name of the block blob to create or update.
+     * @param body - Blob, string, ArrayBuffer, ArrayBufferView or a function
+     *                               which returns a new Readable stream whose offset is from data source beginning.
+     * @param contentLength - Length of body in bytes. Use Buffer.byteLength() to calculate body length for a
+     *                               string including non non-Base64/Hex-encoded characters.
+     * @param options - Options to configure the Block Blob Upload operation.
+     * @returns Block Blob upload response data and the corresponding BlockBlobClient instance.
+     */
+    ContainerClient.prototype.uploadBlockBlob = function (blobName, body, contentLength, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, blockBlobClient, response, e_10;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("ContainerClient-uploadBlockBlob", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        blockBlobClient = this.getBlockBlobClient(blobName);
+                        return [4 /*yield*/, blockBlobClient.upload(body, contentLength, updatedOptions)];
+                    case 2:
+                        response = _b.sent();
+                        return [2 /*return*/, {
+                                blockBlobClient: blockBlobClient,
+                                response: response
+                            }];
+                    case 3:
+                        e_10 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_10.message
+                        });
+                        throw e_10;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Marks the specified blob or snapshot for deletion. The blob is later deleted
+     * during garbage collection. Note that in order to delete a blob, you must delete
+     * all of its snapshots. You can delete both at the same time with the Delete
+     * Blob operation.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/delete-blob
+     *
+     * @param blobName -
+     * @param options - Options to Blob Delete operation.
+     * @returns Block blob deletion response data.
+     */
+    ContainerClient.prototype.deleteBlob = function (blobName, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, blobClient, e_11;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("ContainerClient-deleteBlob", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        blobClient = this.getBlobClient(blobName);
+                        if (options.versionId) {
+                            blobClient = blobClient.withVersion(options.versionId);
+                        }
+                        return [4 /*yield*/, blobClient.delete(updatedOptions)];
+                    case 2: return [2 /*return*/, _b.sent()];
+                    case 3:
+                        e_11 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_11.message
+                        });
+                        throw e_11;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * listBlobFlatSegment returns a single segment of blobs starting from the
+     * specified Marker. Use an empty Marker to start enumeration from the beginning.
+     * After getting a segment, process it, and then call listBlobsFlatSegment again
+     * (passing the the previously-returned Marker) to get the next segment.
+     * @see https://docs.microsoft.com/rest/api/storageservices/list-blobs
+     *
+     * @param marker - A string value that identifies the portion of the list to be returned with the next list operation.
+     * @param options - Options to Container List Blob Flat Segment operation.
+     */
+    ContainerClient.prototype.listBlobFlatSegment = function (marker, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, response, wrappedResponse, e_12;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("ContainerClient-listBlobFlatSegment", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.listBlobFlatSegment(tslib.__assign(tslib.__assign({ marker: marker }, options), convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2:
+                        response = _b.sent();
+                        wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, segment: tslib.__assign(tslib.__assign({}, response.segment), { blobItems: response.segment.blobItems.map(function (blobItemInteral) {
+                                    var blobItem = tslib.__assign(tslib.__assign({}, blobItemInteral), { tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
+                                    return blobItem;
+                                }) }) });
+                        return [2 /*return*/, wrappedResponse];
+                    case 3:
+                        e_12 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_12.message
+                        });
+                        throw e_12;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * listBlobHierarchySegment returns a single segment of blobs starting from
+     * the specified Marker. Use an empty Marker to start enumeration from the
+     * beginning. After getting a segment, process it, and then call listBlobsHierarchicalSegment
+     * again (passing the the previously-returned Marker) to get the next segment.
+     * @see https://docs.microsoft.com/rest/api/storageservices/list-blobs
+     *
+     * @param delimiter - The character or string used to define the virtual hierarchy
+     * @param marker - A string value that identifies the portion of the list to be returned with the next list operation.
+     * @param options - Options to Container List Blob Hierarchy Segment operation.
+     */
+    ContainerClient.prototype.listBlobHierarchySegment = function (delimiter, marker, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, response, wrappedResponse, e_13;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("ContainerClient-listBlobHierarchySegment", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.containerContext.listBlobHierarchySegment(delimiter, tslib.__assign(tslib.__assign({ marker: marker }, options), convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2:
+                        response = _b.sent();
+                        wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, segment: tslib.__assign(tslib.__assign({}, response.segment), { blobItems: response.segment.blobItems.map(function (blobItemInteral) {
+                                    var blobItem = tslib.__assign(tslib.__assign({}, blobItemInteral), { tags: toTags(blobItemInteral.blobTags), objectReplicationSourceProperties: parseObjectReplicationRecord(blobItemInteral.objectReplicationMetadata) });
+                                    return blobItem;
+                                }) }) });
+                        return [2 /*return*/, wrappedResponse];
+                    case 3:
+                        e_13 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_13.message
+                        });
+                        throw e_13;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns an AsyncIterableIterator for ContainerListBlobFlatSegmentResponse
+     *
+     * @param marker - A string value that identifies the portion of
+     *                          the list of blobs to be returned with the next listing operation. The
+     *                          operation returns the ContinuationToken value within the response body if the
+     *                          listing operation did not return all blobs remaining to be listed
+     *                          with the current page. The ContinuationToken value can be used as the value for
+     *                          the marker parameter in a subsequent call to request the next page of list
+     *                          items. The marker value is opaque to the client.
+     * @param options - Options to list blobs operation.
+     */
+    ContainerClient.prototype.listSegments = function (marker, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__asyncGenerator(this, arguments, function listSegments_1() {
+            var listBlobsFlatSegmentResponse;
+            return tslib.__generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(!!marker || marker === undefined)) return [3 /*break*/, 7];
+                        _a.label = 1;
+                    case 1: return [4 /*yield*/, tslib.__await(this.listBlobFlatSegment(marker, options))];
+                    case 2:
+                        listBlobsFlatSegmentResponse = _a.sent();
+                        marker = listBlobsFlatSegmentResponse.continuationToken;
+                        return [4 /*yield*/, tslib.__await(listBlobsFlatSegmentResponse)];
+                    case 3: return [4 /*yield*/, tslib.__await.apply(void 0, [_a.sent()])];
+                    case 4: return [4 /*yield*/, _a.sent()];
+                    case 5:
+                        _a.sent();
+                        _a.label = 6;
+                    case 6:
+                        if (marker) return [3 /*break*/, 1];
+                        _a.label = 7;
+                    case 7: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns an AsyncIterableIterator of {@link BlobItem} objects
+     *
+     * @param options - Options to list blobs operation.
+     */
+    ContainerClient.prototype.listItems = function (options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__asyncGenerator(this, arguments, function listItems_1() {
+            var marker, _a, _b, listBlobsFlatSegmentResponse, e_14_1;
+            var e_14, _c;
+            return tslib.__generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        _d.trys.push([0, 7, 8, 13]);
+                        _a = tslib.__asyncValues(this.listSegments(marker, options));
+                        _d.label = 1;
+                    case 1: return [4 /*yield*/, tslib.__await(_a.next())];
+                    case 2:
+                        if (!(_b = _d.sent(), !_b.done)) return [3 /*break*/, 6];
+                        listBlobsFlatSegmentResponse = _b.value;
+                        return [5 /*yield**/, tslib.__values(tslib.__asyncDelegator(tslib.__asyncValues(listBlobsFlatSegmentResponse.segment.blobItems)))];
+                    case 3: return [4 /*yield*/, tslib.__await.apply(void 0, [_d.sent()])];
+                    case 4:
+                        _d.sent();
+                        _d.label = 5;
+                    case 5: return [3 /*break*/, 1];
+                    case 6: return [3 /*break*/, 13];
+                    case 7:
+                        e_14_1 = _d.sent();
+                        e_14 = { error: e_14_1 };
+                        return [3 /*break*/, 13];
+                    case 8:
+                        _d.trys.push([8, , 11, 12]);
+                        if (!(_b && !_b.done && (_c = _a.return))) return [3 /*break*/, 10];
+                        return [4 /*yield*/, tslib.__await(_c.call(_a))];
+                    case 9:
+                        _d.sent();
+                        _d.label = 10;
+                    case 10: return [3 /*break*/, 12];
+                    case 11:
+                        if (e_14) throw e_14.error;
+                        return [7 /*endfinally*/];
+                    case 12: return [7 /*endfinally*/];
+                    case 13: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns an async iterable iterator to list all the blobs
+     * under the specified account.
+     *
+     * .byPage() returns an async iterable iterator to list the blobs in pages.
+     *
+     * Example using `for await` syntax:
+     *
+     * ```js
+     * // Get the containerClient before you run these snippets,
+     * // Can be obtained from `blobServiceClient.getContainerClient("<your-container-name>");`
+     * let i = 1;
+     * for await (const blob of containerClient.listBlobsFlat()) {
+     *   console.log(`Blob ${i++}: ${blob.name}`);
+     * }
+     * ```
+     *
+     * Example using `iter.next()`:
+     *
+     * ```js
+     * let i = 1;
+     * let iter = containerClient.listBlobsFlat();
+     * let blobItem = await iter.next();
+     * while (!blobItem.done) {
+     *   console.log(`Blob ${i++}: ${blobItem.value.name}`);
+     *   blobItem = await iter.next();
+     * }
+     * ```
+     *
+     * Example using `byPage()`:
+     *
+     * ```js
+     * // passing optional maxPageSize in the page settings
+     * let i = 1;
+     * for await (const response of containerClient.listBlobsFlat().byPage({ maxPageSize: 20 })) {
+     *   for (const blob of response.segment.blobItems) {
+     *     console.log(`Blob ${i++}: ${blob.name}`);
+     *   }
+     * }
+     * ```
+     *
+     * Example using paging with a marker:
+     *
+     * ```js
+     * let i = 1;
+     * let iterator = containerClient.listBlobsFlat().byPage({ maxPageSize: 2 });
+     * let response = (await iterator.next()).value;
+     *
+     * // Prints 2 blob names
+     * for (const blob of response.segment.blobItems) {
+     *   console.log(`Blob ${i++}: ${blob.name}`);
+     * }
+     *
+     * // Gets next marker
+     * let marker = response.continuationToken;
+     *
+     * // Passing next marker as continuationToken
+     *
+     * iterator = containerClient.listBlobsFlat().byPage({ continuationToken: marker, maxPageSize: 10 });
+     * response = (await iterator.next()).value;
+     *
+     * // Prints 10 blob names
+     * for (const blob of response.segment.blobItems) {
+     *   console.log(`Blob ${i++}: ${blob.name}`);
+     * }
+     * ```
+     *
+     * @param options - Options to list blobs.
+     * @returns An asyncIterableIterator that supports paging.
+     */
+    ContainerClient.prototype.listBlobsFlat = function (options) {
+        var _a;
+        var _this = this;
+        if (options === void 0) { options = {}; }
+        var include = [];
+        if (options.includeCopy) {
+            include.push("copy");
+        }
+        if (options.includeDeleted) {
+            include.push("deleted");
+        }
+        if (options.includeMetadata) {
+            include.push("metadata");
+        }
+        if (options.includeSnapshots) {
+            include.push("snapshots");
+        }
+        if (options.includeVersions) {
+            include.push("versions");
+        }
+        if (options.includeUncommitedBlobs) {
+            include.push("uncommittedblobs");
+        }
+        if (options.includeTags) {
+            include.push("tags");
+        }
+        if (options.prefix === "") {
+            options.prefix = undefined;
+        }
+        var updatedOptions = tslib.__assign(tslib.__assign({}, options), (include.length > 0 ? { include: include } : {}));
+        // AsyncIterableIterator to iterate over blobs
+        var iter = this.listItems(updatedOptions);
+        return _a = {
+                /**
+                 * The next method, part of the iteration protocol
+                 */
+                next: function () {
+                    return iter.next();
+                }
+            },
+            /**
+             * The connection to the async iterator, part of the iteration protocol
+             */
+            _a[Symbol.asyncIterator] = function () {
+                return this;
+            },
+            /**
+             * Return an AsyncIterableIterator that works a page at a time
+             */
+            _a.byPage = function (settings) {
+                if (settings === void 0) { settings = {}; }
+                return _this.listSegments(settings.continuationToken, tslib.__assign({ maxPageSize: settings.maxPageSize }, updatedOptions));
+            },
+            _a;
+    };
+    /**
+     * Returns an AsyncIterableIterator for ContainerListBlobHierarchySegmentResponse
+     *
+     * @param delimiter - The character or string used to define the virtual hierarchy
+     * @param marker - A string value that identifies the portion of
+     *                          the list of blobs to be returned with the next listing operation. The
+     *                          operation returns the ContinuationToken value within the response body if the
+     *                          listing operation did not return all blobs remaining to be listed
+     *                          with the current page. The ContinuationToken value can be used as the value for
+     *                          the marker parameter in a subsequent call to request the next page of list
+     *                          items. The marker value is opaque to the client.
+     * @param options - Options to list blobs operation.
+     */
+    ContainerClient.prototype.listHierarchySegments = function (delimiter, marker, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__asyncGenerator(this, arguments, function listHierarchySegments_1() {
+            var listBlobsHierarchySegmentResponse;
+            return tslib.__generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!(!!marker || marker === undefined)) return [3 /*break*/, 7];
+                        _a.label = 1;
+                    case 1: return [4 /*yield*/, tslib.__await(this.listBlobHierarchySegment(delimiter, marker, options))];
+                    case 2:
+                        listBlobsHierarchySegmentResponse = _a.sent();
+                        marker = listBlobsHierarchySegmentResponse.continuationToken;
+                        return [4 /*yield*/, tslib.__await(listBlobsHierarchySegmentResponse)];
+                    case 3: return [4 /*yield*/, tslib.__await.apply(void 0, [_a.sent()])];
+                    case 4: return [4 /*yield*/, _a.sent()];
+                    case 5:
+                        _a.sent();
+                        _a.label = 6;
+                    case 6:
+                        if (marker) return [3 /*break*/, 1];
+                        _a.label = 7;
+                    case 7: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns an AsyncIterableIterator for {@link BlobPrefix} and {@link BlobItem} objects.
+     *
+     * @param delimiter - The character or string used to define the virtual hierarchy
+     * @param options - Options to list blobs operation.
+     */
+    ContainerClient.prototype.listItemsByHierarchy = function (delimiter, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__asyncGenerator(this, arguments, function listItemsByHierarchy_1() {
+            var marker, _a, _b, listBlobsHierarchySegmentResponse, segment, _i, _c, prefix, _d, _e, blob, e_15_1;
+            var e_15, _f;
+            return tslib.__generator(this, function (_g) {
+                switch (_g.label) {
+                    case 0:
+                        _g.trys.push([0, 14, 15, 20]);
+                        _a = tslib.__asyncValues(this.listHierarchySegments(delimiter, marker, options));
+                        _g.label = 1;
+                    case 1: return [4 /*yield*/, tslib.__await(_a.next())];
+                    case 2:
+                        if (!(_b = _g.sent(), !_b.done)) return [3 /*break*/, 13];
+                        listBlobsHierarchySegmentResponse = _b.value;
+                        segment = listBlobsHierarchySegmentResponse.segment;
+                        if (!segment.blobPrefixes) return [3 /*break*/, 7];
+                        _i = 0, _c = segment.blobPrefixes;
+                        _g.label = 3;
+                    case 3:
+                        if (!(_i < _c.length)) return [3 /*break*/, 7];
+                        prefix = _c[_i];
+                        return [4 /*yield*/, tslib.__await(tslib.__assign({ kind: "prefix" }, prefix))];
+                    case 4: return [4 /*yield*/, _g.sent()];
+                    case 5:
+                        _g.sent();
+                        _g.label = 6;
+                    case 6:
+                        _i++;
+                        return [3 /*break*/, 3];
+                    case 7:
+                        _d = 0, _e = segment.blobItems;
+                        _g.label = 8;
+                    case 8:
+                        if (!(_d < _e.length)) return [3 /*break*/, 12];
+                        blob = _e[_d];
+                        return [4 /*yield*/, tslib.__await(tslib.__assign({ kind: "blob" }, blob))];
+                    case 9: return [4 /*yield*/, _g.sent()];
+                    case 10:
+                        _g.sent();
+                        _g.label = 11;
+                    case 11:
+                        _d++;
+                        return [3 /*break*/, 8];
+                    case 12: return [3 /*break*/, 1];
+                    case 13: return [3 /*break*/, 20];
+                    case 14:
+                        e_15_1 = _g.sent();
+                        e_15 = { error: e_15_1 };
+                        return [3 /*break*/, 20];
+                    case 15:
+                        _g.trys.push([15, , 18, 19]);
+                        if (!(_b && !_b.done && (_f = _a.return))) return [3 /*break*/, 17];
+                        return [4 /*yield*/, tslib.__await(_f.call(_a))];
+                    case 16:
+                        _g.sent();
+                        _g.label = 17;
+                    case 17: return [3 /*break*/, 19];
+                    case 18:
+                        if (e_15) throw e_15.error;
+                        return [7 /*endfinally*/];
+                    case 19: return [7 /*endfinally*/];
+                    case 20: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns an async iterable iterator to list all the blobs by hierarchy.
+     * under the specified account.
+     *
+     * .byPage() returns an async iterable iterator to list the blobs by hierarchy in pages.
+     *
+     * Example using `for await` syntax:
+     *
+     * ```js
+     * for await (const item of containerClient.listBlobsByHierarchy("/")) {
+     *   if (item.kind === "prefix") {
+     *     console.log(`\tBlobPrefix: ${item.name}`);
+     *   } else {
+     *     console.log(`\tBlobItem: name - ${item.name}, last modified - ${item.properties.lastModified}`);
+     *   }
+     * }
+     * ```
+     *
+     * Example using `iter.next()`:
+     *
+     * ```js
+     * let iter = containerClient.listBlobsByHierarchy("/", { prefix: "prefix1/" });
+     * let entity = await iter.next();
+     * while (!entity.done) {
+     *   let item = entity.value;
+     *   if (item.kind === "prefix") {
+     *     console.log(`\tBlobPrefix: ${item.name}`);
+     *   } else {
+     *     console.log(`\tBlobItem: name - ${item.name}, last modified - ${item.properties.lastModified}`);
+     *   }
+     *   entity = await iter.next();
+     * }
+     * ```
+     *
+     * Example using `byPage()`:
+     *
+     * ```js
+     * console.log("Listing blobs by hierarchy by page");
+     * for await (const response of containerClient.listBlobsByHierarchy("/").byPage()) {
+     *   const segment = response.segment;
+     *   if (segment.blobPrefixes) {
+     *     for (const prefix of segment.blobPrefixes) {
+     *       console.log(`\tBlobPrefix: ${prefix.name}`);
+     *     }
+     *   }
+     *   for (const blob of response.segment.blobItems) {
+     *     console.log(`\tBlobItem: name - ${blob.name}, last modified - ${blob.properties.lastModified}`);
+     *   }
+     * }
+     * ```
+     *
+     * Example using paging with a max page size:
+     *
+     * ```js
+     * console.log("Listing blobs by hierarchy by page, specifying a prefix and a max page size");
+     *
+     * let i = 1;
+     * for await (const response of containerClient.listBlobsByHierarchy("/", { prefix: "prefix2/sub1/"}).byPage({ maxPageSize: 2 })) {
+     *   console.log(`Page ${i++}`);
+     *   const segment = response.segment;
+     *
+     *   if (segment.blobPrefixes) {
+     *     for (const prefix of segment.blobPrefixes) {
+     *       console.log(`\tBlobPrefix: ${prefix.name}`);
+     *     }
+     *   }
+     *
+     *   for (const blob of response.segment.blobItems) {
+     *     console.log(`\tBlobItem: name - ${blob.name}, last modified - ${blob.properties.lastModified}`);
+     *   }
+     * }
+     * ```
+     *
+     * @param delimiter - The character or string used to define the virtual hierarchy
+     * @param options - Options to list blobs operation.
+     */
+    ContainerClient.prototype.listBlobsByHierarchy = function (delimiter, options) {
+        var _a;
+        var _this = this;
+        if (options === void 0) { options = {}; }
+        if (delimiter === "") {
+            throw new RangeError("delimiter should contain one or more characters");
+        }
+        var include = [];
+        if (options.includeCopy) {
+            include.push("copy");
+        }
+        if (options.includeDeleted) {
+            include.push("deleted");
+        }
+        if (options.includeMetadata) {
+            include.push("metadata");
+        }
+        if (options.includeSnapshots) {
+            include.push("snapshots");
+        }
+        if (options.includeVersions) {
+            include.push("versions");
+        }
+        if (options.includeUncommitedBlobs) {
+            include.push("uncommittedblobs");
+        }
+        if (options.includeTags) {
+            include.push("tags");
+        }
+        if (options.prefix === "") {
+            options.prefix = undefined;
+        }
+        var updatedOptions = tslib.__assign(tslib.__assign({}, options), (include.length > 0 ? { include: include } : {}));
+        // AsyncIterableIterator to iterate over blob prefixes and blobs
+        var iter = this.listItemsByHierarchy(delimiter, updatedOptions);
+        return _a = {
+                /**
+                 * The next method, part of the iteration protocol
+                 */
+                next: function () {
+                    return tslib.__awaiter(this, void 0, void 0, function () {
+                        return tslib.__generator(this, function (_a) {
+                            return [2 /*return*/, iter.next()];
+                        });
+                    });
+                }
+            },
+            /**
+             * The connection to the async iterator, part of the iteration protocol
+             */
+            _a[Symbol.asyncIterator] = function () {
+                return this;
+            },
+            /**
+             * Return an AsyncIterableIterator that works a page at a time
+             */
+            _a.byPage = function (settings) {
+                if (settings === void 0) { settings = {}; }
+                return _this.listHierarchySegments(delimiter, settings.continuationToken, tslib.__assign({ maxPageSize: settings.maxPageSize }, updatedOptions));
+            },
+            _a;
+    };
+    ContainerClient.prototype.getContainerNameFromUrl = function () {
+        var containerName;
+        try {
+            //  URL may look like the following
+            // "https://myaccount.blob.core.windows.net/mycontainer?sasString";
+            // "https://myaccount.blob.core.windows.net/mycontainer";
+            // IPv4/IPv6 address hosts, Endpoints - `http://127.0.0.1:10000/devstoreaccount1/containername`
+            // http://localhost:10001/devstoreaccount1/containername
+            var parsedUrl = coreHttp.URLBuilder.parse(this.url);
+            if (parsedUrl.getHost().split(".")[1] === "blob") {
+                // "https://myaccount.blob.core.windows.net/containername".
+                // "https://customdomain.com/containername".
+                // .getPath() -> /containername
+                containerName = parsedUrl.getPath().split("/")[1];
+            }
+            else if (isIpEndpointStyle(parsedUrl)) {
+                // IPv4/IPv6 address hosts... Example - http://192.0.0.10:10001/devstoreaccount1/containername
+                // Single word domain without a [dot] in the endpoint... Example - http://localhost:10001/devstoreaccount1/containername
+                // .getPath() -> /devstoreaccount1/containername
+                containerName = parsedUrl.getPath().split("/")[2];
+            }
+            else {
+                // "https://customdomain.com/containername".
+                // .getPath() -> /containername
+                containerName = parsedUrl.getPath().split("/")[1];
+            }
+            // decode the encoded containerName - to get all the special characters that might be present in it
+            containerName = decodeURIComponent(containerName);
+            if (!containerName) {
+                throw new Error("Provided containerName is invalid.");
+            }
+            return containerName;
+        }
+        catch (error) {
+            throw new Error("Unable to extract containerName with provided information.");
+        }
+    };
+    /**
+     * Only available for ContainerClient constructed with a shared key credential.
+     *
+     * Generates a Blob Container Service Shared Access Signature (SAS) URI based on the client properties
+     * and parameters passed in. The SAS is signed by the shared key credential of the client.
+     *
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-a-service-sas
+     *
+     * @param options - Optional parameters.
+     * @returns The SAS URI consisting of the URI to the resource represented by this client, followed by the generated SAS token.
+     */
+    ContainerClient.prototype.generateSasUrl = function (options) {
+        var _this = this;
+        return new Promise(function (resolve) {
+            if (!(_this.credential instanceof StorageSharedKeyCredential)) {
+                throw new RangeError("Can only generate the SAS when the client is initialized with a shared key credential");
+            }
+            var sas = generateBlobSASQueryParameters(tslib.__assign({ containerName: _this._containerName }, options), _this.credential).toString();
+            resolve(appendToURLQuery(_this.url, sas));
+        });
+    };
+    /**
+     * Creates a BlobBatchClient object to conduct batch operations.
+     *
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/blob-batch
+     *
+     * @returns A new BlobBatchClient object for this container.
+     */
+    ContainerClient.prototype.getBlobBatchClient = function () {
+        return new BlobBatchClient(this.url, this.pipeline);
+    };
+    return ContainerClient;
+}(StorageClient));
+
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
@@ -46646,97 +46093,58 @@ var BlobBatchClient = /** @class */ (function () {
  * values are set, this should be serialized with toString and set as the permissions field on an
  * {@link AccountSASSignatureValues} object. It is possible to construct the permissions string without this class, but
  * the order of the permissions is particular and this class guarantees correctness.
- *
- * @export
- * @class AccountSASPermissions
  */
 var AccountSASPermissions = /** @class */ (function () {
     function AccountSASPermissions() {
         /**
          * Permission to read resources and list queues and tables granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.read = false;
         /**
          * Permission to write resources granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.write = false;
         /**
          * Permission to create blobs and files granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.delete = false;
         /**
          * Permission to delete versions granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.deleteVersion = false;
         /**
          * Permission to list blob containers, blobs, shares, directories, and files granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.list = false;
         /**
          * Permission to add messages, table entities, and append to blobs granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.add = false;
         /**
          * Permission to create blobs and files granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.create = false;
         /**
          * Permissions to update messages and table entities granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.update = false;
         /**
          * Permission to get and delete messages granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.process = false;
         /**
          * Specfies Tag access granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.tag = false;
         /**
          * Permission to filter blobs.
-         *
-         * @type {boolean}
-         * @memberof AccountSASPermissions
          */
         this.filter = false;
     }
     /**
      * Parse initializes the AccountSASPermissions fields from a string.
      *
-     * @static
-     * @param {string} permissions
-     * @returns {AccountSASPermissions}
-     * @memberof AccountSASPermissions
+     * @param permissions -
      */
     AccountSASPermissions.parse = function (permissions) {
         var accountSASPermissions = new AccountSASPermissions();
@@ -46786,10 +46194,7 @@ var AccountSASPermissions = /** @class */ (function () {
      * Creates a {@link AccountSASPermissions} from a raw object which contains same keys as it
      * and boolean values for them.
      *
-     * @static
-     * @param {AccountSASPermissionsLike} permissionLike
-     * @returns {AccountSASPermissions}
-     * @memberof AccountSASPermissions
+     * @param permissionLike -
      */
     AccountSASPermissions.from = function (permissionLike) {
         var accountSASPermissions = new AccountSASPermissions();
@@ -46837,8 +46242,6 @@ var AccountSASPermissions = /** @class */ (function () {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-an-account-sas
      *
-     * @returns {string}
-     * @memberof AccountSASPermissions
      */
     AccountSASPermissions.prototype.toString = function () {
         // The order of the characters should be as specified here to ensure correctness:
@@ -46883,8 +46286,8 @@ var AccountSASPermissions = /** @class */ (function () {
     return AccountSASPermissions;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
@@ -46893,31 +46296,19 @@ var AccountSASPermissions = /** @class */ (function () {
  * values are set, this should be serialized with toString and set as the resources field on an
  * {@link AccountSASSignatureValues} object. It is possible to construct the resources string without this class, but
  * the order of the resources is particular and this class guarantees correctness.
- *
- * @export
- * @class AccountSASResourceTypes
  */
 var AccountSASResourceTypes = /** @class */ (function () {
     function AccountSASResourceTypes() {
         /**
          * Permission to access service level APIs granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASResourceTypes
          */
         this.service = false;
         /**
          * Permission to access container level APIs (Blob Containers, Tables, Queues, File Shares) granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASResourceTypes
          */
         this.container = false;
         /**
          * Permission to access object level APIs (Blobs, Table Entities, Queue Messages, Files) granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASResourceTypes
          */
         this.object = false;
     }
@@ -46925,10 +46316,7 @@ var AccountSASResourceTypes = /** @class */ (function () {
      * Creates an {@link AccountSASResourceTypes} from the specified resource types string. This method will throw an
      * Error if it encounters a character that does not correspond to a valid resource type.
      *
-     * @static
-     * @param {string} resourceTypes
-     * @returns {AccountSASResourceTypes}
-     * @memberof AccountSASResourceTypes
+     * @param resourceTypes -
      */
     AccountSASResourceTypes.parse = function (resourceTypes) {
         var accountSASResourceTypes = new AccountSASResourceTypes();
@@ -46955,8 +46343,6 @@ var AccountSASResourceTypes = /** @class */ (function () {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-an-account-sas
      *
-     * @returns {string}
-     * @memberof AccountSASResourceTypes
      */
     AccountSASResourceTypes.prototype.toString = function () {
         var resourceTypes = [];
@@ -46974,8 +46360,8 @@ var AccountSASResourceTypes = /** @class */ (function () {
     return AccountSASResourceTypes;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT License.
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
@@ -46984,38 +46370,23 @@ var AccountSASResourceTypes = /** @class */ (function () {
  * values are set, this should be serialized with toString and set as the services field on an
  * {@link AccountSASSignatureValues} object. It is possible to construct the services string without this class, but
  * the order of the services is particular and this class guarantees correctness.
- *
- * @export
- * @class AccountSASServices
  */
 var AccountSASServices = /** @class */ (function () {
     function AccountSASServices() {
         /**
          * Permission to access blob resources granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASServices
          */
         this.blob = false;
         /**
          * Permission to access file resources granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASServices
          */
         this.file = false;
         /**
          * Permission to access queue resources granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASServices
          */
         this.queue = false;
         /**
          * Permission to access table resources granted.
-         *
-         * @type {boolean}
-         * @memberof AccountSASServices
          */
         this.table = false;
     }
@@ -47023,10 +46394,7 @@ var AccountSASServices = /** @class */ (function () {
      * Creates an {@link AccountSASServices} from the specified services string. This method will throw an
      * Error if it encounters a character that does not correspond to a valid service.
      *
-     * @static
-     * @param {string} services
-     * @returns {AccountSASServices}
-     * @memberof AccountSASServices
+     * @param services -
      */
     AccountSASServices.parse = function (services) {
         var accountSASServices = new AccountSASServices();
@@ -47054,8 +46422,6 @@ var AccountSASServices = /** @class */ (function () {
     /**
      * Converts the given services to a string.
      *
-     * @returns {string}
-     * @memberof AccountSASServices
      */
     AccountSASServices.prototype.toString = function () {
         var services = [];
@@ -47076,7 +46442,7 @@ var AccountSASServices = /** @class */ (function () {
     return AccountSASServices;
 }());
 
-// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation.
 /**
  * ONLY AVAILABLE IN NODE.JS RUNTIME.
  *
@@ -47085,10 +46451,8 @@ var AccountSASServices = /** @class */ (function () {
  *
  * @see https://docs.microsoft.com/en-us/rest/api/storageservices/constructing-an-account-sas
  *
- * @param {AccountSASSignatureValues} accountSASSignatureValues
- * @param {StorageSharedKeyCredential} sharedKeyCredential
- * @returns {SASQueryParameters}
- * @memberof AccountSASSignatureValues
+ * @param accountSASSignatureValues -
+ * @param sharedKeyCredential -
  */
 function generateAccountSASQueryParameters(accountSASSignatureValues, sharedKeyCredential) {
     var version = accountSASSignatureValues.version
@@ -47133,9 +46497,6 @@ function generateAccountSASQueryParameters(accountSASSignatureValues, sharedKeyC
 /**
  * A BlobServiceClient represents a Client to the Azure Storage Blob service allowing you
  * to manipulate blob containers.
- *
- * @export
- * @class BlobServiceClient
  */
 var BlobServiceClient = /** @class */ (function (_super) {
     tslib.__extends(BlobServiceClient, _super);
@@ -47162,14 +46523,13 @@ var BlobServiceClient = /** @class */ (function (_super) {
      *
      * Creates an instance of BlobServiceClient from connection string.
      *
-     * @param {string} connectionString Account connection string or a SAS connection string of an Azure storage account.
+     * @param connectionString - Account connection string or a SAS connection string of an Azure storage account.
      *                                  [ Note - Account connection string can only be used in NODE.JS runtime. ]
      *                                  Account connection string example -
      *                                  `DefaultEndpointsProtocol=https;AccountName=myaccount;AccountKey=accountKey;EndpointSuffix=core.windows.net`
      *                                  SAS connection string example -
      *                                  `BlobEndpoint=https://myaccount.blob.core.windows.net/;QueueEndpoint=https://myaccount.queue.core.windows.net/;FileEndpoint=https://myaccount.file.core.windows.net/;TableEndpoint=https://myaccount.table.core.windows.net/;SharedAccessSignature=sasString`
-     * @param {StoragePipelineOptions} [options] Optional. Options to configure the HTTP pipeline.
-     * @memberof BlobServiceClient
+     * @param options - Optional. Options to configure the HTTP pipeline.
      */
     BlobServiceClient.fromConnectionString = function (connectionString, options) {
         options = options || {};
@@ -47193,9 +46553,8 @@ var BlobServiceClient = /** @class */ (function (_super) {
     /**
      * Creates a {@link ContainerClient} object
      *
-     * @param {string} containerName A container name
-     * @returns {ContainerClient} A new ContainerClient object for the given container name.
-     * @memberof BlobServiceClient
+     * @param containerName - A container name
+     * @returns A new ContainerClient object for the given container name.
      *
      * Example usage:
      *
@@ -47209,24 +46568,23 @@ var BlobServiceClient = /** @class */ (function (_super) {
     /**
      * Create a Blob container.
      *
-     * @param {string} containerName Name of the container to create.
-     * @param {ContainerCreateOptions} [options] Options to configure Container Create operation.
-     * @returns {Promise<{ containerClient: ContainerClient; containerCreateResponse: ContainerCreateResponse }>} Container creation response and the corresponding container client.
-     * @memberof BlobServiceClient
+     * @param containerName - Name of the container to create.
+     * @param options - Options to configure Container Create operation.
+     * @returns Container creation response and the corresponding container client.
      */
     BlobServiceClient.prototype.createContainer = function (containerName, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, containerClient, containerCreateResponse, e_1;
+            var _a, span, updatedOptions, containerClient, containerCreateResponse, e_1;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-createContainer", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-createContainer", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         containerClient = this.getContainerClient(containerName);
-                        return [4 /*yield*/, containerClient.create(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, containerClient.create(updatedOptions)];
                     case 2:
                         containerCreateResponse = _b.sent();
                         return [2 /*return*/, {
@@ -47251,24 +46609,23 @@ var BlobServiceClient = /** @class */ (function (_super) {
     /**
      * Deletes a Blob container.
      *
-     * @param {string} containerName Name of the container to delete.
-     * @param {ContainerDeleteMethodOptions} [options] Options to configure Container Delete operation.
-     * @returns {Promise<ContainerDeleteResponse>} Container deletion response.
-     * @memberof BlobServiceClient
+     * @param containerName - Name of the container to delete.
+     * @param options - Options to configure Container Delete operation.
+     * @returns Container deletion response.
      */
     BlobServiceClient.prototype.deleteContainer = function (containerName, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, containerClient, e_2;
+            var _a, span, updatedOptions, containerClient, e_2;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-deleteContainer", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-deleteContainer", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         containerClient = this.getContainerClient(containerName);
-                        return [4 /*yield*/, containerClient.delete(tslib.__assign(tslib.__assign({}, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, containerClient.delete(updatedOptions)];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_2 = _b.sent();
@@ -47289,26 +46646,26 @@ var BlobServiceClient = /** @class */ (function (_super) {
      * Restore a previously deleted Blob container.
      * This API is only functional if Container Soft Delete is enabled for the storage account associated with the container.
      *
-     * @param {string} deletedContainerName Name of the previously deleted container.
-     * @param {string} deletedContainerVersion Version of the previously deleted container, used to uniquely identify the deleted container.
-     * @returns {Promise<ContainerUndeleteResponse>} Container deletion response.
-     * @memberof BlobServiceClient
+     * @param deletedContainerName - Name of the previously deleted container.
+     * @param deletedContainerVersion - Version of the previously deleted container, used to uniquely identify the deleted container.
+     * @param options - Options to configure Container Restore operation.
+     * @returns Container deletion response.
      */
     BlobServiceClient.prototype.undeleteContainer = function (deletedContainerName, deletedContainerVersion, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, containerClient, containerContext, containerUndeleteResponse, e_3;
+            var _a, span, updatedOptions, containerClient, containerContext, containerUndeleteResponse, e_3;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-undeleteContainer", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-undeleteContainer", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         containerClient = this.getContainerClient(options.destinationContainerName || deletedContainerName);
                         containerContext = new Container(containerClient["storageClientContext"]);
-                        return [4 /*yield*/, containerContext.restore(tslib.__assign(tslib.__assign({ deletedContainerName: deletedContainerName,
-                                deletedContainerVersion: deletedContainerVersion }, options), { tracingOptions: tslib.__assign(tslib.__assign({}, options.tracingOptions), { spanOptions: spanOptions }) }))];
+                        return [4 /*yield*/, containerContext.restore(tslib.__assign({ deletedContainerName: deletedContainerName,
+                                deletedContainerVersion: deletedContainerVersion }, updatedOptions))];
                     case 2:
                         containerUndeleteResponse = _b.sent();
                         return [2 /*return*/, { containerClient: containerClient, containerUndeleteResponse: containerUndeleteResponse }];
@@ -47328,32 +46685,33 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * Gets the properties of a storage account’s Blob service, including properties
-     * for Storage Analytics and CORS (Cross-Origin Resource Sharing) rules.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties
+     * Rename an existing Blob Container.
      *
-     * @param {ServiceGetPropertiesOptions} [options] Options to the Service Get Properties operation.
-     * @returns {Promise<ServiceGetPropertiesResponse>} Response data for the Service Get Properties operation.
-     * @memberof BlobServiceClient
+     * @param sourceContainerName - The name of the source container.
+     * @param destinationContainerName - The new name of the container.
+     * @param options - Options to configure Container Rename operation.
      */
-    BlobServiceClient.prototype.getProperties = function (options) {
+    // @ts-ignore Need to hide this interface for now. Make it public and turn on the live tests for it when the service is ready.
+    BlobServiceClient.prototype.renameContainer = function (sourceContainerName, destinationContainerName, options) {
+        var _a;
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_4;
-            return tslib.__generator(this, function (_b) {
-                switch (_b.label) {
+            var _b, span, updatedOptions, containerClient, containerContext, containerRenameResponse, e_4;
+            return tslib.__generator(this, function (_c) {
+                switch (_c.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-getProperties", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
-                        _b.label = 1;
+                        _b = createSpan("BlobServiceClient-renameContainer", options), span = _b.span, updatedOptions = _b.updatedOptions;
+                        _c.label = 1;
                     case 1:
-                        _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.serviceContext.getProperties({
-                                abortSignal: options.abortSignal,
-                                spanOptions: spanOptions
-                            })];
-                    case 2: return [2 /*return*/, _b.sent()];
+                        _c.trys.push([1, 3, 4, 5]);
+                        containerClient = this.getContainerClient(destinationContainerName);
+                        containerContext = new Container(containerClient["storageClientContext"]);
+                        return [4 /*yield*/, containerContext.rename(sourceContainerName, tslib.__assign(tslib.__assign({}, updatedOptions), { sourceLeaseId: (_a = options.sourceCondition) === null || _a === void 0 ? void 0 : _a.leaseId }))];
+                    case 2:
+                        containerRenameResponse = _c.sent();
+                        return [2 /*return*/, { containerClient: containerClient, containerRenameResponse: containerRenameResponse }];
                     case 3:
-                        e_4 = _b.sent();
+                        e_4 = _c.sent();
                         span.setStatus({
                             code: api.CanonicalCode.UNKNOWN,
                             message: e_4.message
@@ -47368,30 +46726,25 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * Sets properties for a storage account’s Blob service endpoint, including properties
-     * for Storage Analytics, CORS (Cross-Origin Resource Sharing) rules and soft delete settings.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-blob-service-properties}
+     * Gets the properties of a storage account’s Blob service, including properties
+     * for Storage Analytics and CORS (Cross-Origin Resource Sharing) rules.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties
      *
-     * @param {BlobServiceProperties} properties
-     * @param {ServiceSetPropertiesOptions} [options] Options to the Service Set Properties operation.
-     * @returns {Promise<ServiceSetPropertiesResponse>} Response data for the Service Set Properties operation.
-     * @memberof BlobServiceClient
+     * @param options - Options to the Service Get Properties operation.
+     * @returns Response data for the Service Get Properties operation.
      */
-    BlobServiceClient.prototype.setProperties = function (properties, options) {
+    BlobServiceClient.prototype.getProperties = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_5;
+            var _a, span, updatedOptions, e_5;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-setProperties", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-getProperties", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.serviceContext.setProperties(properties, {
-                                abortSignal: options.abortSignal,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.serviceContext.getProperties(tslib.__assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_5 = _b.sent();
@@ -47409,30 +46762,26 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * Retrieves statistics related to replication for the Blob service. It is only
-     * available on the secondary location endpoint when read-access geo-redundant
-     * replication is enabled for the storage account.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob-service-stats}
+     * Sets properties for a storage account’s Blob service endpoint, including properties
+     * for Storage Analytics, CORS (Cross-Origin Resource Sharing) rules and soft delete settings.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/set-blob-service-properties
      *
-     * @param {ServiceGetStatisticsOptions} [options] Options to the Service Get Statistics operation.
-     * @returns {Promise<ServiceGetStatisticsResponse>} Response data for the Service Get Statistics operation.
-     * @memberof BlobServiceClient
+     * @param properties -
+     * @param options - Options to the Service Set Properties operation.
+     * @returns Response data for the Service Set Properties operation.
      */
-    BlobServiceClient.prototype.getStatistics = function (options) {
+    BlobServiceClient.prototype.setProperties = function (properties, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_6;
+            var _a, span, updatedOptions, e_6;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-getStatistics", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-setProperties", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.serviceContext.getStatistics({
-                                abortSignal: options.abortSignal,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.serviceContext.setProperties(properties, tslib.__assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_6 = _b.sent();
@@ -47450,31 +46799,26 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * The Get Account Information operation returns the sku name and account kind
-     * for the specified account.
-     * The Get Account Information operation is available on service versions beginning
-     * with version 2018-03-28.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-account-information
+     * Retrieves statistics related to replication for the Blob service. It is only
+     * available on the secondary location endpoint when read-access geo-redundant
+     * replication is enabled for the storage account.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-blob-service-stats
      *
-     * @param {ServiceGetAccountInfoOptions} [options] Options to the Service Get Account Info operation.
-     * @returns {Promise<ServiceGetAccountInfoResponse>} Response data for the Service Get Account Info operation.
-     * @memberof BlobServiceClient
+     * @param options - Options to the Service Get Statistics operation.
+     * @returns Response data for the Service Get Statistics operation.
      */
-    BlobServiceClient.prototype.getAccountInfo = function (options) {
+    BlobServiceClient.prototype.getStatistics = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_7;
+            var _a, span, updatedOptions, e_7;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-getAccountInfo", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-getStatistics", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.serviceContext.getAccountInfo({
-                                abortSignal: options.abortSignal,
-                                spanOptions: spanOptions
-                            })];
+                        return [4 /*yield*/, this.serviceContext.getStatistics(tslib.__assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_7 = _b.sent();
@@ -47492,32 +46836,27 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * Returns a list of the containers under the specified account.
-     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/list-containers2
+     * The Get Account Information operation returns the sku name and account kind
+     * for the specified account.
+     * The Get Account Information operation is available on service versions beginning
+     * with version 2018-03-28.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-account-information
      *
-     * @param {string} [marker] A string value that identifies the portion of
-     *                        the list of containers to be returned with the next listing operation. The
-     *                        operation returns the continuationToken value within the response body if the
-     *                        listing operation did not return all containers remaining to be listed
-     *                        with the current page. The continuationToken value can be used as the value for
-     *                        the marker parameter in a subsequent call to request the next page of list
-     *                        items. The marker value is opaque to the client.
-     * @param {ServiceListContainersSegmentOptions} [options] Options to the Service List Container Segment operation.
-     * @returns {Promise<ServiceListContainersSegmentResponse>} Response data for the Service List Container Segment operation.
-     * @memberof BlobServiceClient
+     * @param options - Options to the Service Get Account Info operation.
+     * @returns Response data for the Service Get Account Info operation.
      */
-    BlobServiceClient.prototype.listContainersSegment = function (marker, options) {
+    BlobServiceClient.prototype.getAccountInfo = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, e_8;
+            var _a, span, updatedOptions, e_8;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-listContainersSegment", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-getAccountInfo", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.serviceContext.listContainersSegment(tslib.__assign(tslib.__assign({ abortSignal: options.abortSignal, marker: marker }, options), { include: typeof options.include === "string" ? [options.include] : options.include, spanOptions: spanOptions }))];
+                        return [4 /*yield*/, this.serviceContext.getAccountInfo(tslib.__assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_8 = _b.sent();
@@ -47535,55 +46874,32 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * The Filter Blobs operation enables callers to list blobs across all containers whose tags
-     * match a given search expression. Filter blobs searches across all containers within a
-     * storage account but can be scoped within the expression to a single container.
+     * Returns a list of the containers under the specified account.
+     * @see https://docs.microsoft.com/en-us/rest/api/storageservices/list-containers2
      *
-     * @private
-     * @param {string} tagFilterSqlExpression The where parameter enables the caller to query blobs whose tags match a given expression.
-     *                                        The given expression must evaluate to true for a blob to be returned in the results.
-     *                                        The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
-     *                                        however, only a subset of the OData filter syntax is supported in the Blob service.
-     * @param {string} [marker] A string value that identifies the portion of
-     *                          the list of blobs to be returned with the next listing operation. The
-     *                          operation returns the continuationToken value within the response body if the
-     *                          listing operation did not return all blobs remaining to be listed
-     *                          with the current page. The continuationToken value can be used as the value for
-     *                          the marker parameter in a subsequent call to request the next page of list
-     *                          items. The marker value is opaque to the client.
-     * @param {ServiceFindBlobsByTagsSegmentOptions} [options={}] Options to find blobs by tags.
-     * @returns {Promise<ServiceFindBlobsByTagsSegmentResponse>}
-     * @memberof BlobServiceClient
+     * @param marker - A string value that identifies the portion of
+     *                        the list of containers to be returned with the next listing operation. The
+     *                        operation returns the continuationToken value within the response body if the
+     *                        listing operation did not return all containers remaining to be listed
+     *                        with the current page. The continuationToken value can be used as the value for
+     *                        the marker parameter in a subsequent call to request the next page of list
+     *                        items. The marker value is opaque to the client.
+     * @param options - Options to the Service List Container Segment operation.
+     * @returns Response data for the Service List Container Segment operation.
      */
-    BlobServiceClient.prototype.findBlobsByTagsSegment = function (tagFilterSqlExpression, marker, options) {
+    BlobServiceClient.prototype.listContainersSegment = function (marker, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, response, wrappedResponse, e_9;
+            var _a, span, updatedOptions, e_9;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-findBlobsByTagsSegment", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-listContainersSegment", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
-                        return [4 /*yield*/, this.serviceContext.filterBlobs({
-                                abortSignal: options.abortSignal,
-                                where: tagFilterSqlExpression,
-                                marker: marker,
-                                maxPageSize: options.maxPageSize,
-                                spanOptions: spanOptions
-                            })];
-                    case 2:
-                        response = _b.sent();
-                        wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, blobs: response.blobs.map(function (blob) {
-                                var _a;
-                                var tagValue = "";
-                                if (((_a = blob.tags) === null || _a === void 0 ? void 0 : _a.blobTagSet.length) === 1) {
-                                    tagValue = blob.tags.blobTagSet[0].value;
-                                }
-                                return tslib.__assign(tslib.__assign({}, blob), { tags: toTags(blob.tags), tagValue: tagValue });
-                            }) });
-                        return [2 /*return*/, wrappedResponse];
+                        return [4 /*yield*/, this.serviceContext.listContainersSegment(tslib.__assign(tslib.__assign(tslib.__assign({ abortSignal: options.abortSignal, marker: marker }, options), { include: typeof options.include === "string" ? [options.include] : options.include }), convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2: return [2 /*return*/, _b.sent()];
                     case 3:
                         e_9 = _b.sent();
                         span.setStatus({
@@ -47600,23 +46916,76 @@ var BlobServiceClient = /** @class */ (function (_super) {
         });
     };
     /**
-     * Returns an AsyncIterableIterator for ServiceFindBlobsByTagsSegmentResponse.
+     * The Filter Blobs operation enables callers to list blobs across all containers whose tags
+     * match a given search expression. Filter blobs searches across all containers within a
+     * storage account but can be scoped within the expression to a single container.
      *
-     * @private
-     * @param {string} tagFilterSqlExpression  The where parameter enables the caller to query blobs whose tags match a given expression.
-     *                                         The given expression must evaluate to true for a blob to be returned in the results.
-     *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
-     *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
-     * @param {string} [marker] A string value that identifies the portion of
+     * @param tagFilterSqlExpression - The where parameter enables the caller to query blobs whose tags match a given expression.
+     *                                        The given expression must evaluate to true for a blob to be returned in the results.
+     *                                        The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
+     *                                        however, only a subset of the OData filter syntax is supported in the Blob service.
+     * @param marker - A string value that identifies the portion of
      *                          the list of blobs to be returned with the next listing operation. The
      *                          operation returns the continuationToken value within the response body if the
      *                          listing operation did not return all blobs remaining to be listed
      *                          with the current page. The continuationToken value can be used as the value for
      *                          the marker parameter in a subsequent call to request the next page of list
      *                          items. The marker value is opaque to the client.
-     * @param {ServiceFindBlobsByTagsSegmentOptions} [options={}] Options to find blobs by tags.
-     * @returns {AsyncIterableIterator<ServiceFindBlobsByTagsSegmentResponse>}
-     * @memberof BlobServiceClient
+     * @param options - Options to find blobs by tags.
+     */
+    BlobServiceClient.prototype.findBlobsByTagsSegment = function (tagFilterSqlExpression, marker, options) {
+        if (options === void 0) { options = {}; }
+        return tslib.__awaiter(this, void 0, void 0, function () {
+            var _a, span, updatedOptions, response, wrappedResponse, e_10;
+            return tslib.__generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0:
+                        _a = createSpan("BlobServiceClient-findBlobsByTagsSegment", options), span = _a.span, updatedOptions = _a.updatedOptions;
+                        _b.label = 1;
+                    case 1:
+                        _b.trys.push([1, 3, 4, 5]);
+                        return [4 /*yield*/, this.serviceContext.filterBlobs(tslib.__assign({ abortSignal: options.abortSignal, where: tagFilterSqlExpression, marker: marker, maxPageSize: options.maxPageSize }, convertTracingToRequestOptionsBase(updatedOptions)))];
+                    case 2:
+                        response = _b.sent();
+                        wrappedResponse = tslib.__assign(tslib.__assign({}, response), { _response: response._response, blobs: response.blobs.map(function (blob) {
+                                var _a;
+                                var tagValue = "";
+                                if (((_a = blob.tags) === null || _a === void 0 ? void 0 : _a.blobTagSet.length) === 1) {
+                                    tagValue = blob.tags.blobTagSet[0].value;
+                                }
+                                return tslib.__assign(tslib.__assign({}, blob), { tags: toTags(blob.tags), tagValue: tagValue });
+                            }) });
+                        return [2 /*return*/, wrappedResponse];
+                    case 3:
+                        e_10 = _b.sent();
+                        span.setStatus({
+                            code: api.CanonicalCode.UNKNOWN,
+                            message: e_10.message
+                        });
+                        throw e_10;
+                    case 4:
+                        span.end();
+                        return [7 /*endfinally*/];
+                    case 5: return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /**
+     * Returns an AsyncIterableIterator for ServiceFindBlobsByTagsSegmentResponse.
+     *
+     * @param tagFilterSqlExpression -  The where parameter enables the caller to query blobs whose tags match a given expression.
+     *                                         The given expression must evaluate to true for a blob to be returned in the results.
+     *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
+     *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
+     * @param marker - A string value that identifies the portion of
+     *                          the list of blobs to be returned with the next listing operation. The
+     *                          operation returns the continuationToken value within the response body if the
+     *                          listing operation did not return all blobs remaining to be listed
+     *                          with the current page. The continuationToken value can be used as the value for
+     *                          the marker parameter in a subsequent call to request the next page of list
+     *                          items. The marker value is opaque to the client.
+     * @param options - Options to find blobs by tags.
      */
     BlobServiceClient.prototype.findBlobsByTagsSegments = function (tagFilterSqlExpression, marker, options) {
         if (options === void 0) { options = {}; }
@@ -47648,20 +47017,17 @@ var BlobServiceClient = /** @class */ (function (_super) {
     /**
      * Returns an AsyncIterableIterator for blobs.
      *
-     * @private
-     * @param {string} tagFilterSqlExpression  The where parameter enables the caller to query blobs whose tags match a given expression.
+     * @param tagFilterSqlExpression -  The where parameter enables the caller to query blobs whose tags match a given expression.
      *                                         The given expression must evaluate to true for a blob to be returned in the results.
      *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
      *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
-     * @param {ServiceFindBlobsByTagsSegmentOptions} [options={}] Options to findBlobsByTagsItems.
-     * @returns {AsyncIterableIterator<FilterBlobItem>}
-     * @memberof BlobServiceClient
+     * @param options - Options to findBlobsByTagsItems.
      */
     BlobServiceClient.prototype.findBlobsByTagsItems = function (tagFilterSqlExpression, options) {
         if (options === void 0) { options = {}; }
         return tslib.__asyncGenerator(this, arguments, function findBlobsByTagsItems_1() {
-            var marker, _a, _b, segment, e_10_1;
-            var e_10, _c;
+            var marker, _a, _b, segment, e_11_1;
+            var e_11, _c;
             return tslib.__generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -47680,8 +47046,8 @@ var BlobServiceClient = /** @class */ (function (_super) {
                     case 5: return [3 /*break*/, 1];
                     case 6: return [3 /*break*/, 13];
                     case 7:
-                        e_10_1 = _d.sent();
-                        e_10 = { error: e_10_1 };
+                        e_11_1 = _d.sent();
+                        e_11 = { error: e_11_1 };
                         return [3 /*break*/, 13];
                     case 8:
                         _d.trys.push([8, , 11, 12]);
@@ -47692,7 +47058,7 @@ var BlobServiceClient = /** @class */ (function (_super) {
                         _d.label = 10;
                     case 10: return [3 /*break*/, 12];
                     case 11:
-                        if (e_10) throw e_10.error;
+                        if (e_11) throw e_11.error;
                         return [7 /*endfinally*/];
                     case 12: return [7 /*endfinally*/];
                     case 13: return [2 /*return*/];
@@ -47773,13 +47139,11 @@ var BlobServiceClient = /** @class */ (function (_super) {
      * }
      * ```
      *
-     * @param {string} tagFilterSqlExpression  The where parameter enables the caller to query blobs whose tags match a given expression.
+     * @param tagFilterSqlExpression -  The where parameter enables the caller to query blobs whose tags match a given expression.
      *                                         The given expression must evaluate to true for a blob to be returned in the results.
      *                                         The[OData - ABNF] filter syntax rule defines the formal grammar for the value of the where query parameter;
      *                                         however, only a subset of the OData filter syntax is supported in the Blob service.
-     * @param {ServiceFindBlobByTagsOptions} [options={}] Options to find blobs by tags.
-     * @returns {PagedAsyncIterableIterator<FilterBlobItem, ServiceFindBlobsByTagsSegmentResponse>}
-     * @memberof BlobServiceClient
+     * @param options - Options to find blobs by tags.
      */
     BlobServiceClient.prototype.findBlobsByTags = function (tagFilterSqlExpression, options) {
         var _a;
@@ -47790,20 +47154,20 @@ var BlobServiceClient = /** @class */ (function (_super) {
         var iter = this.findBlobsByTagsItems(tagFilterSqlExpression, listSegmentOptions);
         return _a = {
                 /**
-                 * @member {Promise} [next] The next method, part of the iteration protocol
+                 * The next method, part of the iteration protocol
                  */
                 next: function () {
                     return iter.next();
                 }
             },
             /**
-             * @member {Symbol} [asyncIterator] The connection to the async iterator, part of the iteration protocol
+             * The connection to the async iterator, part of the iteration protocol
              */
             _a[Symbol.asyncIterator] = function () {
                 return this;
             },
             /**
-             * @member {Function} [byPage] Return an AsyncIterableIterator that works a page at a time
+             * Return an AsyncIterableIterator that works a page at a time
              */
             _a.byPage = function (settings) {
                 if (settings === void 0) { settings = {}; }
@@ -47814,17 +47178,14 @@ var BlobServiceClient = /** @class */ (function (_super) {
     /**
      * Returns an AsyncIterableIterator for ServiceListContainersSegmentResponses
      *
-     * @private
-     * @param {string} [marker] A string value that identifies the portion of
+     * @param marker - A string value that identifies the portion of
      *                        the list of containers to be returned with the next listing operation. The
      *                        operation returns the continuationToken value within the response body if the
      *                        listing operation did not return all containers remaining to be listed
      *                        with the current page. The continuationToken value can be used as the value for
      *                        the marker parameter in a subsequent call to request the next page of list
      *                        items. The marker value is opaque to the client.
-     * @param {ServiceListContainersSegmentOptions} [options] Options to list containers operation.
-     * @returns {AsyncIterableIterator<ServiceListContainersSegmentResponse>}
-     * @memberof BlobServiceClient
+     * @param options - Options to list containers operation.
      */
     BlobServiceClient.prototype.listSegments = function (marker, options) {
         if (options === void 0) { options = {}; }
@@ -47858,16 +47219,13 @@ var BlobServiceClient = /** @class */ (function (_super) {
     /**
      * Returns an AsyncIterableIterator for Container Items
      *
-     * @private
-     * @param {ServiceListContainersSegmentOptions} [options] Options to list containers operation.
-     * @returns {AsyncIterableIterator<ContainerItem>}
-     * @memberof BlobServiceClient
+     * @param options - Options to list containers operation.
      */
     BlobServiceClient.prototype.listItems = function (options) {
         if (options === void 0) { options = {}; }
         return tslib.__asyncGenerator(this, arguments, function listItems_1() {
-            var marker, _a, _b, segment, e_11_1;
-            var e_11, _c;
+            var marker, _a, _b, segment, e_12_1;
+            var e_12, _c;
             return tslib.__generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -47886,8 +47244,8 @@ var BlobServiceClient = /** @class */ (function (_super) {
                     case 5: return [3 /*break*/, 1];
                     case 6: return [3 /*break*/, 13];
                     case 7:
-                        e_11_1 = _d.sent();
-                        e_11 = { error: e_11_1 };
+                        e_12_1 = _d.sent();
+                        e_12 = { error: e_12_1 };
                         return [3 /*break*/, 13];
                     case 8:
                         _d.trys.push([8, , 11, 12]);
@@ -47898,7 +47256,7 @@ var BlobServiceClient = /** @class */ (function (_super) {
                         _d.label = 10;
                     case 10: return [3 /*break*/, 12];
                     case 11:
-                        if (e_11) throw e_11.error;
+                        if (e_12) throw e_12.error;
                         return [7 /*endfinally*/];
                     case 12: return [7 /*endfinally*/];
                     case 13: return [2 /*return*/];
@@ -47977,9 +47335,8 @@ var BlobServiceClient = /** @class */ (function (_super) {
      * }
      * ```
      *
-     * @param {ServiceListContainersOptions} [options={}] Options to list containers.
-     * @returns {PagedAsyncIterableIterator<ContainerItem, ServiceListContainersSegmentResponse>} An asyncIterableIterator that supports paging.
-     * @memberof BlobServiceClient
+     * @param options - Options to list containers.
+     * @returns An asyncIterableIterator that supports paging.
      */
     BlobServiceClient.prototype.listContainers = function (options) {
         var _a;
@@ -48000,20 +47357,20 @@ var BlobServiceClient = /** @class */ (function (_super) {
         var iter = this.listItems(listSegmentOptions);
         return _a = {
                 /**
-                 * @member {Promise} [next] The next method, part of the iteration protocol
+                 * The next method, part of the iteration protocol
                  */
                 next: function () {
                     return iter.next();
                 }
             },
             /**
-             * @member {Symbol} [asyncIterator] The connection to the async iterator, part of the iteration protocol
+             * The connection to the async iterator, part of the iteration protocol
              */
             _a[Symbol.asyncIterator] = function () {
                 return this;
             },
             /**
-             * @member {Function} [byPage] Return an AsyncIterableIterator that works a page at a time
+             * Return an AsyncIterableIterator that works a page at a time
              */
             _a.byPage = function (settings) {
                 if (settings === void 0) { settings = {}; }
@@ -48029,29 +47386,24 @@ var BlobServiceClient = /** @class */ (function (_super) {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/get-user-delegation-key
      *
-     * @param {Date} startsOn      The start time for the user delegation SAS. Must be within 7 days of the current time
-     * @param {Date} expiresOn     The end time for the user delegation SAS. Must be within 7 days of the current time
-     * @returns {Promise<ServiceGetUserDelegationKeyResponse>}
-     * @memberof BlobServiceClient
+     * @param startsOn -      The start time for the user delegation SAS. Must be within 7 days of the current time
+     * @param expiresOn -     The end time for the user delegation SAS. Must be within 7 days of the current time
      */
     BlobServiceClient.prototype.getUserDelegationKey = function (startsOn, expiresOn, options) {
         if (options === void 0) { options = {}; }
         return tslib.__awaiter(this, void 0, void 0, function () {
-            var _a, span, spanOptions, response, userDelegationKey, res, e_12;
+            var _a, span, updatedOptions, response, userDelegationKey, res, e_13;
             return tslib.__generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
-                        _a = createSpan("BlobServiceClient-getUserDelegationKey", options.tracingOptions), span = _a.span, spanOptions = _a.spanOptions;
+                        _a = createSpan("BlobServiceClient-getUserDelegationKey", options), span = _a.span, updatedOptions = _a.updatedOptions;
                         _b.label = 1;
                     case 1:
                         _b.trys.push([1, 3, 4, 5]);
                         return [4 /*yield*/, this.serviceContext.getUserDelegationKey({
                                 startsOn: truncatedISO8061Date(startsOn, false),
                                 expiresOn: truncatedISO8061Date(expiresOn, false)
-                            }, {
-                                abortSignal: options.abortSignal,
-                                spanOptions: spanOptions
-                            })];
+                            }, tslib.__assign({ abortSignal: options.abortSignal }, convertTracingToRequestOptionsBase(updatedOptions)))];
                     case 2:
                         response = _b.sent();
                         userDelegationKey = {
@@ -48066,12 +47418,12 @@ var BlobServiceClient = /** @class */ (function (_super) {
                         res = tslib.__assign({ _response: response._response, requestId: response.requestId, clientRequestId: response.clientRequestId, version: response.version, date: response.date, errorCode: response.errorCode }, userDelegationKey);
                         return [2 /*return*/, res];
                     case 3:
-                        e_12 = _b.sent();
+                        e_13 = _b.sent();
                         span.setStatus({
                             code: api.CanonicalCode.UNKNOWN,
-                            message: e_12.message
+                            message: e_13.message
                         });
-                        throw e_12;
+                        throw e_13;
                     case 4:
                         span.end();
                         return [7 /*endfinally*/];
@@ -48085,8 +47437,7 @@ var BlobServiceClient = /** @class */ (function (_super) {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/blob-batch
      *
-     * @returns {BlobBatchClient} A new BlobBatchClient object for this service.
-     * @memberof BlobServiceClient
+     * @returns A new BlobBatchClient object for this service.
      */
     BlobServiceClient.prototype.getBlobBatchClient = function () {
         return new BlobBatchClient(this.url, this.pipeline);
@@ -48099,12 +47450,11 @@ var BlobServiceClient = /** @class */ (function (_super) {
      *
      * @see https://docs.microsoft.com/en-us/rest/api/storageservices/create-account-sas
      *
-     * @param {Date} expiresOn Optional. The time at which the shared access signature becomes invalid. Default to an hour later if not provided.
-     * @param {AccountSASPermissions} [permissions=AccountSASPermissions.parse("r")] Specifies the list of permissions to be associated with the SAS.
-     * @param {string} [resourceTypes="sco"] Specifies the resource types associated with the shared access signature.
-     * @param {ServiceGenerateAccountSasUrlOptions} [options={}] Optional parameters.
-     * @returns {string} An account SAS URI consisting of the URI to the resource represented by this client, followed by the generated SAS token.
-     * @memberof BlobServiceClient
+     * @param expiresOn - Optional. The time at which the shared access signature becomes invalid. Default to an hour later if not provided.
+     * @param permissions - Specifies the list of permissions to be associated with the SAS.
+     * @param resourceTypes - Specifies the resource types associated with the shared access signature.
+     * @param options - Optional parameters.
+     * @returns An account SAS URI consisting of the URI to the resource represented by this client, followed by the generated SAS token.
      */
     BlobServiceClient.prototype.generateAccountSasUrl = function (expiresOn, permissions, resourceTypes, options) {
         if (permissions === void 0) { permissions = AccountSASPermissions.parse("r"); }
@@ -48451,19 +47801,17 @@ function __importDefault(mod) {
     return (mod && mod.__esModule) ? mod : { default: mod };
 }
 
-function __classPrivateFieldGet(receiver, privateMap) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to get private field on non-instance");
-    }
-    return privateMap.get(receiver);
+function __classPrivateFieldGet(receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 }
 
-function __classPrivateFieldSet(receiver, privateMap, value) {
-    if (!privateMap.has(receiver)) {
-        throw new TypeError("attempted to set private field on non-instance");
-    }
-    privateMap.set(receiver, value);
-    return value;
+function __classPrivateFieldSet(receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
 }
 
 
@@ -64871,7 +64219,7 @@ module.exports = eval("require")("encoding");
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse("{\"application/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"application/3gpdash-qoe-report+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/3gpp-ims+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/a2l\":{\"source\":\"iana\"},\"application/activemessage\":{\"source\":\"iana\"},\"application/activity+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-costmap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-costmapfilter+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-directory+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointcost+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointcostparams+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointprop+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointpropparams+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-error+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-networkmap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-networkmapfilter+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-updatestreamcontrol+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-updatestreamparams+json\":{\"source\":\"iana\",\"compressible\":true},\"application/aml\":{\"source\":\"iana\"},\"application/andrew-inset\":{\"source\":\"iana\",\"extensions\":[\"ez\"]},\"application/applefile\":{\"source\":\"iana\"},\"application/applixware\":{\"source\":\"apache\",\"extensions\":[\"aw\"]},\"application/atf\":{\"source\":\"iana\"},\"application/atfx\":{\"source\":\"iana\"},\"application/atom+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atom\"]},\"application/atomcat+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atomcat\"]},\"application/atomdeleted+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atomdeleted\"]},\"application/atomicmail\":{\"source\":\"iana\"},\"application/atomsvc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atomsvc\"]},\"application/atsc-dwd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dwd\"]},\"application/atsc-dynamic-event-message\":{\"source\":\"iana\"},\"application/atsc-held+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"held\"]},\"application/atsc-rdt+json\":{\"source\":\"iana\",\"compressible\":true},\"application/atsc-rsat+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rsat\"]},\"application/atxml\":{\"source\":\"iana\"},\"application/auth-policy+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/bacnet-xdd+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/batch-smtp\":{\"source\":\"iana\"},\"application/bdoc\":{\"compressible\":false,\"extensions\":[\"bdoc\"]},\"application/beep+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/calendar+json\":{\"source\":\"iana\",\"compressible\":true},\"application/calendar+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xcs\"]},\"application/call-completion\":{\"source\":\"iana\"},\"application/cals-1840\":{\"source\":\"iana\"},\"application/captive+json\":{\"source\":\"iana\",\"compressible\":true},\"application/cbor\":{\"source\":\"iana\"},\"application/cbor-seq\":{\"source\":\"iana\"},\"application/cccex\":{\"source\":\"iana\"},\"application/ccmp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ccxml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ccxml\"]},\"application/cdfx+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"cdfx\"]},\"application/cdmi-capability\":{\"source\":\"iana\",\"extensions\":[\"cdmia\"]},\"application/cdmi-container\":{\"source\":\"iana\",\"extensions\":[\"cdmic\"]},\"application/cdmi-domain\":{\"source\":\"iana\",\"extensions\":[\"cdmid\"]},\"application/cdmi-object\":{\"source\":\"iana\",\"extensions\":[\"cdmio\"]},\"application/cdmi-queue\":{\"source\":\"iana\",\"extensions\":[\"cdmiq\"]},\"application/cdni\":{\"source\":\"iana\"},\"application/cea\":{\"source\":\"iana\"},\"application/cea-2018+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cellml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cfw\":{\"source\":\"iana\"},\"application/clr\":{\"source\":\"iana\"},\"application/clue+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/clue_info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cms\":{\"source\":\"iana\"},\"application/cnrp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/coap-group+json\":{\"source\":\"iana\",\"compressible\":true},\"application/coap-payload\":{\"source\":\"iana\"},\"application/commonground\":{\"source\":\"iana\"},\"application/conference-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cose\":{\"source\":\"iana\"},\"application/cose-key\":{\"source\":\"iana\"},\"application/cose-key-set\":{\"source\":\"iana\"},\"application/cpl+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/csrattrs\":{\"source\":\"iana\"},\"application/csta+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cstadata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/csvm+json\":{\"source\":\"iana\",\"compressible\":true},\"application/cu-seeme\":{\"source\":\"apache\",\"extensions\":[\"cu\"]},\"application/cwt\":{\"source\":\"iana\"},\"application/cybercash\":{\"source\":\"iana\"},\"application/dart\":{\"compressible\":true},\"application/dash+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mpd\"]},\"application/dashdelta\":{\"source\":\"iana\"},\"application/davmount+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"davmount\"]},\"application/dca-rft\":{\"source\":\"iana\"},\"application/dcd\":{\"source\":\"iana\"},\"application/dec-dx\":{\"source\":\"iana\"},\"application/dialog-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/dicom\":{\"source\":\"iana\"},\"application/dicom+json\":{\"source\":\"iana\",\"compressible\":true},\"application/dicom+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/dii\":{\"source\":\"iana\"},\"application/dit\":{\"source\":\"iana\"},\"application/dns\":{\"source\":\"iana\"},\"application/dns+json\":{\"source\":\"iana\",\"compressible\":true},\"application/dns-message\":{\"source\":\"iana\"},\"application/docbook+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"dbk\"]},\"application/dots+cbor\":{\"source\":\"iana\"},\"application/dskpp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/dssc+der\":{\"source\":\"iana\",\"extensions\":[\"dssc\"]},\"application/dssc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdssc\"]},\"application/dvcs\":{\"source\":\"iana\"},\"application/ecmascript\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ecma\",\"es\"]},\"application/edi-consent\":{\"source\":\"iana\"},\"application/edi-x12\":{\"source\":\"iana\",\"compressible\":false},\"application/edifact\":{\"source\":\"iana\",\"compressible\":false},\"application/efi\":{\"source\":\"iana\"},\"application/elm+json\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/elm+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.cap+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/emergencycalldata.comment+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.control+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.deviceinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.ecall.msd\":{\"source\":\"iana\"},\"application/emergencycalldata.providerinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.serviceinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.subscriberinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.veds+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emma+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"emma\"]},\"application/emotionml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"emotionml\"]},\"application/encaprtp\":{\"source\":\"iana\"},\"application/epp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/epub+zip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"epub\"]},\"application/eshop\":{\"source\":\"iana\"},\"application/exi\":{\"source\":\"iana\",\"extensions\":[\"exi\"]},\"application/expect-ct-report+json\":{\"source\":\"iana\",\"compressible\":true},\"application/fastinfoset\":{\"source\":\"iana\"},\"application/fastsoap\":{\"source\":\"iana\"},\"application/fdt+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"fdt\"]},\"application/fhir+json\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/fhir+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/fido.trusted-apps+json\":{\"compressible\":true},\"application/fits\":{\"source\":\"iana\"},\"application/flexfec\":{\"source\":\"iana\"},\"application/font-sfnt\":{\"source\":\"iana\"},\"application/font-tdpfr\":{\"source\":\"iana\",\"extensions\":[\"pfr\"]},\"application/font-woff\":{\"source\":\"iana\",\"compressible\":false},\"application/framework-attributes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/geo+json\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"geojson\"]},\"application/geo+json-seq\":{\"source\":\"iana\"},\"application/geopackage+sqlite3\":{\"source\":\"iana\"},\"application/geoxacml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/gltf-buffer\":{\"source\":\"iana\"},\"application/gml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"gml\"]},\"application/gpx+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"gpx\"]},\"application/gxf\":{\"source\":\"apache\",\"extensions\":[\"gxf\"]},\"application/gzip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"gz\"]},\"application/h224\":{\"source\":\"iana\"},\"application/held+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/hjson\":{\"extensions\":[\"hjson\"]},\"application/http\":{\"source\":\"iana\"},\"application/hyperstudio\":{\"source\":\"iana\",\"extensions\":[\"stk\"]},\"application/ibe-key-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ibe-pkg-reply+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ibe-pp-data\":{\"source\":\"iana\"},\"application/iges\":{\"source\":\"iana\"},\"application/im-iscomposing+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/index\":{\"source\":\"iana\"},\"application/index.cmd\":{\"source\":\"iana\"},\"application/index.obj\":{\"source\":\"iana\"},\"application/index.response\":{\"source\":\"iana\"},\"application/index.vnd\":{\"source\":\"iana\"},\"application/inkml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ink\",\"inkml\"]},\"application/iotp\":{\"source\":\"iana\"},\"application/ipfix\":{\"source\":\"iana\",\"extensions\":[\"ipfix\"]},\"application/ipp\":{\"source\":\"iana\"},\"application/isup\":{\"source\":\"iana\"},\"application/its+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"its\"]},\"application/java-archive\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"jar\",\"war\",\"ear\"]},\"application/java-serialized-object\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"ser\"]},\"application/java-vm\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"class\"]},\"application/javascript\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"js\",\"mjs\"]},\"application/jf2feed+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jose\":{\"source\":\"iana\"},\"application/jose+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jrd+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jscalendar+json\":{\"source\":\"iana\",\"compressible\":true},\"application/json\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"json\",\"map\"]},\"application/json-patch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/json-seq\":{\"source\":\"iana\"},\"application/json5\":{\"extensions\":[\"json5\"]},\"application/jsonml+json\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"jsonml\"]},\"application/jwk+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jwk-set+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jwt\":{\"source\":\"iana\"},\"application/kpml-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/kpml-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ld+json\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"jsonld\"]},\"application/lgr+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lgr\"]},\"application/link-format\":{\"source\":\"iana\"},\"application/load-control+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/lost+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lostxml\"]},\"application/lostsync+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/lpf+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/lxf\":{\"source\":\"iana\"},\"application/mac-binhex40\":{\"source\":\"iana\",\"extensions\":[\"hqx\"]},\"application/mac-compactpro\":{\"source\":\"apache\",\"extensions\":[\"cpt\"]},\"application/macwriteii\":{\"source\":\"iana\"},\"application/mads+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mads\"]},\"application/manifest+json\":{\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"webmanifest\"]},\"application/marc\":{\"source\":\"iana\",\"extensions\":[\"mrc\"]},\"application/marcxml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mrcx\"]},\"application/mathematica\":{\"source\":\"iana\",\"extensions\":[\"ma\",\"nb\",\"mb\"]},\"application/mathml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mathml\"]},\"application/mathml-content+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mathml-presentation+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-associated-procedure-description+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-deregister+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-envelope+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-msk+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-msk-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-protection-description+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-reception-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-register+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-register-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-schedule+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-user-service-description+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbox\":{\"source\":\"iana\",\"extensions\":[\"mbox\"]},\"application/media-policy-dataset+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/media_control+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mediaservercontrol+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mscml\"]},\"application/merge-patch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/metalink+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"metalink\"]},\"application/metalink4+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"meta4\"]},\"application/mets+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mets\"]},\"application/mf4\":{\"source\":\"iana\"},\"application/mikey\":{\"source\":\"iana\"},\"application/mipc\":{\"source\":\"iana\"},\"application/mmt-aei+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"maei\"]},\"application/mmt-usd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"musd\"]},\"application/mods+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mods\"]},\"application/moss-keys\":{\"source\":\"iana\"},\"application/moss-signature\":{\"source\":\"iana\"},\"application/mosskey-data\":{\"source\":\"iana\"},\"application/mosskey-request\":{\"source\":\"iana\"},\"application/mp21\":{\"source\":\"iana\",\"extensions\":[\"m21\",\"mp21\"]},\"application/mp4\":{\"source\":\"iana\",\"extensions\":[\"mp4s\",\"m4p\"]},\"application/mpeg4-generic\":{\"source\":\"iana\"},\"application/mpeg4-iod\":{\"source\":\"iana\"},\"application/mpeg4-iod-xmt\":{\"source\":\"iana\"},\"application/mrb-consumer+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdf\"]},\"application/mrb-publish+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdf\"]},\"application/msc-ivr+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/msc-mixer+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/msword\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"doc\",\"dot\"]},\"application/mud+json\":{\"source\":\"iana\",\"compressible\":true},\"application/multipart-core\":{\"source\":\"iana\"},\"application/mxf\":{\"source\":\"iana\",\"extensions\":[\"mxf\"]},\"application/n-quads\":{\"source\":\"iana\",\"extensions\":[\"nq\"]},\"application/n-triples\":{\"source\":\"iana\",\"extensions\":[\"nt\"]},\"application/nasdata\":{\"source\":\"iana\"},\"application/news-checkgroups\":{\"source\":\"iana\",\"charset\":\"US-ASCII\"},\"application/news-groupinfo\":{\"source\":\"iana\",\"charset\":\"US-ASCII\"},\"application/news-transmission\":{\"source\":\"iana\"},\"application/nlsml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/node\":{\"source\":\"iana\",\"extensions\":[\"cjs\"]},\"application/nss\":{\"source\":\"iana\"},\"application/ocsp-request\":{\"source\":\"iana\"},\"application/ocsp-response\":{\"source\":\"iana\"},\"application/octet-stream\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"bin\",\"dms\",\"lrf\",\"mar\",\"so\",\"dist\",\"distz\",\"pkg\",\"bpk\",\"dump\",\"elc\",\"deploy\",\"exe\",\"dll\",\"deb\",\"dmg\",\"iso\",\"img\",\"msi\",\"msp\",\"msm\",\"buffer\"]},\"application/oda\":{\"source\":\"iana\",\"extensions\":[\"oda\"]},\"application/odm+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/odx\":{\"source\":\"iana\"},\"application/oebps-package+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"opf\"]},\"application/ogg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ogx\"]},\"application/omdoc+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"omdoc\"]},\"application/onenote\":{\"source\":\"apache\",\"extensions\":[\"onetoc\",\"onetoc2\",\"onetmp\",\"onepkg\"]},\"application/opc-nodeset+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/oscore\":{\"source\":\"iana\"},\"application/oxps\":{\"source\":\"iana\",\"extensions\":[\"oxps\"]},\"application/p2p-overlay+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"relo\"]},\"application/parityfec\":{\"source\":\"iana\"},\"application/passport\":{\"source\":\"iana\"},\"application/patch-ops-error+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xer\"]},\"application/pdf\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"pdf\"]},\"application/pdx\":{\"source\":\"iana\"},\"application/pem-certificate-chain\":{\"source\":\"iana\"},\"application/pgp-encrypted\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"pgp\"]},\"application/pgp-keys\":{\"source\":\"iana\"},\"application/pgp-signature\":{\"source\":\"iana\",\"extensions\":[\"asc\",\"sig\"]},\"application/pics-rules\":{\"source\":\"apache\",\"extensions\":[\"prf\"]},\"application/pidf+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/pidf-diff+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/pkcs10\":{\"source\":\"iana\",\"extensions\":[\"p10\"]},\"application/pkcs12\":{\"source\":\"iana\"},\"application/pkcs7-mime\":{\"source\":\"iana\",\"extensions\":[\"p7m\",\"p7c\"]},\"application/pkcs7-signature\":{\"source\":\"iana\",\"extensions\":[\"p7s\"]},\"application/pkcs8\":{\"source\":\"iana\",\"extensions\":[\"p8\"]},\"application/pkcs8-encrypted\":{\"source\":\"iana\"},\"application/pkix-attr-cert\":{\"source\":\"iana\",\"extensions\":[\"ac\"]},\"application/pkix-cert\":{\"source\":\"iana\",\"extensions\":[\"cer\"]},\"application/pkix-crl\":{\"source\":\"iana\",\"extensions\":[\"crl\"]},\"application/pkix-pkipath\":{\"source\":\"iana\",\"extensions\":[\"pkipath\"]},\"application/pkixcmp\":{\"source\":\"iana\",\"extensions\":[\"pki\"]},\"application/pls+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"pls\"]},\"application/poc-settings+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/postscript\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ai\",\"eps\",\"ps\"]},\"application/ppsp-tracker+json\":{\"source\":\"iana\",\"compressible\":true},\"application/problem+json\":{\"source\":\"iana\",\"compressible\":true},\"application/problem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/provenance+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"provx\"]},\"application/prs.alvestrand.titrax-sheet\":{\"source\":\"iana\"},\"application/prs.cww\":{\"source\":\"iana\",\"extensions\":[\"cww\"]},\"application/prs.cyn\":{\"source\":\"iana\",\"charset\":\"7-BIT\"},\"application/prs.hpub+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/prs.nprend\":{\"source\":\"iana\"},\"application/prs.plucker\":{\"source\":\"iana\"},\"application/prs.rdf-xml-crypt\":{\"source\":\"iana\"},\"application/prs.xsf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/pskc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"pskcxml\"]},\"application/pvd+json\":{\"source\":\"iana\",\"compressible\":true},\"application/qsig\":{\"source\":\"iana\"},\"application/raml+yaml\":{\"compressible\":true,\"extensions\":[\"raml\"]},\"application/raptorfec\":{\"source\":\"iana\"},\"application/rdap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/rdf+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rdf\",\"owl\"]},\"application/reginfo+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rif\"]},\"application/relax-ng-compact-syntax\":{\"source\":\"iana\",\"extensions\":[\"rnc\"]},\"application/remote-printing\":{\"source\":\"iana\"},\"application/reputon+json\":{\"source\":\"iana\",\"compressible\":true},\"application/resource-lists+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rl\"]},\"application/resource-lists-diff+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rld\"]},\"application/rfc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/riscos\":{\"source\":\"iana\"},\"application/rlmi+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/rls-services+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rs\"]},\"application/route-apd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rapd\"]},\"application/route-s-tsid+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sls\"]},\"application/route-usd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rusd\"]},\"application/rpki-ghostbusters\":{\"source\":\"iana\",\"extensions\":[\"gbr\"]},\"application/rpki-manifest\":{\"source\":\"iana\",\"extensions\":[\"mft\"]},\"application/rpki-publication\":{\"source\":\"iana\"},\"application/rpki-roa\":{\"source\":\"iana\",\"extensions\":[\"roa\"]},\"application/rpki-updown\":{\"source\":\"iana\"},\"application/rsd+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"rsd\"]},\"application/rss+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"rss\"]},\"application/rtf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rtf\"]},\"application/rtploopback\":{\"source\":\"iana\"},\"application/rtx\":{\"source\":\"iana\"},\"application/samlassertion+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/samlmetadata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sarif+json\":{\"source\":\"iana\",\"compressible\":true},\"application/sbe\":{\"source\":\"iana\"},\"application/sbml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sbml\"]},\"application/scaip+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/scim+json\":{\"source\":\"iana\",\"compressible\":true},\"application/scvp-cv-request\":{\"source\":\"iana\",\"extensions\":[\"scq\"]},\"application/scvp-cv-response\":{\"source\":\"iana\",\"extensions\":[\"scs\"]},\"application/scvp-vp-request\":{\"source\":\"iana\",\"extensions\":[\"spq\"]},\"application/scvp-vp-response\":{\"source\":\"iana\",\"extensions\":[\"spp\"]},\"application/sdp\":{\"source\":\"iana\",\"extensions\":[\"sdp\"]},\"application/secevent+jwt\":{\"source\":\"iana\"},\"application/senml+cbor\":{\"source\":\"iana\"},\"application/senml+json\":{\"source\":\"iana\",\"compressible\":true},\"application/senml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"senmlx\"]},\"application/senml-etch+cbor\":{\"source\":\"iana\"},\"application/senml-etch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/senml-exi\":{\"source\":\"iana\"},\"application/sensml+cbor\":{\"source\":\"iana\"},\"application/sensml+json\":{\"source\":\"iana\",\"compressible\":true},\"application/sensml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sensmlx\"]},\"application/sensml-exi\":{\"source\":\"iana\"},\"application/sep+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sep-exi\":{\"source\":\"iana\"},\"application/session-info\":{\"source\":\"iana\"},\"application/set-payment\":{\"source\":\"iana\"},\"application/set-payment-initiation\":{\"source\":\"iana\",\"extensions\":[\"setpay\"]},\"application/set-registration\":{\"source\":\"iana\"},\"application/set-registration-initiation\":{\"source\":\"iana\",\"extensions\":[\"setreg\"]},\"application/sgml\":{\"source\":\"iana\"},\"application/sgml-open-catalog\":{\"source\":\"iana\"},\"application/shf+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"shf\"]},\"application/sieve\":{\"source\":\"iana\",\"extensions\":[\"siv\",\"sieve\"]},\"application/simple-filter+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/simple-message-summary\":{\"source\":\"iana\"},\"application/simplesymbolcontainer\":{\"source\":\"iana\"},\"application/sipc\":{\"source\":\"iana\"},\"application/slate\":{\"source\":\"iana\"},\"application/smil\":{\"source\":\"iana\"},\"application/smil+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"smi\",\"smil\"]},\"application/smpte336m\":{\"source\":\"iana\"},\"application/soap+fastinfoset\":{\"source\":\"iana\"},\"application/soap+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sparql-query\":{\"source\":\"iana\",\"extensions\":[\"rq\"]},\"application/sparql-results+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"srx\"]},\"application/spirits-event+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sql\":{\"source\":\"iana\"},\"application/srgs\":{\"source\":\"iana\",\"extensions\":[\"gram\"]},\"application/srgs+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"grxml\"]},\"application/sru+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sru\"]},\"application/ssdl+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"ssdl\"]},\"application/ssml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ssml\"]},\"application/stix+json\":{\"source\":\"iana\",\"compressible\":true},\"application/swid+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"swidtag\"]},\"application/tamp-apex-update\":{\"source\":\"iana\"},\"application/tamp-apex-update-confirm\":{\"source\":\"iana\"},\"application/tamp-community-update\":{\"source\":\"iana\"},\"application/tamp-community-update-confirm\":{\"source\":\"iana\"},\"application/tamp-error\":{\"source\":\"iana\"},\"application/tamp-sequence-adjust\":{\"source\":\"iana\"},\"application/tamp-sequence-adjust-confirm\":{\"source\":\"iana\"},\"application/tamp-status-query\":{\"source\":\"iana\"},\"application/tamp-status-response\":{\"source\":\"iana\"},\"application/tamp-update\":{\"source\":\"iana\"},\"application/tamp-update-confirm\":{\"source\":\"iana\"},\"application/tar\":{\"compressible\":true},\"application/taxii+json\":{\"source\":\"iana\",\"compressible\":true},\"application/td+json\":{\"source\":\"iana\",\"compressible\":true},\"application/tei+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"tei\",\"teicorpus\"]},\"application/tetra_isi\":{\"source\":\"iana\"},\"application/thraud+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"tfi\"]},\"application/timestamp-query\":{\"source\":\"iana\"},\"application/timestamp-reply\":{\"source\":\"iana\"},\"application/timestamped-data\":{\"source\":\"iana\",\"extensions\":[\"tsd\"]},\"application/tlsrpt+gzip\":{\"source\":\"iana\"},\"application/tlsrpt+json\":{\"source\":\"iana\",\"compressible\":true},\"application/tnauthlist\":{\"source\":\"iana\"},\"application/toml\":{\"compressible\":true,\"extensions\":[\"toml\"]},\"application/trickle-ice-sdpfrag\":{\"source\":\"iana\"},\"application/trig\":{\"source\":\"iana\"},\"application/ttml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ttml\"]},\"application/tve-trigger\":{\"source\":\"iana\"},\"application/tzif\":{\"source\":\"iana\"},\"application/tzif-leap\":{\"source\":\"iana\"},\"application/ubjson\":{\"compressible\":false,\"extensions\":[\"ubj\"]},\"application/ulpfec\":{\"source\":\"iana\"},\"application/urc-grpsheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/urc-ressheet+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rsheet\"]},\"application/urc-targetdesc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"td\"]},\"application/urc-uisocketdesc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vcard+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vcard+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vemmi\":{\"source\":\"iana\"},\"application/vividence.scriptfile\":{\"source\":\"apache\"},\"application/vnd.1000minds.decision-model+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"1km\"]},\"application/vnd.3gpp-prose+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp-prose-pc3ch+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp-v2x-local-service-information\":{\"source\":\"iana\"},\"application/vnd.3gpp.access-transfer-events+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.bsf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.gmop+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.interworking-data\":{\"source\":\"iana\"},\"application/vnd.3gpp.mc-signalling-ear\":{\"source\":\"iana\"},\"application/vnd.3gpp.mcdata-affiliation-command+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-payload\":{\"source\":\"iana\"},\"application/vnd.3gpp.mcdata-service-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-signalling\":{\"source\":\"iana\"},\"application/vnd.3gpp.mcdata-ue-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-user-profile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-affiliation-command+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-floor-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-location-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-mbms-usage-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-service-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-signed+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-ue-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-ue-init-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-user-profile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-affiliation-command+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-affiliation-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-location-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-mbms-usage-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-service-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-transmission-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-ue-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-user-profile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mid-call+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.pic-bw-large\":{\"source\":\"iana\",\"extensions\":[\"plb\"]},\"application/vnd.3gpp.pic-bw-small\":{\"source\":\"iana\",\"extensions\":[\"psb\"]},\"application/vnd.3gpp.pic-bw-var\":{\"source\":\"iana\",\"extensions\":[\"pvb\"]},\"application/vnd.3gpp.sms\":{\"source\":\"iana\"},\"application/vnd.3gpp.sms+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.srvcc-ext+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.srvcc-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.state-and-event-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.ussd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp2.bcmcsinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp2.sms\":{\"source\":\"iana\"},\"application/vnd.3gpp2.tcap\":{\"source\":\"iana\",\"extensions\":[\"tcap\"]},\"application/vnd.3lightssoftware.imagescal\":{\"source\":\"iana\"},\"application/vnd.3m.post-it-notes\":{\"source\":\"iana\",\"extensions\":[\"pwn\"]},\"application/vnd.accpac.simply.aso\":{\"source\":\"iana\",\"extensions\":[\"aso\"]},\"application/vnd.accpac.simply.imp\":{\"source\":\"iana\",\"extensions\":[\"imp\"]},\"application/vnd.acucobol\":{\"source\":\"iana\",\"extensions\":[\"acu\"]},\"application/vnd.acucorp\":{\"source\":\"iana\",\"extensions\":[\"atc\",\"acutc\"]},\"application/vnd.adobe.air-application-installer-package+zip\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"air\"]},\"application/vnd.adobe.flash.movie\":{\"source\":\"iana\"},\"application/vnd.adobe.formscentral.fcdt\":{\"source\":\"iana\",\"extensions\":[\"fcdt\"]},\"application/vnd.adobe.fxp\":{\"source\":\"iana\",\"extensions\":[\"fxp\",\"fxpl\"]},\"application/vnd.adobe.partial-upload\":{\"source\":\"iana\"},\"application/vnd.adobe.xdp+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdp\"]},\"application/vnd.adobe.xfdf\":{\"source\":\"iana\",\"extensions\":[\"xfdf\"]},\"application/vnd.aether.imp\":{\"source\":\"iana\"},\"application/vnd.afpc.afplinedata\":{\"source\":\"iana\"},\"application/vnd.afpc.afplinedata-pagedef\":{\"source\":\"iana\"},\"application/vnd.afpc.cmoca-cmresource\":{\"source\":\"iana\"},\"application/vnd.afpc.foca-charset\":{\"source\":\"iana\"},\"application/vnd.afpc.foca-codedfont\":{\"source\":\"iana\"},\"application/vnd.afpc.foca-codepage\":{\"source\":\"iana\"},\"application/vnd.afpc.modca\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-cmtable\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-formdef\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-mediummap\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-objectcontainer\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-overlay\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-pagesegment\":{\"source\":\"iana\"},\"application/vnd.ah-barcode\":{\"source\":\"iana\"},\"application/vnd.ahead.space\":{\"source\":\"iana\",\"extensions\":[\"ahead\"]},\"application/vnd.airzip.filesecure.azf\":{\"source\":\"iana\",\"extensions\":[\"azf\"]},\"application/vnd.airzip.filesecure.azs\":{\"source\":\"iana\",\"extensions\":[\"azs\"]},\"application/vnd.amadeus+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.amazon.ebook\":{\"source\":\"apache\",\"extensions\":[\"azw\"]},\"application/vnd.amazon.mobi8-ebook\":{\"source\":\"iana\"},\"application/vnd.americandynamics.acc\":{\"source\":\"iana\",\"extensions\":[\"acc\"]},\"application/vnd.amiga.ami\":{\"source\":\"iana\",\"extensions\":[\"ami\"]},\"application/vnd.amundsen.maze+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.android.ota\":{\"source\":\"iana\"},\"application/vnd.android.package-archive\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"apk\"]},\"application/vnd.anki\":{\"source\":\"iana\"},\"application/vnd.anser-web-certificate-issue-initiation\":{\"source\":\"iana\",\"extensions\":[\"cii\"]},\"application/vnd.anser-web-funds-transfer-initiation\":{\"source\":\"apache\",\"extensions\":[\"fti\"]},\"application/vnd.antix.game-component\":{\"source\":\"iana\",\"extensions\":[\"atx\"]},\"application/vnd.apache.thrift.binary\":{\"source\":\"iana\"},\"application/vnd.apache.thrift.compact\":{\"source\":\"iana\"},\"application/vnd.apache.thrift.json\":{\"source\":\"iana\"},\"application/vnd.api+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.aplextor.warrp+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.apothekende.reservation+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.apple.installer+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mpkg\"]},\"application/vnd.apple.keynote\":{\"source\":\"iana\",\"extensions\":[\"key\"]},\"application/vnd.apple.mpegurl\":{\"source\":\"iana\",\"extensions\":[\"m3u8\"]},\"application/vnd.apple.numbers\":{\"source\":\"iana\",\"extensions\":[\"numbers\"]},\"application/vnd.apple.pages\":{\"source\":\"iana\",\"extensions\":[\"pages\"]},\"application/vnd.apple.pkpass\":{\"compressible\":false,\"extensions\":[\"pkpass\"]},\"application/vnd.arastra.swi\":{\"source\":\"iana\"},\"application/vnd.aristanetworks.swi\":{\"source\":\"iana\",\"extensions\":[\"swi\"]},\"application/vnd.artisan+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.artsquare\":{\"source\":\"iana\"},\"application/vnd.astraea-software.iota\":{\"source\":\"iana\",\"extensions\":[\"iota\"]},\"application/vnd.audiograph\":{\"source\":\"iana\",\"extensions\":[\"aep\"]},\"application/vnd.autopackage\":{\"source\":\"iana\"},\"application/vnd.avalon+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.avistar+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.balsamiq.bmml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"bmml\"]},\"application/vnd.balsamiq.bmpr\":{\"source\":\"iana\"},\"application/vnd.banana-accounting\":{\"source\":\"iana\"},\"application/vnd.bbf.usp.error\":{\"source\":\"iana\"},\"application/vnd.bbf.usp.msg\":{\"source\":\"iana\"},\"application/vnd.bbf.usp.msg+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.bekitzur-stech+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.bint.med-content\":{\"source\":\"iana\"},\"application/vnd.biopax.rdf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.blink-idb-value-wrapper\":{\"source\":\"iana\"},\"application/vnd.blueice.multipass\":{\"source\":\"iana\",\"extensions\":[\"mpm\"]},\"application/vnd.bluetooth.ep.oob\":{\"source\":\"iana\"},\"application/vnd.bluetooth.le.oob\":{\"source\":\"iana\"},\"application/vnd.bmi\":{\"source\":\"iana\",\"extensions\":[\"bmi\"]},\"application/vnd.bpf\":{\"source\":\"iana\"},\"application/vnd.bpf3\":{\"source\":\"iana\"},\"application/vnd.businessobjects\":{\"source\":\"iana\",\"extensions\":[\"rep\"]},\"application/vnd.byu.uapi+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cab-jscript\":{\"source\":\"iana\"},\"application/vnd.canon-cpdl\":{\"source\":\"iana\"},\"application/vnd.canon-lips\":{\"source\":\"iana\"},\"application/vnd.capasystems-pg+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cendio.thinlinc.clientconf\":{\"source\":\"iana\"},\"application/vnd.century-systems.tcp_stream\":{\"source\":\"iana\"},\"application/vnd.chemdraw+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"cdxml\"]},\"application/vnd.chess-pgn\":{\"source\":\"iana\"},\"application/vnd.chipnuts.karaoke-mmd\":{\"source\":\"iana\",\"extensions\":[\"mmd\"]},\"application/vnd.ciedi\":{\"source\":\"iana\"},\"application/vnd.cinderella\":{\"source\":\"iana\",\"extensions\":[\"cdy\"]},\"application/vnd.cirpack.isdn-ext\":{\"source\":\"iana\"},\"application/vnd.citationstyles.style+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"csl\"]},\"application/vnd.claymore\":{\"source\":\"iana\",\"extensions\":[\"cla\"]},\"application/vnd.cloanto.rp9\":{\"source\":\"iana\",\"extensions\":[\"rp9\"]},\"application/vnd.clonk.c4group\":{\"source\":\"iana\",\"extensions\":[\"c4g\",\"c4d\",\"c4f\",\"c4p\",\"c4u\"]},\"application/vnd.cluetrust.cartomobile-config\":{\"source\":\"iana\",\"extensions\":[\"c11amc\"]},\"application/vnd.cluetrust.cartomobile-config-pkg\":{\"source\":\"iana\",\"extensions\":[\"c11amz\"]},\"application/vnd.coffeescript\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.document\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.document-template\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.presentation\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.presentation-template\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.spreadsheet\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.spreadsheet-template\":{\"source\":\"iana\"},\"application/vnd.collection+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.collection.doc+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.collection.next+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.comicbook+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.comicbook-rar\":{\"source\":\"iana\"},\"application/vnd.commerce-battelle\":{\"source\":\"iana\"},\"application/vnd.commonspace\":{\"source\":\"iana\",\"extensions\":[\"csp\"]},\"application/vnd.contact.cmsg\":{\"source\":\"iana\",\"extensions\":[\"cdbcmsg\"]},\"application/vnd.coreos.ignition+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cosmocaller\":{\"source\":\"iana\",\"extensions\":[\"cmc\"]},\"application/vnd.crick.clicker\":{\"source\":\"iana\",\"extensions\":[\"clkx\"]},\"application/vnd.crick.clicker.keyboard\":{\"source\":\"iana\",\"extensions\":[\"clkk\"]},\"application/vnd.crick.clicker.palette\":{\"source\":\"iana\",\"extensions\":[\"clkp\"]},\"application/vnd.crick.clicker.template\":{\"source\":\"iana\",\"extensions\":[\"clkt\"]},\"application/vnd.crick.clicker.wordbank\":{\"source\":\"iana\",\"extensions\":[\"clkw\"]},\"application/vnd.criticaltools.wbs+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wbs\"]},\"application/vnd.cryptii.pipe+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.crypto-shade-file\":{\"source\":\"iana\"},\"application/vnd.ctc-posml\":{\"source\":\"iana\",\"extensions\":[\"pml\"]},\"application/vnd.ctct.ws+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cups-pdf\":{\"source\":\"iana\"},\"application/vnd.cups-postscript\":{\"source\":\"iana\"},\"application/vnd.cups-ppd\":{\"source\":\"iana\",\"extensions\":[\"ppd\"]},\"application/vnd.cups-raster\":{\"source\":\"iana\"},\"application/vnd.cups-raw\":{\"source\":\"iana\"},\"application/vnd.curl\":{\"source\":\"iana\"},\"application/vnd.curl.car\":{\"source\":\"apache\",\"extensions\":[\"car\"]},\"application/vnd.curl.pcurl\":{\"source\":\"apache\",\"extensions\":[\"pcurl\"]},\"application/vnd.cyan.dean.root+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cybank\":{\"source\":\"iana\"},\"application/vnd.cyclonedx+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cyclonedx+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.d2l.coursepackage1p0+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.d3m-dataset\":{\"source\":\"iana\"},\"application/vnd.d3m-problem\":{\"source\":\"iana\"},\"application/vnd.dart\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dart\"]},\"application/vnd.data-vision.rdz\":{\"source\":\"iana\",\"extensions\":[\"rdz\"]},\"application/vnd.datapackage+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dataresource+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dbf\":{\"source\":\"iana\",\"extensions\":[\"dbf\"]},\"application/vnd.debian.binary-package\":{\"source\":\"iana\"},\"application/vnd.dece.data\":{\"source\":\"iana\",\"extensions\":[\"uvf\",\"uvvf\",\"uvd\",\"uvvd\"]},\"application/vnd.dece.ttml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"uvt\",\"uvvt\"]},\"application/vnd.dece.unspecified\":{\"source\":\"iana\",\"extensions\":[\"uvx\",\"uvvx\"]},\"application/vnd.dece.zip\":{\"source\":\"iana\",\"extensions\":[\"uvz\",\"uvvz\"]},\"application/vnd.denovo.fcselayout-link\":{\"source\":\"iana\",\"extensions\":[\"fe_launch\"]},\"application/vnd.desmume.movie\":{\"source\":\"iana\"},\"application/vnd.dir-bi.plate-dl-nosuffix\":{\"source\":\"iana\"},\"application/vnd.dm.delegation+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dna\":{\"source\":\"iana\",\"extensions\":[\"dna\"]},\"application/vnd.document+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dolby.mlp\":{\"source\":\"apache\",\"extensions\":[\"mlp\"]},\"application/vnd.dolby.mobile.1\":{\"source\":\"iana\"},\"application/vnd.dolby.mobile.2\":{\"source\":\"iana\"},\"application/vnd.doremir.scorecloud-binary-document\":{\"source\":\"iana\"},\"application/vnd.dpgraph\":{\"source\":\"iana\",\"extensions\":[\"dpg\"]},\"application/vnd.dreamfactory\":{\"source\":\"iana\",\"extensions\":[\"dfac\"]},\"application/vnd.drive+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ds-keypoint\":{\"source\":\"apache\",\"extensions\":[\"kpxx\"]},\"application/vnd.dtg.local\":{\"source\":\"iana\"},\"application/vnd.dtg.local.flash\":{\"source\":\"iana\"},\"application/vnd.dtg.local.html\":{\"source\":\"iana\"},\"application/vnd.dvb.ait\":{\"source\":\"iana\",\"extensions\":[\"ait\"]},\"application/vnd.dvb.dvbisl+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.dvbj\":{\"source\":\"iana\"},\"application/vnd.dvb.esgcontainer\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcdftnotifaccess\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcesgaccess\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcesgaccess2\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcesgpdd\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcroaming\":{\"source\":\"iana\"},\"application/vnd.dvb.iptv.alfec-base\":{\"source\":\"iana\"},\"application/vnd.dvb.iptv.alfec-enhancement\":{\"source\":\"iana\"},\"application/vnd.dvb.notif-aggregate-root+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-container+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-generic+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-ia-msglist+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-ia-registration-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-ia-registration-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-init+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.pfr\":{\"source\":\"iana\"},\"application/vnd.dvb.service\":{\"source\":\"iana\",\"extensions\":[\"svc\"]},\"application/vnd.dxr\":{\"source\":\"iana\"},\"application/vnd.dynageo\":{\"source\":\"iana\",\"extensions\":[\"geo\"]},\"application/vnd.dzr\":{\"source\":\"iana\"},\"application/vnd.easykaraoke.cdgdownload\":{\"source\":\"iana\"},\"application/vnd.ecdis-update\":{\"source\":\"iana\"},\"application/vnd.ecip.rlp\":{\"source\":\"iana\"},\"application/vnd.ecowin.chart\":{\"source\":\"iana\",\"extensions\":[\"mag\"]},\"application/vnd.ecowin.filerequest\":{\"source\":\"iana\"},\"application/vnd.ecowin.fileupdate\":{\"source\":\"iana\"},\"application/vnd.ecowin.series\":{\"source\":\"iana\"},\"application/vnd.ecowin.seriesrequest\":{\"source\":\"iana\"},\"application/vnd.ecowin.seriesupdate\":{\"source\":\"iana\"},\"application/vnd.efi.img\":{\"source\":\"iana\"},\"application/vnd.efi.iso\":{\"source\":\"iana\"},\"application/vnd.emclient.accessrequest+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.enliven\":{\"source\":\"iana\",\"extensions\":[\"nml\"]},\"application/vnd.enphase.envoy\":{\"source\":\"iana\"},\"application/vnd.eprints.data+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.epson.esf\":{\"source\":\"iana\",\"extensions\":[\"esf\"]},\"application/vnd.epson.msf\":{\"source\":\"iana\",\"extensions\":[\"msf\"]},\"application/vnd.epson.quickanime\":{\"source\":\"iana\",\"extensions\":[\"qam\"]},\"application/vnd.epson.salt\":{\"source\":\"iana\",\"extensions\":[\"slt\"]},\"application/vnd.epson.ssf\":{\"source\":\"iana\",\"extensions\":[\"ssf\"]},\"application/vnd.ericsson.quickcall\":{\"source\":\"iana\"},\"application/vnd.espass-espass+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.eszigno3+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"es3\",\"et3\"]},\"application/vnd.etsi.aoc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.asic-e+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.etsi.asic-s+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.etsi.cug+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvcommand+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvdiscovery+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsad-bc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsad-cod+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsad-npvr+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvservice+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsync+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvueprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.mcid+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.mheg5\":{\"source\":\"iana\"},\"application/vnd.etsi.overload-control-policy-dataset+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.pstn+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.sci+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.simservs+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.timestamp-token\":{\"source\":\"iana\"},\"application/vnd.etsi.tsl+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.tsl.der\":{\"source\":\"iana\"},\"application/vnd.eudora.data\":{\"source\":\"iana\"},\"application/vnd.evolv.ecig.profile\":{\"source\":\"iana\"},\"application/vnd.evolv.ecig.settings\":{\"source\":\"iana\"},\"application/vnd.evolv.ecig.theme\":{\"source\":\"iana\"},\"application/vnd.exstream-empower+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.exstream-package\":{\"source\":\"iana\"},\"application/vnd.ezpix-album\":{\"source\":\"iana\",\"extensions\":[\"ez2\"]},\"application/vnd.ezpix-package\":{\"source\":\"iana\",\"extensions\":[\"ez3\"]},\"application/vnd.f-secure.mobile\":{\"source\":\"iana\"},\"application/vnd.fastcopy-disk-image\":{\"source\":\"iana\"},\"application/vnd.fdf\":{\"source\":\"iana\",\"extensions\":[\"fdf\"]},\"application/vnd.fdsn.mseed\":{\"source\":\"iana\",\"extensions\":[\"mseed\"]},\"application/vnd.fdsn.seed\":{\"source\":\"iana\",\"extensions\":[\"seed\",\"dataless\"]},\"application/vnd.ffsns\":{\"source\":\"iana\"},\"application/vnd.ficlab.flb+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.filmit.zfc\":{\"source\":\"iana\"},\"application/vnd.fints\":{\"source\":\"iana\"},\"application/vnd.firemonkeys.cloudcell\":{\"source\":\"iana\"},\"application/vnd.flographit\":{\"source\":\"iana\",\"extensions\":[\"gph\"]},\"application/vnd.fluxtime.clip\":{\"source\":\"iana\",\"extensions\":[\"ftc\"]},\"application/vnd.font-fontforge-sfd\":{\"source\":\"iana\"},\"application/vnd.framemaker\":{\"source\":\"iana\",\"extensions\":[\"fm\",\"frame\",\"maker\",\"book\"]},\"application/vnd.frogans.fnc\":{\"source\":\"iana\",\"extensions\":[\"fnc\"]},\"application/vnd.frogans.ltf\":{\"source\":\"iana\",\"extensions\":[\"ltf\"]},\"application/vnd.fsc.weblaunch\":{\"source\":\"iana\",\"extensions\":[\"fsc\"]},\"application/vnd.fujitsu.oasys\":{\"source\":\"iana\",\"extensions\":[\"oas\"]},\"application/vnd.fujitsu.oasys2\":{\"source\":\"iana\",\"extensions\":[\"oa2\"]},\"application/vnd.fujitsu.oasys3\":{\"source\":\"iana\",\"extensions\":[\"oa3\"]},\"application/vnd.fujitsu.oasysgp\":{\"source\":\"iana\",\"extensions\":[\"fg5\"]},\"application/vnd.fujitsu.oasysprs\":{\"source\":\"iana\",\"extensions\":[\"bh2\"]},\"application/vnd.fujixerox.art-ex\":{\"source\":\"iana\"},\"application/vnd.fujixerox.art4\":{\"source\":\"iana\"},\"application/vnd.fujixerox.ddd\":{\"source\":\"iana\",\"extensions\":[\"ddd\"]},\"application/vnd.fujixerox.docuworks\":{\"source\":\"iana\",\"extensions\":[\"xdw\"]},\"application/vnd.fujixerox.docuworks.binder\":{\"source\":\"iana\",\"extensions\":[\"xbd\"]},\"application/vnd.fujixerox.docuworks.container\":{\"source\":\"iana\"},\"application/vnd.fujixerox.hbpl\":{\"source\":\"iana\"},\"application/vnd.fut-misnet\":{\"source\":\"iana\"},\"application/vnd.futoin+cbor\":{\"source\":\"iana\"},\"application/vnd.futoin+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.fuzzysheet\":{\"source\":\"iana\",\"extensions\":[\"fzs\"]},\"application/vnd.genomatix.tuxedo\":{\"source\":\"iana\",\"extensions\":[\"txd\"]},\"application/vnd.gentics.grd+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.geo+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.geocube+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.geogebra.file\":{\"source\":\"iana\",\"extensions\":[\"ggb\"]},\"application/vnd.geogebra.slides\":{\"source\":\"iana\"},\"application/vnd.geogebra.tool\":{\"source\":\"iana\",\"extensions\":[\"ggt\"]},\"application/vnd.geometry-explorer\":{\"source\":\"iana\",\"extensions\":[\"gex\",\"gre\"]},\"application/vnd.geonext\":{\"source\":\"iana\",\"extensions\":[\"gxt\"]},\"application/vnd.geoplan\":{\"source\":\"iana\",\"extensions\":[\"g2w\"]},\"application/vnd.geospace\":{\"source\":\"iana\",\"extensions\":[\"g3w\"]},\"application/vnd.gerber\":{\"source\":\"iana\"},\"application/vnd.globalplatform.card-content-mgt\":{\"source\":\"iana\"},\"application/vnd.globalplatform.card-content-mgt-response\":{\"source\":\"iana\"},\"application/vnd.gmx\":{\"source\":\"iana\",\"extensions\":[\"gmx\"]},\"application/vnd.google-apps.document\":{\"compressible\":false,\"extensions\":[\"gdoc\"]},\"application/vnd.google-apps.presentation\":{\"compressible\":false,\"extensions\":[\"gslides\"]},\"application/vnd.google-apps.spreadsheet\":{\"compressible\":false,\"extensions\":[\"gsheet\"]},\"application/vnd.google-earth.kml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"kml\"]},\"application/vnd.google-earth.kmz\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"kmz\"]},\"application/vnd.gov.sk.e-form+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.gov.sk.e-form+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.gov.sk.xmldatacontainer+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.grafeq\":{\"source\":\"iana\",\"extensions\":[\"gqf\",\"gqs\"]},\"application/vnd.gridmp\":{\"source\":\"iana\"},\"application/vnd.groove-account\":{\"source\":\"iana\",\"extensions\":[\"gac\"]},\"application/vnd.groove-help\":{\"source\":\"iana\",\"extensions\":[\"ghf\"]},\"application/vnd.groove-identity-message\":{\"source\":\"iana\",\"extensions\":[\"gim\"]},\"application/vnd.groove-injector\":{\"source\":\"iana\",\"extensions\":[\"grv\"]},\"application/vnd.groove-tool-message\":{\"source\":\"iana\",\"extensions\":[\"gtm\"]},\"application/vnd.groove-tool-template\":{\"source\":\"iana\",\"extensions\":[\"tpl\"]},\"application/vnd.groove-vcard\":{\"source\":\"iana\",\"extensions\":[\"vcg\"]},\"application/vnd.hal+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hal+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"hal\"]},\"application/vnd.handheld-entertainment+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"zmm\"]},\"application/vnd.hbci\":{\"source\":\"iana\",\"extensions\":[\"hbci\"]},\"application/vnd.hc+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hcl-bireports\":{\"source\":\"iana\"},\"application/vnd.hdt\":{\"source\":\"iana\"},\"application/vnd.heroku+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hhe.lesson-player\":{\"source\":\"iana\",\"extensions\":[\"les\"]},\"application/vnd.hp-hpgl\":{\"source\":\"iana\",\"extensions\":[\"hpgl\"]},\"application/vnd.hp-hpid\":{\"source\":\"iana\",\"extensions\":[\"hpid\"]},\"application/vnd.hp-hps\":{\"source\":\"iana\",\"extensions\":[\"hps\"]},\"application/vnd.hp-jlyt\":{\"source\":\"iana\",\"extensions\":[\"jlt\"]},\"application/vnd.hp-pcl\":{\"source\":\"iana\",\"extensions\":[\"pcl\"]},\"application/vnd.hp-pclxl\":{\"source\":\"iana\",\"extensions\":[\"pclxl\"]},\"application/vnd.httphone\":{\"source\":\"iana\"},\"application/vnd.hydrostatix.sof-data\":{\"source\":\"iana\",\"extensions\":[\"sfd-hdstx\"]},\"application/vnd.hyper+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hyper-item+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hyperdrive+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hzn-3d-crossword\":{\"source\":\"iana\"},\"application/vnd.ibm.afplinedata\":{\"source\":\"iana\"},\"application/vnd.ibm.electronic-media\":{\"source\":\"iana\"},\"application/vnd.ibm.minipay\":{\"source\":\"iana\",\"extensions\":[\"mpy\"]},\"application/vnd.ibm.modcap\":{\"source\":\"iana\",\"extensions\":[\"afp\",\"listafp\",\"list3820\"]},\"application/vnd.ibm.rights-management\":{\"source\":\"iana\",\"extensions\":[\"irm\"]},\"application/vnd.ibm.secure-container\":{\"source\":\"iana\",\"extensions\":[\"sc\"]},\"application/vnd.iccprofile\":{\"source\":\"iana\",\"extensions\":[\"icc\",\"icm\"]},\"application/vnd.ieee.1905\":{\"source\":\"iana\"},\"application/vnd.igloader\":{\"source\":\"iana\",\"extensions\":[\"igl\"]},\"application/vnd.imagemeter.folder+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.imagemeter.image+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.immervision-ivp\":{\"source\":\"iana\",\"extensions\":[\"ivp\"]},\"application/vnd.immervision-ivu\":{\"source\":\"iana\",\"extensions\":[\"ivu\"]},\"application/vnd.ims.imsccv1p1\":{\"source\":\"iana\"},\"application/vnd.ims.imsccv1p2\":{\"source\":\"iana\"},\"application/vnd.ims.imsccv1p3\":{\"source\":\"iana\"},\"application/vnd.ims.lis.v2.result+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolconsumerprofile+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolproxy+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolproxy.id+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolsettings+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolsettings.simple+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.informedcontrol.rms+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.informix-visionary\":{\"source\":\"iana\"},\"application/vnd.infotech.project\":{\"source\":\"iana\"},\"application/vnd.infotech.project+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.innopath.wamp.notification\":{\"source\":\"iana\"},\"application/vnd.insors.igm\":{\"source\":\"iana\",\"extensions\":[\"igm\"]},\"application/vnd.intercon.formnet\":{\"source\":\"iana\",\"extensions\":[\"xpw\",\"xpx\"]},\"application/vnd.intergeo\":{\"source\":\"iana\",\"extensions\":[\"i2g\"]},\"application/vnd.intertrust.digibox\":{\"source\":\"iana\"},\"application/vnd.intertrust.nncp\":{\"source\":\"iana\"},\"application/vnd.intu.qbo\":{\"source\":\"iana\",\"extensions\":[\"qbo\"]},\"application/vnd.intu.qfx\":{\"source\":\"iana\",\"extensions\":[\"qfx\"]},\"application/vnd.iptc.g2.catalogitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.conceptitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.knowledgeitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.newsitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.newsmessage+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.packageitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.planningitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ipunplugged.rcprofile\":{\"source\":\"iana\",\"extensions\":[\"rcprofile\"]},\"application/vnd.irepository.package+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"irp\"]},\"application/vnd.is-xpr\":{\"source\":\"iana\",\"extensions\":[\"xpr\"]},\"application/vnd.isac.fcs\":{\"source\":\"iana\",\"extensions\":[\"fcs\"]},\"application/vnd.iso11783-10+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.jam\":{\"source\":\"iana\",\"extensions\":[\"jam\"]},\"application/vnd.japannet-directory-service\":{\"source\":\"iana\"},\"application/vnd.japannet-jpnstore-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-payment-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-registration\":{\"source\":\"iana\"},\"application/vnd.japannet-registration-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-setstore-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-verification\":{\"source\":\"iana\"},\"application/vnd.japannet-verification-wakeup\":{\"source\":\"iana\"},\"application/vnd.jcp.javame.midlet-rms\":{\"source\":\"iana\",\"extensions\":[\"rms\"]},\"application/vnd.jisp\":{\"source\":\"iana\",\"extensions\":[\"jisp\"]},\"application/vnd.joost.joda-archive\":{\"source\":\"iana\",\"extensions\":[\"joda\"]},\"application/vnd.jsk.isdn-ngn\":{\"source\":\"iana\"},\"application/vnd.kahootz\":{\"source\":\"iana\",\"extensions\":[\"ktz\",\"ktr\"]},\"application/vnd.kde.karbon\":{\"source\":\"iana\",\"extensions\":[\"karbon\"]},\"application/vnd.kde.kchart\":{\"source\":\"iana\",\"extensions\":[\"chrt\"]},\"application/vnd.kde.kformula\":{\"source\":\"iana\",\"extensions\":[\"kfo\"]},\"application/vnd.kde.kivio\":{\"source\":\"iana\",\"extensions\":[\"flw\"]},\"application/vnd.kde.kontour\":{\"source\":\"iana\",\"extensions\":[\"kon\"]},\"application/vnd.kde.kpresenter\":{\"source\":\"iana\",\"extensions\":[\"kpr\",\"kpt\"]},\"application/vnd.kde.kspread\":{\"source\":\"iana\",\"extensions\":[\"ksp\"]},\"application/vnd.kde.kword\":{\"source\":\"iana\",\"extensions\":[\"kwd\",\"kwt\"]},\"application/vnd.kenameaapp\":{\"source\":\"iana\",\"extensions\":[\"htke\"]},\"application/vnd.kidspiration\":{\"source\":\"iana\",\"extensions\":[\"kia\"]},\"application/vnd.kinar\":{\"source\":\"iana\",\"extensions\":[\"kne\",\"knp\"]},\"application/vnd.koan\":{\"source\":\"iana\",\"extensions\":[\"skp\",\"skd\",\"skt\",\"skm\"]},\"application/vnd.kodak-descriptor\":{\"source\":\"iana\",\"extensions\":[\"sse\"]},\"application/vnd.las\":{\"source\":\"iana\"},\"application/vnd.las.las+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.las.las+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lasxml\"]},\"application/vnd.laszip\":{\"source\":\"iana\"},\"application/vnd.leap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.liberty-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.llamagraphics.life-balance.desktop\":{\"source\":\"iana\",\"extensions\":[\"lbd\"]},\"application/vnd.llamagraphics.life-balance.exchange+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lbe\"]},\"application/vnd.logipipe.circuit+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.loom\":{\"source\":\"iana\"},\"application/vnd.lotus-1-2-3\":{\"source\":\"iana\",\"extensions\":[\"123\"]},\"application/vnd.lotus-approach\":{\"source\":\"iana\",\"extensions\":[\"apr\"]},\"application/vnd.lotus-freelance\":{\"source\":\"iana\",\"extensions\":[\"pre\"]},\"application/vnd.lotus-notes\":{\"source\":\"iana\",\"extensions\":[\"nsf\"]},\"application/vnd.lotus-organizer\":{\"source\":\"iana\",\"extensions\":[\"org\"]},\"application/vnd.lotus-screencam\":{\"source\":\"iana\",\"extensions\":[\"scm\"]},\"application/vnd.lotus-wordpro\":{\"source\":\"iana\",\"extensions\":[\"lwp\"]},\"application/vnd.macports.portpkg\":{\"source\":\"iana\",\"extensions\":[\"portpkg\"]},\"application/vnd.mapbox-vector-tile\":{\"source\":\"iana\"},\"application/vnd.marlin.drm.actiontoken+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.marlin.drm.conftoken+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.marlin.drm.license+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.marlin.drm.mdcf\":{\"source\":\"iana\"},\"application/vnd.mason+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.maxmind.maxmind-db\":{\"source\":\"iana\"},\"application/vnd.mcd\":{\"source\":\"iana\",\"extensions\":[\"mcd\"]},\"application/vnd.medcalcdata\":{\"source\":\"iana\",\"extensions\":[\"mc1\"]},\"application/vnd.mediastation.cdkey\":{\"source\":\"iana\",\"extensions\":[\"cdkey\"]},\"application/vnd.meridian-slingshot\":{\"source\":\"iana\"},\"application/vnd.mfer\":{\"source\":\"iana\",\"extensions\":[\"mwf\"]},\"application/vnd.mfmp\":{\"source\":\"iana\",\"extensions\":[\"mfm\"]},\"application/vnd.micro+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.micrografx.flo\":{\"source\":\"iana\",\"extensions\":[\"flo\"]},\"application/vnd.micrografx.igx\":{\"source\":\"iana\",\"extensions\":[\"igx\"]},\"application/vnd.microsoft.portable-executable\":{\"source\":\"iana\"},\"application/vnd.microsoft.windows.thumbnail-cache\":{\"source\":\"iana\"},\"application/vnd.miele+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.mif\":{\"source\":\"iana\",\"extensions\":[\"mif\"]},\"application/vnd.minisoft-hp3000-save\":{\"source\":\"iana\"},\"application/vnd.mitsubishi.misty-guard.trustweb\":{\"source\":\"iana\"},\"application/vnd.mobius.daf\":{\"source\":\"iana\",\"extensions\":[\"daf\"]},\"application/vnd.mobius.dis\":{\"source\":\"iana\",\"extensions\":[\"dis\"]},\"application/vnd.mobius.mbk\":{\"source\":\"iana\",\"extensions\":[\"mbk\"]},\"application/vnd.mobius.mqy\":{\"source\":\"iana\",\"extensions\":[\"mqy\"]},\"application/vnd.mobius.msl\":{\"source\":\"iana\",\"extensions\":[\"msl\"]},\"application/vnd.mobius.plc\":{\"source\":\"iana\",\"extensions\":[\"plc\"]},\"application/vnd.mobius.txf\":{\"source\":\"iana\",\"extensions\":[\"txf\"]},\"application/vnd.mophun.application\":{\"source\":\"iana\",\"extensions\":[\"mpn\"]},\"application/vnd.mophun.certificate\":{\"source\":\"iana\",\"extensions\":[\"mpc\"]},\"application/vnd.motorola.flexsuite\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.adsi\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.fis\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.gotap\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.kmr\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.ttc\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.wem\":{\"source\":\"iana\"},\"application/vnd.motorola.iprm\":{\"source\":\"iana\"},\"application/vnd.mozilla.xul+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xul\"]},\"application/vnd.ms-3mfdocument\":{\"source\":\"iana\"},\"application/vnd.ms-artgalry\":{\"source\":\"iana\",\"extensions\":[\"cil\"]},\"application/vnd.ms-asf\":{\"source\":\"iana\"},\"application/vnd.ms-cab-compressed\":{\"source\":\"iana\",\"extensions\":[\"cab\"]},\"application/vnd.ms-color.iccprofile\":{\"source\":\"apache\"},\"application/vnd.ms-excel\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"xls\",\"xlm\",\"xla\",\"xlc\",\"xlt\",\"xlw\"]},\"application/vnd.ms-excel.addin.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xlam\"]},\"application/vnd.ms-excel.sheet.binary.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xlsb\"]},\"application/vnd.ms-excel.sheet.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xlsm\"]},\"application/vnd.ms-excel.template.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xltm\"]},\"application/vnd.ms-fontobject\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"eot\"]},\"application/vnd.ms-htmlhelp\":{\"source\":\"iana\",\"extensions\":[\"chm\"]},\"application/vnd.ms-ims\":{\"source\":\"iana\",\"extensions\":[\"ims\"]},\"application/vnd.ms-lrm\":{\"source\":\"iana\",\"extensions\":[\"lrm\"]},\"application/vnd.ms-office.activex+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-officetheme\":{\"source\":\"iana\",\"extensions\":[\"thmx\"]},\"application/vnd.ms-opentype\":{\"source\":\"apache\",\"compressible\":true},\"application/vnd.ms-outlook\":{\"compressible\":false,\"extensions\":[\"msg\"]},\"application/vnd.ms-package.obfuscated-opentype\":{\"source\":\"apache\"},\"application/vnd.ms-pki.seccat\":{\"source\":\"apache\",\"extensions\":[\"cat\"]},\"application/vnd.ms-pki.stl\":{\"source\":\"apache\",\"extensions\":[\"stl\"]},\"application/vnd.ms-playready.initiator+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-powerpoint\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ppt\",\"pps\",\"pot\"]},\"application/vnd.ms-powerpoint.addin.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"ppam\"]},\"application/vnd.ms-powerpoint.presentation.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"pptm\"]},\"application/vnd.ms-powerpoint.slide.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"sldm\"]},\"application/vnd.ms-powerpoint.slideshow.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"ppsm\"]},\"application/vnd.ms-powerpoint.template.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"potm\"]},\"application/vnd.ms-printdevicecapabilities+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-printing.printticket+xml\":{\"source\":\"apache\",\"compressible\":true},\"application/vnd.ms-printschematicket+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-project\":{\"source\":\"iana\",\"extensions\":[\"mpp\",\"mpt\"]},\"application/vnd.ms-tnef\":{\"source\":\"iana\"},\"application/vnd.ms-windows.devicepairing\":{\"source\":\"iana\"},\"application/vnd.ms-windows.nwprinting.oob\":{\"source\":\"iana\"},\"application/vnd.ms-windows.printerpairing\":{\"source\":\"iana\"},\"application/vnd.ms-windows.wsd.oob\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.lic-chlg-req\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.lic-resp\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.meter-chlg-req\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.meter-resp\":{\"source\":\"iana\"},\"application/vnd.ms-word.document.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"docm\"]},\"application/vnd.ms-word.template.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"dotm\"]},\"application/vnd.ms-works\":{\"source\":\"iana\",\"extensions\":[\"wps\",\"wks\",\"wcm\",\"wdb\"]},\"application/vnd.ms-wpl\":{\"source\":\"iana\",\"extensions\":[\"wpl\"]},\"application/vnd.ms-xpsdocument\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"xps\"]},\"application/vnd.msa-disk-image\":{\"source\":\"iana\"},\"application/vnd.mseq\":{\"source\":\"iana\",\"extensions\":[\"mseq\"]},\"application/vnd.msign\":{\"source\":\"iana\"},\"application/vnd.multiad.creator\":{\"source\":\"iana\"},\"application/vnd.multiad.creator.cif\":{\"source\":\"iana\"},\"application/vnd.music-niff\":{\"source\":\"iana\"},\"application/vnd.musician\":{\"source\":\"iana\",\"extensions\":[\"mus\"]},\"application/vnd.muvee.style\":{\"source\":\"iana\",\"extensions\":[\"msty\"]},\"application/vnd.mynfc\":{\"source\":\"iana\",\"extensions\":[\"taglet\"]},\"application/vnd.ncd.control\":{\"source\":\"iana\"},\"application/vnd.ncd.reference\":{\"source\":\"iana\"},\"application/vnd.nearst.inv+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nervana\":{\"source\":\"iana\"},\"application/vnd.netfpx\":{\"source\":\"iana\"},\"application/vnd.neurolanguage.nlu\":{\"source\":\"iana\",\"extensions\":[\"nlu\"]},\"application/vnd.nimn\":{\"source\":\"iana\"},\"application/vnd.nintendo.nitro.rom\":{\"source\":\"iana\"},\"application/vnd.nintendo.snes.rom\":{\"source\":\"iana\"},\"application/vnd.nitf\":{\"source\":\"iana\",\"extensions\":[\"ntf\",\"nitf\"]},\"application/vnd.noblenet-directory\":{\"source\":\"iana\",\"extensions\":[\"nnd\"]},\"application/vnd.noblenet-sealer\":{\"source\":\"iana\",\"extensions\":[\"nns\"]},\"application/vnd.noblenet-web\":{\"source\":\"iana\",\"extensions\":[\"nnw\"]},\"application/vnd.nokia.catalogs\":{\"source\":\"iana\"},\"application/vnd.nokia.conml+wbxml\":{\"source\":\"iana\"},\"application/vnd.nokia.conml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.iptv.config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.isds-radio-presets\":{\"source\":\"iana\"},\"application/vnd.nokia.landmark+wbxml\":{\"source\":\"iana\"},\"application/vnd.nokia.landmark+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.landmarkcollection+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.n-gage.ac+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ac\"]},\"application/vnd.nokia.n-gage.data\":{\"source\":\"iana\",\"extensions\":[\"ngdat\"]},\"application/vnd.nokia.n-gage.symbian.install\":{\"source\":\"iana\",\"extensions\":[\"n-gage\"]},\"application/vnd.nokia.ncd\":{\"source\":\"iana\"},\"application/vnd.nokia.pcd+wbxml\":{\"source\":\"iana\"},\"application/vnd.nokia.pcd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.radio-preset\":{\"source\":\"iana\",\"extensions\":[\"rpst\"]},\"application/vnd.nokia.radio-presets\":{\"source\":\"iana\",\"extensions\":[\"rpss\"]},\"application/vnd.novadigm.edm\":{\"source\":\"iana\",\"extensions\":[\"edm\"]},\"application/vnd.novadigm.edx\":{\"source\":\"iana\",\"extensions\":[\"edx\"]},\"application/vnd.novadigm.ext\":{\"source\":\"iana\",\"extensions\":[\"ext\"]},\"application/vnd.ntt-local.content-share\":{\"source\":\"iana\"},\"application/vnd.ntt-local.file-transfer\":{\"source\":\"iana\"},\"application/vnd.ntt-local.ogw_remote-access\":{\"source\":\"iana\"},\"application/vnd.ntt-local.sip-ta_remote\":{\"source\":\"iana\"},\"application/vnd.ntt-local.sip-ta_tcp_stream\":{\"source\":\"iana\"},\"application/vnd.oasis.opendocument.chart\":{\"source\":\"iana\",\"extensions\":[\"odc\"]},\"application/vnd.oasis.opendocument.chart-template\":{\"source\":\"iana\",\"extensions\":[\"otc\"]},\"application/vnd.oasis.opendocument.database\":{\"source\":\"iana\",\"extensions\":[\"odb\"]},\"application/vnd.oasis.opendocument.formula\":{\"source\":\"iana\",\"extensions\":[\"odf\"]},\"application/vnd.oasis.opendocument.formula-template\":{\"source\":\"iana\",\"extensions\":[\"odft\"]},\"application/vnd.oasis.opendocument.graphics\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"odg\"]},\"application/vnd.oasis.opendocument.graphics-template\":{\"source\":\"iana\",\"extensions\":[\"otg\"]},\"application/vnd.oasis.opendocument.image\":{\"source\":\"iana\",\"extensions\":[\"odi\"]},\"application/vnd.oasis.opendocument.image-template\":{\"source\":\"iana\",\"extensions\":[\"oti\"]},\"application/vnd.oasis.opendocument.presentation\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"odp\"]},\"application/vnd.oasis.opendocument.presentation-template\":{\"source\":\"iana\",\"extensions\":[\"otp\"]},\"application/vnd.oasis.opendocument.spreadsheet\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ods\"]},\"application/vnd.oasis.opendocument.spreadsheet-template\":{\"source\":\"iana\",\"extensions\":[\"ots\"]},\"application/vnd.oasis.opendocument.text\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"odt\"]},\"application/vnd.oasis.opendocument.text-master\":{\"source\":\"iana\",\"extensions\":[\"odm\"]},\"application/vnd.oasis.opendocument.text-template\":{\"source\":\"iana\",\"extensions\":[\"ott\"]},\"application/vnd.oasis.opendocument.text-web\":{\"source\":\"iana\",\"extensions\":[\"oth\"]},\"application/vnd.obn\":{\"source\":\"iana\"},\"application/vnd.ocf+cbor\":{\"source\":\"iana\"},\"application/vnd.oci.image.manifest.v1+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oftn.l10n+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.contentaccessdownload+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.contentaccessstreaming+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.cspg-hexbinary\":{\"source\":\"iana\"},\"application/vnd.oipf.dae.svg+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.dae.xhtml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.mippvcontrolmessage+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.pae.gem\":{\"source\":\"iana\"},\"application/vnd.oipf.spdiscovery+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.spdlist+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.ueprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.userprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.olpc-sugar\":{\"source\":\"iana\",\"extensions\":[\"xo\"]},\"application/vnd.oma-scws-config\":{\"source\":\"iana\"},\"application/vnd.oma-scws-http-request\":{\"source\":\"iana\"},\"application/vnd.oma-scws-http-response\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.associated-procedure-parameter+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.drm-trigger+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.imd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.ltkm\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.notification+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.provisioningtrigger\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.sgboot\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.sgdd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.sgdu\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.simple-symbol-container\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.smartcard-trigger+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.sprov+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.stkm\":{\"source\":\"iana\"},\"application/vnd.oma.cab-address-book+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-feature-handler+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-pcc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-subs-invite+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-user-prefs+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.dcd\":{\"source\":\"iana\"},\"application/vnd.oma.dcdc\":{\"source\":\"iana\"},\"application/vnd.oma.dd2+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dd2\"]},\"application/vnd.oma.drm.risd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.group-usage-list+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.lwm2m+cbor\":{\"source\":\"iana\"},\"application/vnd.oma.lwm2m+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.lwm2m+tlv\":{\"source\":\"iana\"},\"application/vnd.oma.pal+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.detailed-progress-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.final-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.groups+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.invocation-descriptor+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.optimized-progress-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.push\":{\"source\":\"iana\"},\"application/vnd.oma.scidm.messages+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.xcap-directory+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.omads-email+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.omads-file+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.omads-folder+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.omaloc-supl-init\":{\"source\":\"iana\"},\"application/vnd.onepager\":{\"source\":\"iana\"},\"application/vnd.onepagertamp\":{\"source\":\"iana\"},\"application/vnd.onepagertamx\":{\"source\":\"iana\"},\"application/vnd.onepagertat\":{\"source\":\"iana\"},\"application/vnd.onepagertatp\":{\"source\":\"iana\"},\"application/vnd.onepagertatx\":{\"source\":\"iana\"},\"application/vnd.openblox.game+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"obgx\"]},\"application/vnd.openblox.game-binary\":{\"source\":\"iana\"},\"application/vnd.openeye.oeb\":{\"source\":\"iana\"},\"application/vnd.openofficeorg.extension\":{\"source\":\"apache\",\"extensions\":[\"oxt\"]},\"application/vnd.openstreetmap.data+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"osm\"]},\"application/vnd.openxmlformats-officedocument.custom-properties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.customxmlproperties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawing+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramcolors+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramdata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramlayout+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramstyle+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.extended-properties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.commentauthors+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.handoutmaster+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.notesmaster+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.notesslide+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.presentation\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"pptx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.presprops+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slide\":{\"source\":\"iana\",\"extensions\":[\"sldx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slidelayout+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slidemaster+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slideshow\":{\"source\":\"iana\",\"extensions\":[\"ppsx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slideupdateinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.tablestyles+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.tags+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.template\":{\"source\":\"iana\",\"extensions\":[\"potx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.template.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.viewprops+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.calcchain+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.dialogsheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.externallink+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcachedefinition+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcacherecords+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivottable+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.querytable+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionheaders+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionlog+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedstrings+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"xlsx\"]},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheetmetadata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.tablesinglecells+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.template\":{\"source\":\"iana\",\"extensions\":[\"xltx\"]},\"application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.usernames+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.volatiledependencies+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.theme+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.themeoverride+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.vmldrawing\":{\"source\":\"iana\"},\"application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"docx\"]},\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.fonttable+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.template\":{\"source\":\"iana\",\"extensions\":[\"dotx\"]},\"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.websettings+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-package.core-properties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-package.relationships+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oracle.resource+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.orange.indata\":{\"source\":\"iana\"},\"application/vnd.osa.netdeploy\":{\"source\":\"iana\"},\"application/vnd.osgeo.mapguide.package\":{\"source\":\"iana\",\"extensions\":[\"mgp\"]},\"application/vnd.osgi.bundle\":{\"source\":\"iana\"},\"application/vnd.osgi.dp\":{\"source\":\"iana\",\"extensions\":[\"dp\"]},\"application/vnd.osgi.subsystem\":{\"source\":\"iana\",\"extensions\":[\"esa\"]},\"application/vnd.otps.ct-kip+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oxli.countgraph\":{\"source\":\"iana\"},\"application/vnd.pagerduty+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.palm\":{\"source\":\"iana\",\"extensions\":[\"pdb\",\"pqa\",\"oprc\"]},\"application/vnd.panoply\":{\"source\":\"iana\"},\"application/vnd.paos.xml\":{\"source\":\"iana\"},\"application/vnd.patentdive\":{\"source\":\"iana\"},\"application/vnd.patientecommsdoc\":{\"source\":\"iana\"},\"application/vnd.pawaafile\":{\"source\":\"iana\",\"extensions\":[\"paw\"]},\"application/vnd.pcos\":{\"source\":\"iana\"},\"application/vnd.pg.format\":{\"source\":\"iana\",\"extensions\":[\"str\"]},\"application/vnd.pg.osasli\":{\"source\":\"iana\",\"extensions\":[\"ei6\"]},\"application/vnd.piaccess.application-licence\":{\"source\":\"iana\"},\"application/vnd.picsel\":{\"source\":\"iana\",\"extensions\":[\"efif\"]},\"application/vnd.pmi.widget\":{\"source\":\"iana\",\"extensions\":[\"wg\"]},\"application/vnd.poc.group-advertisement+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.pocketlearn\":{\"source\":\"iana\",\"extensions\":[\"plf\"]},\"application/vnd.powerbuilder6\":{\"source\":\"iana\",\"extensions\":[\"pbd\"]},\"application/vnd.powerbuilder6-s\":{\"source\":\"iana\"},\"application/vnd.powerbuilder7\":{\"source\":\"iana\"},\"application/vnd.powerbuilder7-s\":{\"source\":\"iana\"},\"application/vnd.powerbuilder75\":{\"source\":\"iana\"},\"application/vnd.powerbuilder75-s\":{\"source\":\"iana\"},\"application/vnd.preminet\":{\"source\":\"iana\"},\"application/vnd.previewsystems.box\":{\"source\":\"iana\",\"extensions\":[\"box\"]},\"application/vnd.proteus.magazine\":{\"source\":\"iana\",\"extensions\":[\"mgz\"]},\"application/vnd.psfs\":{\"source\":\"iana\"},\"application/vnd.publishare-delta-tree\":{\"source\":\"iana\",\"extensions\":[\"qps\"]},\"application/vnd.pvi.ptid1\":{\"source\":\"iana\",\"extensions\":[\"ptid\"]},\"application/vnd.pwg-multiplexed\":{\"source\":\"iana\"},\"application/vnd.pwg-xhtml-print+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.qualcomm.brew-app-res\":{\"source\":\"iana\"},\"application/vnd.quarantainenet\":{\"source\":\"iana\"},\"application/vnd.quark.quarkxpress\":{\"source\":\"iana\",\"extensions\":[\"qxd\",\"qxt\",\"qwd\",\"qwt\",\"qxl\",\"qxb\"]},\"application/vnd.quobject-quoxdocument\":{\"source\":\"iana\"},\"application/vnd.radisys.moml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-conf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-conn+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-dialog+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-stream+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-conf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-base+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-fax-detect+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-fax-sendrecv+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-group+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-speech+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-transform+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.rainstor.data\":{\"source\":\"iana\"},\"application/vnd.rapid\":{\"source\":\"iana\"},\"application/vnd.rar\":{\"source\":\"iana\",\"extensions\":[\"rar\"]},\"application/vnd.realvnc.bed\":{\"source\":\"iana\",\"extensions\":[\"bed\"]},\"application/vnd.recordare.musicxml\":{\"source\":\"iana\",\"extensions\":[\"mxl\"]},\"application/vnd.recordare.musicxml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"musicxml\"]},\"application/vnd.renlearn.rlprint\":{\"source\":\"iana\"},\"application/vnd.restful+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.rig.cryptonote\":{\"source\":\"iana\",\"extensions\":[\"cryptonote\"]},\"application/vnd.rim.cod\":{\"source\":\"apache\",\"extensions\":[\"cod\"]},\"application/vnd.rn-realmedia\":{\"source\":\"apache\",\"extensions\":[\"rm\"]},\"application/vnd.rn-realmedia-vbr\":{\"source\":\"apache\",\"extensions\":[\"rmvb\"]},\"application/vnd.route66.link66+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"link66\"]},\"application/vnd.rs-274x\":{\"source\":\"iana\"},\"application/vnd.ruckus.download\":{\"source\":\"iana\"},\"application/vnd.s3sms\":{\"source\":\"iana\"},\"application/vnd.sailingtracker.track\":{\"source\":\"iana\",\"extensions\":[\"st\"]},\"application/vnd.sar\":{\"source\":\"iana\"},\"application/vnd.sbm.cid\":{\"source\":\"iana\"},\"application/vnd.sbm.mid2\":{\"source\":\"iana\"},\"application/vnd.scribus\":{\"source\":\"iana\"},\"application/vnd.sealed.3df\":{\"source\":\"iana\"},\"application/vnd.sealed.csf\":{\"source\":\"iana\"},\"application/vnd.sealed.doc\":{\"source\":\"iana\"},\"application/vnd.sealed.eml\":{\"source\":\"iana\"},\"application/vnd.sealed.mht\":{\"source\":\"iana\"},\"application/vnd.sealed.net\":{\"source\":\"iana\"},\"application/vnd.sealed.ppt\":{\"source\":\"iana\"},\"application/vnd.sealed.tiff\":{\"source\":\"iana\"},\"application/vnd.sealed.xls\":{\"source\":\"iana\"},\"application/vnd.sealedmedia.softseal.html\":{\"source\":\"iana\"},\"application/vnd.sealedmedia.softseal.pdf\":{\"source\":\"iana\"},\"application/vnd.seemail\":{\"source\":\"iana\",\"extensions\":[\"see\"]},\"application/vnd.seis+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.sema\":{\"source\":\"iana\",\"extensions\":[\"sema\"]},\"application/vnd.semd\":{\"source\":\"iana\",\"extensions\":[\"semd\"]},\"application/vnd.semf\":{\"source\":\"iana\",\"extensions\":[\"semf\"]},\"application/vnd.shade-save-file\":{\"source\":\"iana\"},\"application/vnd.shana.informed.formdata\":{\"source\":\"iana\",\"extensions\":[\"ifm\"]},\"application/vnd.shana.informed.formtemplate\":{\"source\":\"iana\",\"extensions\":[\"itp\"]},\"application/vnd.shana.informed.interchange\":{\"source\":\"iana\",\"extensions\":[\"iif\"]},\"application/vnd.shana.informed.package\":{\"source\":\"iana\",\"extensions\":[\"ipk\"]},\"application/vnd.shootproof+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.shopkick+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.shp\":{\"source\":\"iana\"},\"application/vnd.shx\":{\"source\":\"iana\"},\"application/vnd.sigrok.session\":{\"source\":\"iana\"},\"application/vnd.simtech-mindmapper\":{\"source\":\"iana\",\"extensions\":[\"twd\",\"twds\"]},\"application/vnd.siren+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.smaf\":{\"source\":\"iana\",\"extensions\":[\"mmf\"]},\"application/vnd.smart.notebook\":{\"source\":\"iana\"},\"application/vnd.smart.teacher\":{\"source\":\"iana\",\"extensions\":[\"teacher\"]},\"application/vnd.snesdev-page-table\":{\"source\":\"iana\"},\"application/vnd.software602.filler.form+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"fo\"]},\"application/vnd.software602.filler.form-xml-zip\":{\"source\":\"iana\"},\"application/vnd.solent.sdkm+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sdkm\",\"sdkd\"]},\"application/vnd.spotfire.dxp\":{\"source\":\"iana\",\"extensions\":[\"dxp\"]},\"application/vnd.spotfire.sfs\":{\"source\":\"iana\",\"extensions\":[\"sfs\"]},\"application/vnd.sqlite3\":{\"source\":\"iana\"},\"application/vnd.sss-cod\":{\"source\":\"iana\"},\"application/vnd.sss-dtf\":{\"source\":\"iana\"},\"application/vnd.sss-ntf\":{\"source\":\"iana\"},\"application/vnd.stardivision.calc\":{\"source\":\"apache\",\"extensions\":[\"sdc\"]},\"application/vnd.stardivision.draw\":{\"source\":\"apache\",\"extensions\":[\"sda\"]},\"application/vnd.stardivision.impress\":{\"source\":\"apache\",\"extensions\":[\"sdd\"]},\"application/vnd.stardivision.math\":{\"source\":\"apache\",\"extensions\":[\"smf\"]},\"application/vnd.stardivision.writer\":{\"source\":\"apache\",\"extensions\":[\"sdw\",\"vor\"]},\"application/vnd.stardivision.writer-global\":{\"source\":\"apache\",\"extensions\":[\"sgl\"]},\"application/vnd.stepmania.package\":{\"source\":\"iana\",\"extensions\":[\"smzip\"]},\"application/vnd.stepmania.stepchart\":{\"source\":\"iana\",\"extensions\":[\"sm\"]},\"application/vnd.street-stream\":{\"source\":\"iana\"},\"application/vnd.sun.wadl+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wadl\"]},\"application/vnd.sun.xml.calc\":{\"source\":\"apache\",\"extensions\":[\"sxc\"]},\"application/vnd.sun.xml.calc.template\":{\"source\":\"apache\",\"extensions\":[\"stc\"]},\"application/vnd.sun.xml.draw\":{\"source\":\"apache\",\"extensions\":[\"sxd\"]},\"application/vnd.sun.xml.draw.template\":{\"source\":\"apache\",\"extensions\":[\"std\"]},\"application/vnd.sun.xml.impress\":{\"source\":\"apache\",\"extensions\":[\"sxi\"]},\"application/vnd.sun.xml.impress.template\":{\"source\":\"apache\",\"extensions\":[\"sti\"]},\"application/vnd.sun.xml.math\":{\"source\":\"apache\",\"extensions\":[\"sxm\"]},\"application/vnd.sun.xml.writer\":{\"source\":\"apache\",\"extensions\":[\"sxw\"]},\"application/vnd.sun.xml.writer.global\":{\"source\":\"apache\",\"extensions\":[\"sxg\"]},\"application/vnd.sun.xml.writer.template\":{\"source\":\"apache\",\"extensions\":[\"stw\"]},\"application/vnd.sus-calendar\":{\"source\":\"iana\",\"extensions\":[\"sus\",\"susp\"]},\"application/vnd.svd\":{\"source\":\"iana\",\"extensions\":[\"svd\"]},\"application/vnd.swiftview-ics\":{\"source\":\"iana\"},\"application/vnd.sycle+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.symbian.install\":{\"source\":\"apache\",\"extensions\":[\"sis\",\"sisx\"]},\"application/vnd.syncml+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"xsm\"]},\"application/vnd.syncml.dm+wbxml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"bdm\"]},\"application/vnd.syncml.dm+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"xdm\"]},\"application/vnd.syncml.dm.notification\":{\"source\":\"iana\"},\"application/vnd.syncml.dmddf+wbxml\":{\"source\":\"iana\"},\"application/vnd.syncml.dmddf+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"ddf\"]},\"application/vnd.syncml.dmtnds+wbxml\":{\"source\":\"iana\"},\"application/vnd.syncml.dmtnds+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.syncml.ds.notification\":{\"source\":\"iana\"},\"application/vnd.tableschema+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.tao.intent-module-archive\":{\"source\":\"iana\",\"extensions\":[\"tao\"]},\"application/vnd.tcpdump.pcap\":{\"source\":\"iana\",\"extensions\":[\"pcap\",\"cap\",\"dmp\"]},\"application/vnd.think-cell.ppttc+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.tmd.mediaflex.api+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.tml\":{\"source\":\"iana\"},\"application/vnd.tmobile-livetv\":{\"source\":\"iana\",\"extensions\":[\"tmo\"]},\"application/vnd.tri.onesource\":{\"source\":\"iana\"},\"application/vnd.trid.tpt\":{\"source\":\"iana\",\"extensions\":[\"tpt\"]},\"application/vnd.triscape.mxs\":{\"source\":\"iana\",\"extensions\":[\"mxs\"]},\"application/vnd.trueapp\":{\"source\":\"iana\",\"extensions\":[\"tra\"]},\"application/vnd.truedoc\":{\"source\":\"iana\"},\"application/vnd.ubisoft.webplayer\":{\"source\":\"iana\"},\"application/vnd.ufdl\":{\"source\":\"iana\",\"extensions\":[\"ufd\",\"ufdl\"]},\"application/vnd.uiq.theme\":{\"source\":\"iana\",\"extensions\":[\"utz\"]},\"application/vnd.umajin\":{\"source\":\"iana\",\"extensions\":[\"umj\"]},\"application/vnd.unity\":{\"source\":\"iana\",\"extensions\":[\"unityweb\"]},\"application/vnd.uoml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"uoml\"]},\"application/vnd.uplanet.alert\":{\"source\":\"iana\"},\"application/vnd.uplanet.alert-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.bearer-choice\":{\"source\":\"iana\"},\"application/vnd.uplanet.bearer-choice-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.cacheop\":{\"source\":\"iana\"},\"application/vnd.uplanet.cacheop-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.channel\":{\"source\":\"iana\"},\"application/vnd.uplanet.channel-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.list\":{\"source\":\"iana\"},\"application/vnd.uplanet.list-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.listcmd\":{\"source\":\"iana\"},\"application/vnd.uplanet.listcmd-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.signal\":{\"source\":\"iana\"},\"application/vnd.uri-map\":{\"source\":\"iana\"},\"application/vnd.valve.source.material\":{\"source\":\"iana\"},\"application/vnd.vcx\":{\"source\":\"iana\",\"extensions\":[\"vcx\"]},\"application/vnd.vd-study\":{\"source\":\"iana\"},\"application/vnd.vectorworks\":{\"source\":\"iana\"},\"application/vnd.vel+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.verimatrix.vcas\":{\"source\":\"iana\"},\"application/vnd.veryant.thin\":{\"source\":\"iana\"},\"application/vnd.ves.encrypted\":{\"source\":\"iana\"},\"application/vnd.vidsoft.vidconference\":{\"source\":\"iana\"},\"application/vnd.visio\":{\"source\":\"iana\",\"extensions\":[\"vsd\",\"vst\",\"vss\",\"vsw\"]},\"application/vnd.visionary\":{\"source\":\"iana\",\"extensions\":[\"vis\"]},\"application/vnd.vividence.scriptfile\":{\"source\":\"iana\"},\"application/vnd.vsf\":{\"source\":\"iana\",\"extensions\":[\"vsf\"]},\"application/vnd.wap.sic\":{\"source\":\"iana\"},\"application/vnd.wap.slc\":{\"source\":\"iana\"},\"application/vnd.wap.wbxml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"wbxml\"]},\"application/vnd.wap.wmlc\":{\"source\":\"iana\",\"extensions\":[\"wmlc\"]},\"application/vnd.wap.wmlscriptc\":{\"source\":\"iana\",\"extensions\":[\"wmlsc\"]},\"application/vnd.webturbo\":{\"source\":\"iana\",\"extensions\":[\"wtb\"]},\"application/vnd.wfa.dpp\":{\"source\":\"iana\"},\"application/vnd.wfa.p2p\":{\"source\":\"iana\"},\"application/vnd.wfa.wsc\":{\"source\":\"iana\"},\"application/vnd.windows.devicepairing\":{\"source\":\"iana\"},\"application/vnd.wmc\":{\"source\":\"iana\"},\"application/vnd.wmf.bootstrap\":{\"source\":\"iana\"},\"application/vnd.wolfram.mathematica\":{\"source\":\"iana\"},\"application/vnd.wolfram.mathematica.package\":{\"source\":\"iana\"},\"application/vnd.wolfram.player\":{\"source\":\"iana\",\"extensions\":[\"nbp\"]},\"application/vnd.wordperfect\":{\"source\":\"iana\",\"extensions\":[\"wpd\"]},\"application/vnd.wqd\":{\"source\":\"iana\",\"extensions\":[\"wqd\"]},\"application/vnd.wrq-hp3000-labelled\":{\"source\":\"iana\"},\"application/vnd.wt.stf\":{\"source\":\"iana\",\"extensions\":[\"stf\"]},\"application/vnd.wv.csp+wbxml\":{\"source\":\"iana\"},\"application/vnd.wv.csp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.wv.ssp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.xacml+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.xara\":{\"source\":\"iana\",\"extensions\":[\"xar\"]},\"application/vnd.xfdl\":{\"source\":\"iana\",\"extensions\":[\"xfdl\"]},\"application/vnd.xfdl.webform\":{\"source\":\"iana\"},\"application/vnd.xmi+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.xmpie.cpkg\":{\"source\":\"iana\"},\"application/vnd.xmpie.dpkg\":{\"source\":\"iana\"},\"application/vnd.xmpie.plan\":{\"source\":\"iana\"},\"application/vnd.xmpie.ppkg\":{\"source\":\"iana\"},\"application/vnd.xmpie.xlim\":{\"source\":\"iana\"},\"application/vnd.yamaha.hv-dic\":{\"source\":\"iana\",\"extensions\":[\"hvd\"]},\"application/vnd.yamaha.hv-script\":{\"source\":\"iana\",\"extensions\":[\"hvs\"]},\"application/vnd.yamaha.hv-voice\":{\"source\":\"iana\",\"extensions\":[\"hvp\"]},\"application/vnd.yamaha.openscoreformat\":{\"source\":\"iana\",\"extensions\":[\"osf\"]},\"application/vnd.yamaha.openscoreformat.osfpvg+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"osfpvg\"]},\"application/vnd.yamaha.remote-setup\":{\"source\":\"iana\"},\"application/vnd.yamaha.smaf-audio\":{\"source\":\"iana\",\"extensions\":[\"saf\"]},\"application/vnd.yamaha.smaf-phrase\":{\"source\":\"iana\",\"extensions\":[\"spf\"]},\"application/vnd.yamaha.through-ngn\":{\"source\":\"iana\"},\"application/vnd.yamaha.tunnel-udpencap\":{\"source\":\"iana\"},\"application/vnd.yaoweme\":{\"source\":\"iana\"},\"application/vnd.yellowriver-custom-menu\":{\"source\":\"iana\",\"extensions\":[\"cmp\"]},\"application/vnd.youtube.yt\":{\"source\":\"iana\"},\"application/vnd.zul\":{\"source\":\"iana\",\"extensions\":[\"zir\",\"zirz\"]},\"application/vnd.zzazz.deck+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"zaz\"]},\"application/voicexml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"vxml\"]},\"application/voucher-cms+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vq-rtcpxr\":{\"source\":\"iana\"},\"application/wasm\":{\"compressible\":true,\"extensions\":[\"wasm\"]},\"application/watcherinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/webpush-options+json\":{\"source\":\"iana\",\"compressible\":true},\"application/whoispp-query\":{\"source\":\"iana\"},\"application/whoispp-response\":{\"source\":\"iana\"},\"application/widget\":{\"source\":\"iana\",\"extensions\":[\"wgt\"]},\"application/winhlp\":{\"source\":\"apache\",\"extensions\":[\"hlp\"]},\"application/wita\":{\"source\":\"iana\"},\"application/wordperfect5.1\":{\"source\":\"iana\"},\"application/wsdl+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wsdl\"]},\"application/wspolicy+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wspolicy\"]},\"application/x-7z-compressed\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"7z\"]},\"application/x-abiword\":{\"source\":\"apache\",\"extensions\":[\"abw\"]},\"application/x-ace-compressed\":{\"source\":\"apache\",\"extensions\":[\"ace\"]},\"application/x-amf\":{\"source\":\"apache\"},\"application/x-apple-diskimage\":{\"source\":\"apache\",\"extensions\":[\"dmg\"]},\"application/x-arj\":{\"compressible\":false,\"extensions\":[\"arj\"]},\"application/x-authorware-bin\":{\"source\":\"apache\",\"extensions\":[\"aab\",\"x32\",\"u32\",\"vox\"]},\"application/x-authorware-map\":{\"source\":\"apache\",\"extensions\":[\"aam\"]},\"application/x-authorware-seg\":{\"source\":\"apache\",\"extensions\":[\"aas\"]},\"application/x-bcpio\":{\"source\":\"apache\",\"extensions\":[\"bcpio\"]},\"application/x-bdoc\":{\"compressible\":false,\"extensions\":[\"bdoc\"]},\"application/x-bittorrent\":{\"source\":\"apache\",\"extensions\":[\"torrent\"]},\"application/x-blorb\":{\"source\":\"apache\",\"extensions\":[\"blb\",\"blorb\"]},\"application/x-bzip\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"bz\"]},\"application/x-bzip2\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"bz2\",\"boz\"]},\"application/x-cbr\":{\"source\":\"apache\",\"extensions\":[\"cbr\",\"cba\",\"cbt\",\"cbz\",\"cb7\"]},\"application/x-cdlink\":{\"source\":\"apache\",\"extensions\":[\"vcd\"]},\"application/x-cfs-compressed\":{\"source\":\"apache\",\"extensions\":[\"cfs\"]},\"application/x-chat\":{\"source\":\"apache\",\"extensions\":[\"chat\"]},\"application/x-chess-pgn\":{\"source\":\"apache\",\"extensions\":[\"pgn\"]},\"application/x-chrome-extension\":{\"extensions\":[\"crx\"]},\"application/x-cocoa\":{\"source\":\"nginx\",\"extensions\":[\"cco\"]},\"application/x-compress\":{\"source\":\"apache\"},\"application/x-conference\":{\"source\":\"apache\",\"extensions\":[\"nsc\"]},\"application/x-cpio\":{\"source\":\"apache\",\"extensions\":[\"cpio\"]},\"application/x-csh\":{\"source\":\"apache\",\"extensions\":[\"csh\"]},\"application/x-deb\":{\"compressible\":false},\"application/x-debian-package\":{\"source\":\"apache\",\"extensions\":[\"deb\",\"udeb\"]},\"application/x-dgc-compressed\":{\"source\":\"apache\",\"extensions\":[\"dgc\"]},\"application/x-director\":{\"source\":\"apache\",\"extensions\":[\"dir\",\"dcr\",\"dxr\",\"cst\",\"cct\",\"cxt\",\"w3d\",\"fgd\",\"swa\"]},\"application/x-doom\":{\"source\":\"apache\",\"extensions\":[\"wad\"]},\"application/x-dtbncx+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"ncx\"]},\"application/x-dtbook+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"dtb\"]},\"application/x-dtbresource+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"res\"]},\"application/x-dvi\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"dvi\"]},\"application/x-envoy\":{\"source\":\"apache\",\"extensions\":[\"evy\"]},\"application/x-eva\":{\"source\":\"apache\",\"extensions\":[\"eva\"]},\"application/x-font-bdf\":{\"source\":\"apache\",\"extensions\":[\"bdf\"]},\"application/x-font-dos\":{\"source\":\"apache\"},\"application/x-font-framemaker\":{\"source\":\"apache\"},\"application/x-font-ghostscript\":{\"source\":\"apache\",\"extensions\":[\"gsf\"]},\"application/x-font-libgrx\":{\"source\":\"apache\"},\"application/x-font-linux-psf\":{\"source\":\"apache\",\"extensions\":[\"psf\"]},\"application/x-font-pcf\":{\"source\":\"apache\",\"extensions\":[\"pcf\"]},\"application/x-font-snf\":{\"source\":\"apache\",\"extensions\":[\"snf\"]},\"application/x-font-speedo\":{\"source\":\"apache\"},\"application/x-font-sunos-news\":{\"source\":\"apache\"},\"application/x-font-type1\":{\"source\":\"apache\",\"extensions\":[\"pfa\",\"pfb\",\"pfm\",\"afm\"]},\"application/x-font-vfont\":{\"source\":\"apache\"},\"application/x-freearc\":{\"source\":\"apache\",\"extensions\":[\"arc\"]},\"application/x-futuresplash\":{\"source\":\"apache\",\"extensions\":[\"spl\"]},\"application/x-gca-compressed\":{\"source\":\"apache\",\"extensions\":[\"gca\"]},\"application/x-glulx\":{\"source\":\"apache\",\"extensions\":[\"ulx\"]},\"application/x-gnumeric\":{\"source\":\"apache\",\"extensions\":[\"gnumeric\"]},\"application/x-gramps-xml\":{\"source\":\"apache\",\"extensions\":[\"gramps\"]},\"application/x-gtar\":{\"source\":\"apache\",\"extensions\":[\"gtar\"]},\"application/x-gzip\":{\"source\":\"apache\"},\"application/x-hdf\":{\"source\":\"apache\",\"extensions\":[\"hdf\"]},\"application/x-httpd-php\":{\"compressible\":true,\"extensions\":[\"php\"]},\"application/x-install-instructions\":{\"source\":\"apache\",\"extensions\":[\"install\"]},\"application/x-iso9660-image\":{\"source\":\"apache\",\"extensions\":[\"iso\"]},\"application/x-java-archive-diff\":{\"source\":\"nginx\",\"extensions\":[\"jardiff\"]},\"application/x-java-jnlp-file\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"jnlp\"]},\"application/x-javascript\":{\"compressible\":true},\"application/x-keepass2\":{\"extensions\":[\"kdbx\"]},\"application/x-latex\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"latex\"]},\"application/x-lua-bytecode\":{\"extensions\":[\"luac\"]},\"application/x-lzh-compressed\":{\"source\":\"apache\",\"extensions\":[\"lzh\",\"lha\"]},\"application/x-makeself\":{\"source\":\"nginx\",\"extensions\":[\"run\"]},\"application/x-mie\":{\"source\":\"apache\",\"extensions\":[\"mie\"]},\"application/x-mobipocket-ebook\":{\"source\":\"apache\",\"extensions\":[\"prc\",\"mobi\"]},\"application/x-mpegurl\":{\"compressible\":false},\"application/x-ms-application\":{\"source\":\"apache\",\"extensions\":[\"application\"]},\"application/x-ms-shortcut\":{\"source\":\"apache\",\"extensions\":[\"lnk\"]},\"application/x-ms-wmd\":{\"source\":\"apache\",\"extensions\":[\"wmd\"]},\"application/x-ms-wmz\":{\"source\":\"apache\",\"extensions\":[\"wmz\"]},\"application/x-ms-xbap\":{\"source\":\"apache\",\"extensions\":[\"xbap\"]},\"application/x-msaccess\":{\"source\":\"apache\",\"extensions\":[\"mdb\"]},\"application/x-msbinder\":{\"source\":\"apache\",\"extensions\":[\"obd\"]},\"application/x-mscardfile\":{\"source\":\"apache\",\"extensions\":[\"crd\"]},\"application/x-msclip\":{\"source\":\"apache\",\"extensions\":[\"clp\"]},\"application/x-msdos-program\":{\"extensions\":[\"exe\"]},\"application/x-msdownload\":{\"source\":\"apache\",\"extensions\":[\"exe\",\"dll\",\"com\",\"bat\",\"msi\"]},\"application/x-msmediaview\":{\"source\":\"apache\",\"extensions\":[\"mvb\",\"m13\",\"m14\"]},\"application/x-msmetafile\":{\"source\":\"apache\",\"extensions\":[\"wmf\",\"wmz\",\"emf\",\"emz\"]},\"application/x-msmoney\":{\"source\":\"apache\",\"extensions\":[\"mny\"]},\"application/x-mspublisher\":{\"source\":\"apache\",\"extensions\":[\"pub\"]},\"application/x-msschedule\":{\"source\":\"apache\",\"extensions\":[\"scd\"]},\"application/x-msterminal\":{\"source\":\"apache\",\"extensions\":[\"trm\"]},\"application/x-mswrite\":{\"source\":\"apache\",\"extensions\":[\"wri\"]},\"application/x-netcdf\":{\"source\":\"apache\",\"extensions\":[\"nc\",\"cdf\"]},\"application/x-ns-proxy-autoconfig\":{\"compressible\":true,\"extensions\":[\"pac\"]},\"application/x-nzb\":{\"source\":\"apache\",\"extensions\":[\"nzb\"]},\"application/x-perl\":{\"source\":\"nginx\",\"extensions\":[\"pl\",\"pm\"]},\"application/x-pilot\":{\"source\":\"nginx\",\"extensions\":[\"prc\",\"pdb\"]},\"application/x-pkcs12\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"p12\",\"pfx\"]},\"application/x-pkcs7-certificates\":{\"source\":\"apache\",\"extensions\":[\"p7b\",\"spc\"]},\"application/x-pkcs7-certreqresp\":{\"source\":\"apache\",\"extensions\":[\"p7r\"]},\"application/x-pki-message\":{\"source\":\"iana\"},\"application/x-rar-compressed\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"rar\"]},\"application/x-redhat-package-manager\":{\"source\":\"nginx\",\"extensions\":[\"rpm\"]},\"application/x-research-info-systems\":{\"source\":\"apache\",\"extensions\":[\"ris\"]},\"application/x-sea\":{\"source\":\"nginx\",\"extensions\":[\"sea\"]},\"application/x-sh\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"sh\"]},\"application/x-shar\":{\"source\":\"apache\",\"extensions\":[\"shar\"]},\"application/x-shockwave-flash\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"swf\"]},\"application/x-silverlight-app\":{\"source\":\"apache\",\"extensions\":[\"xap\"]},\"application/x-sql\":{\"source\":\"apache\",\"extensions\":[\"sql\"]},\"application/x-stuffit\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"sit\"]},\"application/x-stuffitx\":{\"source\":\"apache\",\"extensions\":[\"sitx\"]},\"application/x-subrip\":{\"source\":\"apache\",\"extensions\":[\"srt\"]},\"application/x-sv4cpio\":{\"source\":\"apache\",\"extensions\":[\"sv4cpio\"]},\"application/x-sv4crc\":{\"source\":\"apache\",\"extensions\":[\"sv4crc\"]},\"application/x-t3vm-image\":{\"source\":\"apache\",\"extensions\":[\"t3\"]},\"application/x-tads\":{\"source\":\"apache\",\"extensions\":[\"gam\"]},\"application/x-tar\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"tar\"]},\"application/x-tcl\":{\"source\":\"apache\",\"extensions\":[\"tcl\",\"tk\"]},\"application/x-tex\":{\"source\":\"apache\",\"extensions\":[\"tex\"]},\"application/x-tex-tfm\":{\"source\":\"apache\",\"extensions\":[\"tfm\"]},\"application/x-texinfo\":{\"source\":\"apache\",\"extensions\":[\"texinfo\",\"texi\"]},\"application/x-tgif\":{\"source\":\"apache\",\"extensions\":[\"obj\"]},\"application/x-ustar\":{\"source\":\"apache\",\"extensions\":[\"ustar\"]},\"application/x-virtualbox-hdd\":{\"compressible\":true,\"extensions\":[\"hdd\"]},\"application/x-virtualbox-ova\":{\"compressible\":true,\"extensions\":[\"ova\"]},\"application/x-virtualbox-ovf\":{\"compressible\":true,\"extensions\":[\"ovf\"]},\"application/x-virtualbox-vbox\":{\"compressible\":true,\"extensions\":[\"vbox\"]},\"application/x-virtualbox-vbox-extpack\":{\"compressible\":false,\"extensions\":[\"vbox-extpack\"]},\"application/x-virtualbox-vdi\":{\"compressible\":true,\"extensions\":[\"vdi\"]},\"application/x-virtualbox-vhd\":{\"compressible\":true,\"extensions\":[\"vhd\"]},\"application/x-virtualbox-vmdk\":{\"compressible\":true,\"extensions\":[\"vmdk\"]},\"application/x-wais-source\":{\"source\":\"apache\",\"extensions\":[\"src\"]},\"application/x-web-app-manifest+json\":{\"compressible\":true,\"extensions\":[\"webapp\"]},\"application/x-www-form-urlencoded\":{\"source\":\"iana\",\"compressible\":true},\"application/x-x509-ca-cert\":{\"source\":\"iana\",\"extensions\":[\"der\",\"crt\",\"pem\"]},\"application/x-x509-ca-ra-cert\":{\"source\":\"iana\"},\"application/x-x509-next-ca-cert\":{\"source\":\"iana\"},\"application/x-xfig\":{\"source\":\"apache\",\"extensions\":[\"fig\"]},\"application/x-xliff+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xlf\"]},\"application/x-xpinstall\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"xpi\"]},\"application/x-xz\":{\"source\":\"apache\",\"extensions\":[\"xz\"]},\"application/x-zmachine\":{\"source\":\"apache\",\"extensions\":[\"z1\",\"z2\",\"z3\",\"z4\",\"z5\",\"z6\",\"z7\",\"z8\"]},\"application/x400-bp\":{\"source\":\"iana\"},\"application/xacml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xaml+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xaml\"]},\"application/xcap-att+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xav\"]},\"application/xcap-caps+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xca\"]},\"application/xcap-diff+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdf\"]},\"application/xcap-el+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xel\"]},\"application/xcap-error+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xer\"]},\"application/xcap-ns+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xns\"]},\"application/xcon-conference-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xcon-conference-info-diff+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xenc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xenc\"]},\"application/xhtml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xhtml\",\"xht\"]},\"application/xhtml-voice+xml\":{\"source\":\"apache\",\"compressible\":true},\"application/xliff+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xlf\"]},\"application/xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xml\",\"xsl\",\"xsd\",\"rng\"]},\"application/xml-dtd\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dtd\"]},\"application/xml-external-parsed-entity\":{\"source\":\"iana\"},\"application/xml-patch+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xmpp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xop+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xop\"]},\"application/xproc+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xpl\"]},\"application/xslt+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xsl\",\"xslt\"]},\"application/xspf+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xspf\"]},\"application/xv+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mxml\",\"xhvml\",\"xvml\",\"xvm\"]},\"application/yang\":{\"source\":\"iana\",\"extensions\":[\"yang\"]},\"application/yang-data+json\":{\"source\":\"iana\",\"compressible\":true},\"application/yang-data+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/yang-patch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/yang-patch+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/yin+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"yin\"]},\"application/zip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"zip\"]},\"application/zlib\":{\"source\":\"iana\"},\"application/zstd\":{\"source\":\"iana\"},\"audio/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"audio/32kadpcm\":{\"source\":\"iana\"},\"audio/3gpp\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"3gpp\"]},\"audio/3gpp2\":{\"source\":\"iana\"},\"audio/aac\":{\"source\":\"iana\"},\"audio/ac3\":{\"source\":\"iana\"},\"audio/adpcm\":{\"source\":\"apache\",\"extensions\":[\"adp\"]},\"audio/amr\":{\"source\":\"iana\",\"extensions\":[\"amr\"]},\"audio/amr-wb\":{\"source\":\"iana\"},\"audio/amr-wb+\":{\"source\":\"iana\"},\"audio/aptx\":{\"source\":\"iana\"},\"audio/asc\":{\"source\":\"iana\"},\"audio/atrac-advanced-lossless\":{\"source\":\"iana\"},\"audio/atrac-x\":{\"source\":\"iana\"},\"audio/atrac3\":{\"source\":\"iana\"},\"audio/basic\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"au\",\"snd\"]},\"audio/bv16\":{\"source\":\"iana\"},\"audio/bv32\":{\"source\":\"iana\"},\"audio/clearmode\":{\"source\":\"iana\"},\"audio/cn\":{\"source\":\"iana\"},\"audio/dat12\":{\"source\":\"iana\"},\"audio/dls\":{\"source\":\"iana\"},\"audio/dsr-es201108\":{\"source\":\"iana\"},\"audio/dsr-es202050\":{\"source\":\"iana\"},\"audio/dsr-es202211\":{\"source\":\"iana\"},\"audio/dsr-es202212\":{\"source\":\"iana\"},\"audio/dv\":{\"source\":\"iana\"},\"audio/dvi4\":{\"source\":\"iana\"},\"audio/eac3\":{\"source\":\"iana\"},\"audio/encaprtp\":{\"source\":\"iana\"},\"audio/evrc\":{\"source\":\"iana\"},\"audio/evrc-qcp\":{\"source\":\"iana\"},\"audio/evrc0\":{\"source\":\"iana\"},\"audio/evrc1\":{\"source\":\"iana\"},\"audio/evrcb\":{\"source\":\"iana\"},\"audio/evrcb0\":{\"source\":\"iana\"},\"audio/evrcb1\":{\"source\":\"iana\"},\"audio/evrcnw\":{\"source\":\"iana\"},\"audio/evrcnw0\":{\"source\":\"iana\"},\"audio/evrcnw1\":{\"source\":\"iana\"},\"audio/evrcwb\":{\"source\":\"iana\"},\"audio/evrcwb0\":{\"source\":\"iana\"},\"audio/evrcwb1\":{\"source\":\"iana\"},\"audio/evs\":{\"source\":\"iana\"},\"audio/flexfec\":{\"source\":\"iana\"},\"audio/fwdred\":{\"source\":\"iana\"},\"audio/g711-0\":{\"source\":\"iana\"},\"audio/g719\":{\"source\":\"iana\"},\"audio/g722\":{\"source\":\"iana\"},\"audio/g7221\":{\"source\":\"iana\"},\"audio/g723\":{\"source\":\"iana\"},\"audio/g726-16\":{\"source\":\"iana\"},\"audio/g726-24\":{\"source\":\"iana\"},\"audio/g726-32\":{\"source\":\"iana\"},\"audio/g726-40\":{\"source\":\"iana\"},\"audio/g728\":{\"source\":\"iana\"},\"audio/g729\":{\"source\":\"iana\"},\"audio/g7291\":{\"source\":\"iana\"},\"audio/g729d\":{\"source\":\"iana\"},\"audio/g729e\":{\"source\":\"iana\"},\"audio/gsm\":{\"source\":\"iana\"},\"audio/gsm-efr\":{\"source\":\"iana\"},\"audio/gsm-hr-08\":{\"source\":\"iana\"},\"audio/ilbc\":{\"source\":\"iana\"},\"audio/ip-mr_v2.5\":{\"source\":\"iana\"},\"audio/isac\":{\"source\":\"apache\"},\"audio/l16\":{\"source\":\"iana\"},\"audio/l20\":{\"source\":\"iana\"},\"audio/l24\":{\"source\":\"iana\",\"compressible\":false},\"audio/l8\":{\"source\":\"iana\"},\"audio/lpc\":{\"source\":\"iana\"},\"audio/melp\":{\"source\":\"iana\"},\"audio/melp1200\":{\"source\":\"iana\"},\"audio/melp2400\":{\"source\":\"iana\"},\"audio/melp600\":{\"source\":\"iana\"},\"audio/mhas\":{\"source\":\"iana\"},\"audio/midi\":{\"source\":\"apache\",\"extensions\":[\"mid\",\"midi\",\"kar\",\"rmi\"]},\"audio/mobile-xmf\":{\"source\":\"iana\",\"extensions\":[\"mxmf\"]},\"audio/mp3\":{\"compressible\":false,\"extensions\":[\"mp3\"]},\"audio/mp4\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"m4a\",\"mp4a\"]},\"audio/mp4a-latm\":{\"source\":\"iana\"},\"audio/mpa\":{\"source\":\"iana\"},\"audio/mpa-robust\":{\"source\":\"iana\"},\"audio/mpeg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"mpga\",\"mp2\",\"mp2a\",\"mp3\",\"m2a\",\"m3a\"]},\"audio/mpeg4-generic\":{\"source\":\"iana\"},\"audio/musepack\":{\"source\":\"apache\"},\"audio/ogg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"oga\",\"ogg\",\"spx\",\"opus\"]},\"audio/opus\":{\"source\":\"iana\"},\"audio/parityfec\":{\"source\":\"iana\"},\"audio/pcma\":{\"source\":\"iana\"},\"audio/pcma-wb\":{\"source\":\"iana\"},\"audio/pcmu\":{\"source\":\"iana\"},\"audio/pcmu-wb\":{\"source\":\"iana\"},\"audio/prs.sid\":{\"source\":\"iana\"},\"audio/qcelp\":{\"source\":\"iana\"},\"audio/raptorfec\":{\"source\":\"iana\"},\"audio/red\":{\"source\":\"iana\"},\"audio/rtp-enc-aescm128\":{\"source\":\"iana\"},\"audio/rtp-midi\":{\"source\":\"iana\"},\"audio/rtploopback\":{\"source\":\"iana\"},\"audio/rtx\":{\"source\":\"iana\"},\"audio/s3m\":{\"source\":\"apache\",\"extensions\":[\"s3m\"]},\"audio/scip\":{\"source\":\"iana\"},\"audio/silk\":{\"source\":\"apache\",\"extensions\":[\"sil\"]},\"audio/smv\":{\"source\":\"iana\"},\"audio/smv-qcp\":{\"source\":\"iana\"},\"audio/smv0\":{\"source\":\"iana\"},\"audio/sofa\":{\"source\":\"iana\"},\"audio/sp-midi\":{\"source\":\"iana\"},\"audio/speex\":{\"source\":\"iana\"},\"audio/t140c\":{\"source\":\"iana\"},\"audio/t38\":{\"source\":\"iana\"},\"audio/telephone-event\":{\"source\":\"iana\"},\"audio/tetra_acelp\":{\"source\":\"iana\"},\"audio/tetra_acelp_bb\":{\"source\":\"iana\"},\"audio/tone\":{\"source\":\"iana\"},\"audio/tsvcis\":{\"source\":\"iana\"},\"audio/uemclip\":{\"source\":\"iana\"},\"audio/ulpfec\":{\"source\":\"iana\"},\"audio/usac\":{\"source\":\"iana\"},\"audio/vdvi\":{\"source\":\"iana\"},\"audio/vmr-wb\":{\"source\":\"iana\"},\"audio/vnd.3gpp.iufp\":{\"source\":\"iana\"},\"audio/vnd.4sb\":{\"source\":\"iana\"},\"audio/vnd.audiokoz\":{\"source\":\"iana\"},\"audio/vnd.celp\":{\"source\":\"iana\"},\"audio/vnd.cisco.nse\":{\"source\":\"iana\"},\"audio/vnd.cmles.radio-events\":{\"source\":\"iana\"},\"audio/vnd.cns.anp1\":{\"source\":\"iana\"},\"audio/vnd.cns.inf1\":{\"source\":\"iana\"},\"audio/vnd.dece.audio\":{\"source\":\"iana\",\"extensions\":[\"uva\",\"uvva\"]},\"audio/vnd.digital-winds\":{\"source\":\"iana\",\"extensions\":[\"eol\"]},\"audio/vnd.dlna.adts\":{\"source\":\"iana\"},\"audio/vnd.dolby.heaac.1\":{\"source\":\"iana\"},\"audio/vnd.dolby.heaac.2\":{\"source\":\"iana\"},\"audio/vnd.dolby.mlp\":{\"source\":\"iana\"},\"audio/vnd.dolby.mps\":{\"source\":\"iana\"},\"audio/vnd.dolby.pl2\":{\"source\":\"iana\"},\"audio/vnd.dolby.pl2x\":{\"source\":\"iana\"},\"audio/vnd.dolby.pl2z\":{\"source\":\"iana\"},\"audio/vnd.dolby.pulse.1\":{\"source\":\"iana\"},\"audio/vnd.dra\":{\"source\":\"iana\",\"extensions\":[\"dra\"]},\"audio/vnd.dts\":{\"source\":\"iana\",\"extensions\":[\"dts\"]},\"audio/vnd.dts.hd\":{\"source\":\"iana\",\"extensions\":[\"dtshd\"]},\"audio/vnd.dts.uhd\":{\"source\":\"iana\"},\"audio/vnd.dvb.file\":{\"source\":\"iana\"},\"audio/vnd.everad.plj\":{\"source\":\"iana\"},\"audio/vnd.hns.audio\":{\"source\":\"iana\"},\"audio/vnd.lucent.voice\":{\"source\":\"iana\",\"extensions\":[\"lvp\"]},\"audio/vnd.ms-playready.media.pya\":{\"source\":\"iana\",\"extensions\":[\"pya\"]},\"audio/vnd.nokia.mobile-xmf\":{\"source\":\"iana\"},\"audio/vnd.nortel.vbk\":{\"source\":\"iana\"},\"audio/vnd.nuera.ecelp4800\":{\"source\":\"iana\",\"extensions\":[\"ecelp4800\"]},\"audio/vnd.nuera.ecelp7470\":{\"source\":\"iana\",\"extensions\":[\"ecelp7470\"]},\"audio/vnd.nuera.ecelp9600\":{\"source\":\"iana\",\"extensions\":[\"ecelp9600\"]},\"audio/vnd.octel.sbc\":{\"source\":\"iana\"},\"audio/vnd.presonus.multitrack\":{\"source\":\"iana\"},\"audio/vnd.qcelp\":{\"source\":\"iana\"},\"audio/vnd.rhetorex.32kadpcm\":{\"source\":\"iana\"},\"audio/vnd.rip\":{\"source\":\"iana\",\"extensions\":[\"rip\"]},\"audio/vnd.rn-realaudio\":{\"compressible\":false},\"audio/vnd.sealedmedia.softseal.mpeg\":{\"source\":\"iana\"},\"audio/vnd.vmx.cvsd\":{\"source\":\"iana\"},\"audio/vnd.wave\":{\"compressible\":false},\"audio/vorbis\":{\"source\":\"iana\",\"compressible\":false},\"audio/vorbis-config\":{\"source\":\"iana\"},\"audio/wav\":{\"compressible\":false,\"extensions\":[\"wav\"]},\"audio/wave\":{\"compressible\":false,\"extensions\":[\"wav\"]},\"audio/webm\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"weba\"]},\"audio/x-aac\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"aac\"]},\"audio/x-aiff\":{\"source\":\"apache\",\"extensions\":[\"aif\",\"aiff\",\"aifc\"]},\"audio/x-caf\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"caf\"]},\"audio/x-flac\":{\"source\":\"apache\",\"extensions\":[\"flac\"]},\"audio/x-m4a\":{\"source\":\"nginx\",\"extensions\":[\"m4a\"]},\"audio/x-matroska\":{\"source\":\"apache\",\"extensions\":[\"mka\"]},\"audio/x-mpegurl\":{\"source\":\"apache\",\"extensions\":[\"m3u\"]},\"audio/x-ms-wax\":{\"source\":\"apache\",\"extensions\":[\"wax\"]},\"audio/x-ms-wma\":{\"source\":\"apache\",\"extensions\":[\"wma\"]},\"audio/x-pn-realaudio\":{\"source\":\"apache\",\"extensions\":[\"ram\",\"ra\"]},\"audio/x-pn-realaudio-plugin\":{\"source\":\"apache\",\"extensions\":[\"rmp\"]},\"audio/x-realaudio\":{\"source\":\"nginx\",\"extensions\":[\"ra\"]},\"audio/x-tta\":{\"source\":\"apache\"},\"audio/x-wav\":{\"source\":\"apache\",\"extensions\":[\"wav\"]},\"audio/xm\":{\"source\":\"apache\",\"extensions\":[\"xm\"]},\"chemical/x-cdx\":{\"source\":\"apache\",\"extensions\":[\"cdx\"]},\"chemical/x-cif\":{\"source\":\"apache\",\"extensions\":[\"cif\"]},\"chemical/x-cmdf\":{\"source\":\"apache\",\"extensions\":[\"cmdf\"]},\"chemical/x-cml\":{\"source\":\"apache\",\"extensions\":[\"cml\"]},\"chemical/x-csml\":{\"source\":\"apache\",\"extensions\":[\"csml\"]},\"chemical/x-pdb\":{\"source\":\"apache\"},\"chemical/x-xyz\":{\"source\":\"apache\",\"extensions\":[\"xyz\"]},\"font/collection\":{\"source\":\"iana\",\"extensions\":[\"ttc\"]},\"font/otf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"otf\"]},\"font/sfnt\":{\"source\":\"iana\"},\"font/ttf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ttf\"]},\"font/woff\":{\"source\":\"iana\",\"extensions\":[\"woff\"]},\"font/woff2\":{\"source\":\"iana\",\"extensions\":[\"woff2\"]},\"image/aces\":{\"source\":\"iana\",\"extensions\":[\"exr\"]},\"image/apng\":{\"compressible\":false,\"extensions\":[\"apng\"]},\"image/avci\":{\"source\":\"iana\"},\"image/avcs\":{\"source\":\"iana\"},\"image/avif\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"avif\"]},\"image/bmp\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"bmp\"]},\"image/cgm\":{\"source\":\"iana\",\"extensions\":[\"cgm\"]},\"image/dicom-rle\":{\"source\":\"iana\",\"extensions\":[\"drle\"]},\"image/emf\":{\"source\":\"iana\",\"extensions\":[\"emf\"]},\"image/fits\":{\"source\":\"iana\",\"extensions\":[\"fits\"]},\"image/g3fax\":{\"source\":\"iana\",\"extensions\":[\"g3\"]},\"image/gif\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"gif\"]},\"image/heic\":{\"source\":\"iana\",\"extensions\":[\"heic\"]},\"image/heic-sequence\":{\"source\":\"iana\",\"extensions\":[\"heics\"]},\"image/heif\":{\"source\":\"iana\",\"extensions\":[\"heif\"]},\"image/heif-sequence\":{\"source\":\"iana\",\"extensions\":[\"heifs\"]},\"image/hej2k\":{\"source\":\"iana\",\"extensions\":[\"hej2\"]},\"image/hsj2\":{\"source\":\"iana\",\"extensions\":[\"hsj2\"]},\"image/ief\":{\"source\":\"iana\",\"extensions\":[\"ief\"]},\"image/jls\":{\"source\":\"iana\",\"extensions\":[\"jls\"]},\"image/jp2\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jp2\",\"jpg2\"]},\"image/jpeg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jpeg\",\"jpg\",\"jpe\"]},\"image/jph\":{\"source\":\"iana\",\"extensions\":[\"jph\"]},\"image/jphc\":{\"source\":\"iana\",\"extensions\":[\"jhc\"]},\"image/jpm\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jpm\"]},\"image/jpx\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jpx\",\"jpf\"]},\"image/jxr\":{\"source\":\"iana\",\"extensions\":[\"jxr\"]},\"image/jxra\":{\"source\":\"iana\",\"extensions\":[\"jxra\"]},\"image/jxrs\":{\"source\":\"iana\",\"extensions\":[\"jxrs\"]},\"image/jxs\":{\"source\":\"iana\",\"extensions\":[\"jxs\"]},\"image/jxsc\":{\"source\":\"iana\",\"extensions\":[\"jxsc\"]},\"image/jxsi\":{\"source\":\"iana\",\"extensions\":[\"jxsi\"]},\"image/jxss\":{\"source\":\"iana\",\"extensions\":[\"jxss\"]},\"image/ktx\":{\"source\":\"iana\",\"extensions\":[\"ktx\"]},\"image/ktx2\":{\"source\":\"iana\",\"extensions\":[\"ktx2\"]},\"image/naplps\":{\"source\":\"iana\"},\"image/pjpeg\":{\"compressible\":false},\"image/png\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"png\"]},\"image/prs.btif\":{\"source\":\"iana\",\"extensions\":[\"btif\"]},\"image/prs.pti\":{\"source\":\"iana\",\"extensions\":[\"pti\"]},\"image/pwg-raster\":{\"source\":\"iana\"},\"image/sgi\":{\"source\":\"apache\",\"extensions\":[\"sgi\"]},\"image/svg+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"svg\",\"svgz\"]},\"image/t38\":{\"source\":\"iana\",\"extensions\":[\"t38\"]},\"image/tiff\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"tif\",\"tiff\"]},\"image/tiff-fx\":{\"source\":\"iana\",\"extensions\":[\"tfx\"]},\"image/vnd.adobe.photoshop\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"psd\"]},\"image/vnd.airzip.accelerator.azv\":{\"source\":\"iana\",\"extensions\":[\"azv\"]},\"image/vnd.cns.inf2\":{\"source\":\"iana\"},\"image/vnd.dece.graphic\":{\"source\":\"iana\",\"extensions\":[\"uvi\",\"uvvi\",\"uvg\",\"uvvg\"]},\"image/vnd.djvu\":{\"source\":\"iana\",\"extensions\":[\"djvu\",\"djv\"]},\"image/vnd.dvb.subtitle\":{\"source\":\"iana\",\"extensions\":[\"sub\"]},\"image/vnd.dwg\":{\"source\":\"iana\",\"extensions\":[\"dwg\"]},\"image/vnd.dxf\":{\"source\":\"iana\",\"extensions\":[\"dxf\"]},\"image/vnd.fastbidsheet\":{\"source\":\"iana\",\"extensions\":[\"fbs\"]},\"image/vnd.fpx\":{\"source\":\"iana\",\"extensions\":[\"fpx\"]},\"image/vnd.fst\":{\"source\":\"iana\",\"extensions\":[\"fst\"]},\"image/vnd.fujixerox.edmics-mmr\":{\"source\":\"iana\",\"extensions\":[\"mmr\"]},\"image/vnd.fujixerox.edmics-rlc\":{\"source\":\"iana\",\"extensions\":[\"rlc\"]},\"image/vnd.globalgraphics.pgb\":{\"source\":\"iana\"},\"image/vnd.microsoft.icon\":{\"source\":\"iana\",\"extensions\":[\"ico\"]},\"image/vnd.mix\":{\"source\":\"iana\"},\"image/vnd.mozilla.apng\":{\"source\":\"iana\"},\"image/vnd.ms-dds\":{\"extensions\":[\"dds\"]},\"image/vnd.ms-modi\":{\"source\":\"iana\",\"extensions\":[\"mdi\"]},\"image/vnd.ms-photo\":{\"source\":\"apache\",\"extensions\":[\"wdp\"]},\"image/vnd.net-fpx\":{\"source\":\"iana\",\"extensions\":[\"npx\"]},\"image/vnd.pco.b16\":{\"source\":\"iana\",\"extensions\":[\"b16\"]},\"image/vnd.radiance\":{\"source\":\"iana\"},\"image/vnd.sealed.png\":{\"source\":\"iana\"},\"image/vnd.sealedmedia.softseal.gif\":{\"source\":\"iana\"},\"image/vnd.sealedmedia.softseal.jpg\":{\"source\":\"iana\"},\"image/vnd.svf\":{\"source\":\"iana\"},\"image/vnd.tencent.tap\":{\"source\":\"iana\",\"extensions\":[\"tap\"]},\"image/vnd.valve.source.texture\":{\"source\":\"iana\",\"extensions\":[\"vtf\"]},\"image/vnd.wap.wbmp\":{\"source\":\"iana\",\"extensions\":[\"wbmp\"]},\"image/vnd.xiff\":{\"source\":\"iana\",\"extensions\":[\"xif\"]},\"image/vnd.zbrush.pcx\":{\"source\":\"iana\",\"extensions\":[\"pcx\"]},\"image/webp\":{\"source\":\"apache\",\"extensions\":[\"webp\"]},\"image/wmf\":{\"source\":\"iana\",\"extensions\":[\"wmf\"]},\"image/x-3ds\":{\"source\":\"apache\",\"extensions\":[\"3ds\"]},\"image/x-cmu-raster\":{\"source\":\"apache\",\"extensions\":[\"ras\"]},\"image/x-cmx\":{\"source\":\"apache\",\"extensions\":[\"cmx\"]},\"image/x-freehand\":{\"source\":\"apache\",\"extensions\":[\"fh\",\"fhc\",\"fh4\",\"fh5\",\"fh7\"]},\"image/x-icon\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"ico\"]},\"image/x-jng\":{\"source\":\"nginx\",\"extensions\":[\"jng\"]},\"image/x-mrsid-image\":{\"source\":\"apache\",\"extensions\":[\"sid\"]},\"image/x-ms-bmp\":{\"source\":\"nginx\",\"compressible\":true,\"extensions\":[\"bmp\"]},\"image/x-pcx\":{\"source\":\"apache\",\"extensions\":[\"pcx\"]},\"image/x-pict\":{\"source\":\"apache\",\"extensions\":[\"pic\",\"pct\"]},\"image/x-portable-anymap\":{\"source\":\"apache\",\"extensions\":[\"pnm\"]},\"image/x-portable-bitmap\":{\"source\":\"apache\",\"extensions\":[\"pbm\"]},\"image/x-portable-graymap\":{\"source\":\"apache\",\"extensions\":[\"pgm\"]},\"image/x-portable-pixmap\":{\"source\":\"apache\",\"extensions\":[\"ppm\"]},\"image/x-rgb\":{\"source\":\"apache\",\"extensions\":[\"rgb\"]},\"image/x-tga\":{\"source\":\"apache\",\"extensions\":[\"tga\"]},\"image/x-xbitmap\":{\"source\":\"apache\",\"extensions\":[\"xbm\"]},\"image/x-xcf\":{\"compressible\":false},\"image/x-xpixmap\":{\"source\":\"apache\",\"extensions\":[\"xpm\"]},\"image/x-xwindowdump\":{\"source\":\"apache\",\"extensions\":[\"xwd\"]},\"message/cpim\":{\"source\":\"iana\"},\"message/delivery-status\":{\"source\":\"iana\"},\"message/disposition-notification\":{\"source\":\"iana\",\"extensions\":[\"disposition-notification\"]},\"message/external-body\":{\"source\":\"iana\"},\"message/feedback-report\":{\"source\":\"iana\"},\"message/global\":{\"source\":\"iana\",\"extensions\":[\"u8msg\"]},\"message/global-delivery-status\":{\"source\":\"iana\",\"extensions\":[\"u8dsn\"]},\"message/global-disposition-notification\":{\"source\":\"iana\",\"extensions\":[\"u8mdn\"]},\"message/global-headers\":{\"source\":\"iana\",\"extensions\":[\"u8hdr\"]},\"message/http\":{\"source\":\"iana\",\"compressible\":false},\"message/imdn+xml\":{\"source\":\"iana\",\"compressible\":true},\"message/news\":{\"source\":\"iana\"},\"message/partial\":{\"source\":\"iana\",\"compressible\":false},\"message/rfc822\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"eml\",\"mime\"]},\"message/s-http\":{\"source\":\"iana\"},\"message/sip\":{\"source\":\"iana\"},\"message/sipfrag\":{\"source\":\"iana\"},\"message/tracking-status\":{\"source\":\"iana\"},\"message/vnd.si.simp\":{\"source\":\"iana\"},\"message/vnd.wfa.wsc\":{\"source\":\"iana\",\"extensions\":[\"wsc\"]},\"model/3mf\":{\"source\":\"iana\",\"extensions\":[\"3mf\"]},\"model/e57\":{\"source\":\"iana\"},\"model/gltf+json\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"gltf\"]},\"model/gltf-binary\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"glb\"]},\"model/iges\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"igs\",\"iges\"]},\"model/mesh\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"msh\",\"mesh\",\"silo\"]},\"model/mtl\":{\"source\":\"iana\",\"extensions\":[\"mtl\"]},\"model/obj\":{\"source\":\"iana\",\"extensions\":[\"obj\"]},\"model/stl\":{\"source\":\"iana\",\"extensions\":[\"stl\"]},\"model/vnd.collada+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dae\"]},\"model/vnd.dwf\":{\"source\":\"iana\",\"extensions\":[\"dwf\"]},\"model/vnd.flatland.3dml\":{\"source\":\"iana\"},\"model/vnd.gdl\":{\"source\":\"iana\",\"extensions\":[\"gdl\"]},\"model/vnd.gs-gdl\":{\"source\":\"apache\"},\"model/vnd.gs.gdl\":{\"source\":\"iana\"},\"model/vnd.gtw\":{\"source\":\"iana\",\"extensions\":[\"gtw\"]},\"model/vnd.moml+xml\":{\"source\":\"iana\",\"compressible\":true},\"model/vnd.mts\":{\"source\":\"iana\",\"extensions\":[\"mts\"]},\"model/vnd.opengex\":{\"source\":\"iana\",\"extensions\":[\"ogex\"]},\"model/vnd.parasolid.transmit.binary\":{\"source\":\"iana\",\"extensions\":[\"x_b\"]},\"model/vnd.parasolid.transmit.text\":{\"source\":\"iana\",\"extensions\":[\"x_t\"]},\"model/vnd.rosette.annotated-data-model\":{\"source\":\"iana\"},\"model/vnd.usdz+zip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"usdz\"]},\"model/vnd.valve.source.compiled-map\":{\"source\":\"iana\",\"extensions\":[\"bsp\"]},\"model/vnd.vtu\":{\"source\":\"iana\",\"extensions\":[\"vtu\"]},\"model/vrml\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"wrl\",\"vrml\"]},\"model/x3d+binary\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"x3db\",\"x3dbz\"]},\"model/x3d+fastinfoset\":{\"source\":\"iana\",\"extensions\":[\"x3db\"]},\"model/x3d+vrml\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"x3dv\",\"x3dvz\"]},\"model/x3d+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"x3d\",\"x3dz\"]},\"model/x3d-vrml\":{\"source\":\"iana\",\"extensions\":[\"x3dv\"]},\"multipart/alternative\":{\"source\":\"iana\",\"compressible\":false},\"multipart/appledouble\":{\"source\":\"iana\"},\"multipart/byteranges\":{\"source\":\"iana\"},\"multipart/digest\":{\"source\":\"iana\"},\"multipart/encrypted\":{\"source\":\"iana\",\"compressible\":false},\"multipart/form-data\":{\"source\":\"iana\",\"compressible\":false},\"multipart/header-set\":{\"source\":\"iana\"},\"multipart/mixed\":{\"source\":\"iana\"},\"multipart/multilingual\":{\"source\":\"iana\"},\"multipart/parallel\":{\"source\":\"iana\"},\"multipart/related\":{\"source\":\"iana\",\"compressible\":false},\"multipart/report\":{\"source\":\"iana\"},\"multipart/signed\":{\"source\":\"iana\",\"compressible\":false},\"multipart/vnd.bint.med-plus\":{\"source\":\"iana\"},\"multipart/voice-message\":{\"source\":\"iana\"},\"multipart/x-mixed-replace\":{\"source\":\"iana\"},\"text/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"text/cache-manifest\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"appcache\",\"manifest\"]},\"text/calendar\":{\"source\":\"iana\",\"extensions\":[\"ics\",\"ifb\"]},\"text/calender\":{\"compressible\":true},\"text/cmd\":{\"compressible\":true},\"text/coffeescript\":{\"extensions\":[\"coffee\",\"litcoffee\"]},\"text/cql\":{\"source\":\"iana\"},\"text/cql-expression\":{\"source\":\"iana\"},\"text/cql-identifier\":{\"source\":\"iana\"},\"text/css\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"css\"]},\"text/csv\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"csv\"]},\"text/csv-schema\":{\"source\":\"iana\"},\"text/directory\":{\"source\":\"iana\"},\"text/dns\":{\"source\":\"iana\"},\"text/ecmascript\":{\"source\":\"iana\"},\"text/encaprtp\":{\"source\":\"iana\"},\"text/enriched\":{\"source\":\"iana\"},\"text/fhirpath\":{\"source\":\"iana\"},\"text/flexfec\":{\"source\":\"iana\"},\"text/fwdred\":{\"source\":\"iana\"},\"text/gff3\":{\"source\":\"iana\"},\"text/grammar-ref-list\":{\"source\":\"iana\"},\"text/html\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"html\",\"htm\",\"shtml\"]},\"text/jade\":{\"extensions\":[\"jade\"]},\"text/javascript\":{\"source\":\"iana\",\"compressible\":true},\"text/jcr-cnd\":{\"source\":\"iana\"},\"text/jsx\":{\"compressible\":true,\"extensions\":[\"jsx\"]},\"text/less\":{\"compressible\":true,\"extensions\":[\"less\"]},\"text/markdown\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"markdown\",\"md\"]},\"text/mathml\":{\"source\":\"nginx\",\"extensions\":[\"mml\"]},\"text/mdx\":{\"compressible\":true,\"extensions\":[\"mdx\"]},\"text/mizar\":{\"source\":\"iana\"},\"text/n3\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"n3\"]},\"text/parameters\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/parityfec\":{\"source\":\"iana\"},\"text/plain\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"txt\",\"text\",\"conf\",\"def\",\"list\",\"log\",\"in\",\"ini\"]},\"text/provenance-notation\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/prs.fallenstein.rst\":{\"source\":\"iana\"},\"text/prs.lines.tag\":{\"source\":\"iana\",\"extensions\":[\"dsc\"]},\"text/prs.prop.logic\":{\"source\":\"iana\"},\"text/raptorfec\":{\"source\":\"iana\"},\"text/red\":{\"source\":\"iana\"},\"text/rfc822-headers\":{\"source\":\"iana\"},\"text/richtext\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rtx\"]},\"text/rtf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rtf\"]},\"text/rtp-enc-aescm128\":{\"source\":\"iana\"},\"text/rtploopback\":{\"source\":\"iana\"},\"text/rtx\":{\"source\":\"iana\"},\"text/sgml\":{\"source\":\"iana\",\"extensions\":[\"sgml\",\"sgm\"]},\"text/shaclc\":{\"source\":\"iana\"},\"text/shex\":{\"extensions\":[\"shex\"]},\"text/slim\":{\"extensions\":[\"slim\",\"slm\"]},\"text/spdx\":{\"source\":\"iana\",\"extensions\":[\"spdx\"]},\"text/strings\":{\"source\":\"iana\"},\"text/stylus\":{\"extensions\":[\"stylus\",\"styl\"]},\"text/t140\":{\"source\":\"iana\"},\"text/tab-separated-values\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"tsv\"]},\"text/troff\":{\"source\":\"iana\",\"extensions\":[\"t\",\"tr\",\"roff\",\"man\",\"me\",\"ms\"]},\"text/turtle\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"ttl\"]},\"text/ulpfec\":{\"source\":\"iana\"},\"text/uri-list\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"uri\",\"uris\",\"urls\"]},\"text/vcard\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"vcard\"]},\"text/vnd.a\":{\"source\":\"iana\"},\"text/vnd.abc\":{\"source\":\"iana\"},\"text/vnd.ascii-art\":{\"source\":\"iana\"},\"text/vnd.curl\":{\"source\":\"iana\",\"extensions\":[\"curl\"]},\"text/vnd.curl.dcurl\":{\"source\":\"apache\",\"extensions\":[\"dcurl\"]},\"text/vnd.curl.mcurl\":{\"source\":\"apache\",\"extensions\":[\"mcurl\"]},\"text/vnd.curl.scurl\":{\"source\":\"apache\",\"extensions\":[\"scurl\"]},\"text/vnd.debian.copyright\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/vnd.dmclientscript\":{\"source\":\"iana\"},\"text/vnd.dvb.subtitle\":{\"source\":\"iana\",\"extensions\":[\"sub\"]},\"text/vnd.esmertec.theme-descriptor\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/vnd.ficlab.flt\":{\"source\":\"iana\"},\"text/vnd.fly\":{\"source\":\"iana\",\"extensions\":[\"fly\"]},\"text/vnd.fmi.flexstor\":{\"source\":\"iana\",\"extensions\":[\"flx\"]},\"text/vnd.gml\":{\"source\":\"iana\"},\"text/vnd.graphviz\":{\"source\":\"iana\",\"extensions\":[\"gv\"]},\"text/vnd.hans\":{\"source\":\"iana\"},\"text/vnd.hgl\":{\"source\":\"iana\"},\"text/vnd.in3d.3dml\":{\"source\":\"iana\",\"extensions\":[\"3dml\"]},\"text/vnd.in3d.spot\":{\"source\":\"iana\",\"extensions\":[\"spot\"]},\"text/vnd.iptc.newsml\":{\"source\":\"iana\"},\"text/vnd.iptc.nitf\":{\"source\":\"iana\"},\"text/vnd.latex-z\":{\"source\":\"iana\"},\"text/vnd.motorola.reflex\":{\"source\":\"iana\"},\"text/vnd.ms-mediapackage\":{\"source\":\"iana\"},\"text/vnd.net2phone.commcenter.command\":{\"source\":\"iana\"},\"text/vnd.radisys.msml-basic-layout\":{\"source\":\"iana\"},\"text/vnd.senx.warpscript\":{\"source\":\"iana\"},\"text/vnd.si.uricatalogue\":{\"source\":\"iana\"},\"text/vnd.sosi\":{\"source\":\"iana\"},\"text/vnd.sun.j2me.app-descriptor\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"jad\"]},\"text/vnd.trolltech.linguist\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/vnd.wap.si\":{\"source\":\"iana\"},\"text/vnd.wap.sl\":{\"source\":\"iana\"},\"text/vnd.wap.wml\":{\"source\":\"iana\",\"extensions\":[\"wml\"]},\"text/vnd.wap.wmlscript\":{\"source\":\"iana\",\"extensions\":[\"wmls\"]},\"text/vtt\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"vtt\"]},\"text/x-asm\":{\"source\":\"apache\",\"extensions\":[\"s\",\"asm\"]},\"text/x-c\":{\"source\":\"apache\",\"extensions\":[\"c\",\"cc\",\"cxx\",\"cpp\",\"h\",\"hh\",\"dic\"]},\"text/x-component\":{\"source\":\"nginx\",\"extensions\":[\"htc\"]},\"text/x-fortran\":{\"source\":\"apache\",\"extensions\":[\"f\",\"for\",\"f77\",\"f90\"]},\"text/x-gwt-rpc\":{\"compressible\":true},\"text/x-handlebars-template\":{\"extensions\":[\"hbs\"]},\"text/x-java-source\":{\"source\":\"apache\",\"extensions\":[\"java\"]},\"text/x-jquery-tmpl\":{\"compressible\":true},\"text/x-lua\":{\"extensions\":[\"lua\"]},\"text/x-markdown\":{\"compressible\":true,\"extensions\":[\"mkd\"]},\"text/x-nfo\":{\"source\":\"apache\",\"extensions\":[\"nfo\"]},\"text/x-opml\":{\"source\":\"apache\",\"extensions\":[\"opml\"]},\"text/x-org\":{\"compressible\":true,\"extensions\":[\"org\"]},\"text/x-pascal\":{\"source\":\"apache\",\"extensions\":[\"p\",\"pas\"]},\"text/x-processing\":{\"compressible\":true,\"extensions\":[\"pde\"]},\"text/x-sass\":{\"extensions\":[\"sass\"]},\"text/x-scss\":{\"extensions\":[\"scss\"]},\"text/x-setext\":{\"source\":\"apache\",\"extensions\":[\"etx\"]},\"text/x-sfv\":{\"source\":\"apache\",\"extensions\":[\"sfv\"]},\"text/x-suse-ymp\":{\"compressible\":true,\"extensions\":[\"ymp\"]},\"text/x-uuencode\":{\"source\":\"apache\",\"extensions\":[\"uu\"]},\"text/x-vcalendar\":{\"source\":\"apache\",\"extensions\":[\"vcs\"]},\"text/x-vcard\":{\"source\":\"apache\",\"extensions\":[\"vcf\"]},\"text/xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xml\"]},\"text/xml-external-parsed-entity\":{\"source\":\"iana\"},\"text/yaml\":{\"extensions\":[\"yaml\",\"yml\"]},\"video/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"video/3gpp\":{\"source\":\"iana\",\"extensions\":[\"3gp\",\"3gpp\"]},\"video/3gpp-tt\":{\"source\":\"iana\"},\"video/3gpp2\":{\"source\":\"iana\",\"extensions\":[\"3g2\"]},\"video/av1\":{\"source\":\"iana\"},\"video/bmpeg\":{\"source\":\"iana\"},\"video/bt656\":{\"source\":\"iana\"},\"video/celb\":{\"source\":\"iana\"},\"video/dv\":{\"source\":\"iana\"},\"video/encaprtp\":{\"source\":\"iana\"},\"video/flexfec\":{\"source\":\"iana\"},\"video/h261\":{\"source\":\"iana\",\"extensions\":[\"h261\"]},\"video/h263\":{\"source\":\"iana\",\"extensions\":[\"h263\"]},\"video/h263-1998\":{\"source\":\"iana\"},\"video/h263-2000\":{\"source\":\"iana\"},\"video/h264\":{\"source\":\"iana\",\"extensions\":[\"h264\"]},\"video/h264-rcdo\":{\"source\":\"iana\"},\"video/h264-svc\":{\"source\":\"iana\"},\"video/h265\":{\"source\":\"iana\"},\"video/iso.segment\":{\"source\":\"iana\",\"extensions\":[\"m4s\"]},\"video/jpeg\":{\"source\":\"iana\",\"extensions\":[\"jpgv\"]},\"video/jpeg2000\":{\"source\":\"iana\"},\"video/jpm\":{\"source\":\"apache\",\"extensions\":[\"jpm\",\"jpgm\"]},\"video/mj2\":{\"source\":\"iana\",\"extensions\":[\"mj2\",\"mjp2\"]},\"video/mp1s\":{\"source\":\"iana\"},\"video/mp2p\":{\"source\":\"iana\"},\"video/mp2t\":{\"source\":\"iana\",\"extensions\":[\"ts\"]},\"video/mp4\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"mp4\",\"mp4v\",\"mpg4\"]},\"video/mp4v-es\":{\"source\":\"iana\"},\"video/mpeg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"mpeg\",\"mpg\",\"mpe\",\"m1v\",\"m2v\"]},\"video/mpeg4-generic\":{\"source\":\"iana\"},\"video/mpv\":{\"source\":\"iana\"},\"video/nv\":{\"source\":\"iana\"},\"video/ogg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ogv\"]},\"video/parityfec\":{\"source\":\"iana\"},\"video/pointer\":{\"source\":\"iana\"},\"video/quicktime\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"qt\",\"mov\"]},\"video/raptorfec\":{\"source\":\"iana\"},\"video/raw\":{\"source\":\"iana\"},\"video/rtp-enc-aescm128\":{\"source\":\"iana\"},\"video/rtploopback\":{\"source\":\"iana\"},\"video/rtx\":{\"source\":\"iana\"},\"video/scip\":{\"source\":\"iana\"},\"video/smpte291\":{\"source\":\"iana\"},\"video/smpte292m\":{\"source\":\"iana\"},\"video/ulpfec\":{\"source\":\"iana\"},\"video/vc1\":{\"source\":\"iana\"},\"video/vc2\":{\"source\":\"iana\"},\"video/vnd.cctv\":{\"source\":\"iana\"},\"video/vnd.dece.hd\":{\"source\":\"iana\",\"extensions\":[\"uvh\",\"uvvh\"]},\"video/vnd.dece.mobile\":{\"source\":\"iana\",\"extensions\":[\"uvm\",\"uvvm\"]},\"video/vnd.dece.mp4\":{\"source\":\"iana\"},\"video/vnd.dece.pd\":{\"source\":\"iana\",\"extensions\":[\"uvp\",\"uvvp\"]},\"video/vnd.dece.sd\":{\"source\":\"iana\",\"extensions\":[\"uvs\",\"uvvs\"]},\"video/vnd.dece.video\":{\"source\":\"iana\",\"extensions\":[\"uvv\",\"uvvv\"]},\"video/vnd.directv.mpeg\":{\"source\":\"iana\"},\"video/vnd.directv.mpeg-tts\":{\"source\":\"iana\"},\"video/vnd.dlna.mpeg-tts\":{\"source\":\"iana\"},\"video/vnd.dvb.file\":{\"source\":\"iana\",\"extensions\":[\"dvb\"]},\"video/vnd.fvt\":{\"source\":\"iana\",\"extensions\":[\"fvt\"]},\"video/vnd.hns.video\":{\"source\":\"iana\"},\"video/vnd.iptvforum.1dparityfec-1010\":{\"source\":\"iana\"},\"video/vnd.iptvforum.1dparityfec-2005\":{\"source\":\"iana\"},\"video/vnd.iptvforum.2dparityfec-1010\":{\"source\":\"iana\"},\"video/vnd.iptvforum.2dparityfec-2005\":{\"source\":\"iana\"},\"video/vnd.iptvforum.ttsavc\":{\"source\":\"iana\"},\"video/vnd.iptvforum.ttsmpeg2\":{\"source\":\"iana\"},\"video/vnd.motorola.video\":{\"source\":\"iana\"},\"video/vnd.motorola.videop\":{\"source\":\"iana\"},\"video/vnd.mpegurl\":{\"source\":\"iana\",\"extensions\":[\"mxu\",\"m4u\"]},\"video/vnd.ms-playready.media.pyv\":{\"source\":\"iana\",\"extensions\":[\"pyv\"]},\"video/vnd.nokia.interleaved-multimedia\":{\"source\":\"iana\"},\"video/vnd.nokia.mp4vr\":{\"source\":\"iana\"},\"video/vnd.nokia.videovoip\":{\"source\":\"iana\"},\"video/vnd.objectvideo\":{\"source\":\"iana\"},\"video/vnd.radgamettools.bink\":{\"source\":\"iana\"},\"video/vnd.radgamettools.smacker\":{\"source\":\"iana\"},\"video/vnd.sealed.mpeg1\":{\"source\":\"iana\"},\"video/vnd.sealed.mpeg4\":{\"source\":\"iana\"},\"video/vnd.sealed.swf\":{\"source\":\"iana\"},\"video/vnd.sealedmedia.softseal.mov\":{\"source\":\"iana\"},\"video/vnd.uvvu.mp4\":{\"source\":\"iana\",\"extensions\":[\"uvu\",\"uvvu\"]},\"video/vnd.vivo\":{\"source\":\"iana\",\"extensions\":[\"viv\"]},\"video/vnd.youtube.yt\":{\"source\":\"iana\"},\"video/vp8\":{\"source\":\"iana\"},\"video/webm\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"webm\"]},\"video/x-f4v\":{\"source\":\"apache\",\"extensions\":[\"f4v\"]},\"video/x-fli\":{\"source\":\"apache\",\"extensions\":[\"fli\"]},\"video/x-flv\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"flv\"]},\"video/x-m4v\":{\"source\":\"apache\",\"extensions\":[\"m4v\"]},\"video/x-matroska\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"mkv\",\"mk3d\",\"mks\"]},\"video/x-mng\":{\"source\":\"apache\",\"extensions\":[\"mng\"]},\"video/x-ms-asf\":{\"source\":\"apache\",\"extensions\":[\"asf\",\"asx\"]},\"video/x-ms-vob\":{\"source\":\"apache\",\"extensions\":[\"vob\"]},\"video/x-ms-wm\":{\"source\":\"apache\",\"extensions\":[\"wm\"]},\"video/x-ms-wmv\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"wmv\"]},\"video/x-ms-wmx\":{\"source\":\"apache\",\"extensions\":[\"wmx\"]},\"video/x-ms-wvx\":{\"source\":\"apache\",\"extensions\":[\"wvx\"]},\"video/x-msvideo\":{\"source\":\"apache\",\"extensions\":[\"avi\"]},\"video/x-sgi-movie\":{\"source\":\"apache\",\"extensions\":[\"movie\"]},\"video/x-smv\":{\"source\":\"apache\",\"extensions\":[\"smv\"]},\"x-conference/x-cooltalk\":{\"source\":\"apache\",\"extensions\":[\"ice\"]},\"x-shader/x-fragment\":{\"compressible\":true},\"x-shader/x-vertex\":{\"compressible\":true}}");
+module.exports = JSON.parse("{\"application/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"application/3gpdash-qoe-report+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/3gpp-ims+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/a2l\":{\"source\":\"iana\"},\"application/activemessage\":{\"source\":\"iana\"},\"application/activity+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-costmap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-costmapfilter+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-directory+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointcost+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointcostparams+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointprop+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-endpointpropparams+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-error+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-networkmap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-networkmapfilter+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-updatestreamcontrol+json\":{\"source\":\"iana\",\"compressible\":true},\"application/alto-updatestreamparams+json\":{\"source\":\"iana\",\"compressible\":true},\"application/aml\":{\"source\":\"iana\"},\"application/andrew-inset\":{\"source\":\"iana\",\"extensions\":[\"ez\"]},\"application/applefile\":{\"source\":\"iana\"},\"application/applixware\":{\"source\":\"apache\",\"extensions\":[\"aw\"]},\"application/atf\":{\"source\":\"iana\"},\"application/atfx\":{\"source\":\"iana\"},\"application/atom+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atom\"]},\"application/atomcat+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atomcat\"]},\"application/atomdeleted+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atomdeleted\"]},\"application/atomicmail\":{\"source\":\"iana\"},\"application/atomsvc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"atomsvc\"]},\"application/atsc-dwd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dwd\"]},\"application/atsc-dynamic-event-message\":{\"source\":\"iana\"},\"application/atsc-held+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"held\"]},\"application/atsc-rdt+json\":{\"source\":\"iana\",\"compressible\":true},\"application/atsc-rsat+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rsat\"]},\"application/atxml\":{\"source\":\"iana\"},\"application/auth-policy+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/bacnet-xdd+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/batch-smtp\":{\"source\":\"iana\"},\"application/bdoc\":{\"compressible\":false,\"extensions\":[\"bdoc\"]},\"application/beep+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/calendar+json\":{\"source\":\"iana\",\"compressible\":true},\"application/calendar+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xcs\"]},\"application/call-completion\":{\"source\":\"iana\"},\"application/cals-1840\":{\"source\":\"iana\"},\"application/captive+json\":{\"source\":\"iana\",\"compressible\":true},\"application/cbor\":{\"source\":\"iana\"},\"application/cbor-seq\":{\"source\":\"iana\"},\"application/cccex\":{\"source\":\"iana\"},\"application/ccmp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ccxml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ccxml\"]},\"application/cdfx+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"cdfx\"]},\"application/cdmi-capability\":{\"source\":\"iana\",\"extensions\":[\"cdmia\"]},\"application/cdmi-container\":{\"source\":\"iana\",\"extensions\":[\"cdmic\"]},\"application/cdmi-domain\":{\"source\":\"iana\",\"extensions\":[\"cdmid\"]},\"application/cdmi-object\":{\"source\":\"iana\",\"extensions\":[\"cdmio\"]},\"application/cdmi-queue\":{\"source\":\"iana\",\"extensions\":[\"cdmiq\"]},\"application/cdni\":{\"source\":\"iana\"},\"application/cea\":{\"source\":\"iana\"},\"application/cea-2018+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cellml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cfw\":{\"source\":\"iana\"},\"application/clr\":{\"source\":\"iana\"},\"application/clue+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/clue_info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cms\":{\"source\":\"iana\"},\"application/cnrp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/coap-group+json\":{\"source\":\"iana\",\"compressible\":true},\"application/coap-payload\":{\"source\":\"iana\"},\"application/commonground\":{\"source\":\"iana\"},\"application/conference-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cose\":{\"source\":\"iana\"},\"application/cose-key\":{\"source\":\"iana\"},\"application/cose-key-set\":{\"source\":\"iana\"},\"application/cpl+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/csrattrs\":{\"source\":\"iana\"},\"application/csta+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/cstadata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/csvm+json\":{\"source\":\"iana\",\"compressible\":true},\"application/cu-seeme\":{\"source\":\"apache\",\"extensions\":[\"cu\"]},\"application/cwt\":{\"source\":\"iana\"},\"application/cybercash\":{\"source\":\"iana\"},\"application/dart\":{\"compressible\":true},\"application/dash+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mpd\"]},\"application/dashdelta\":{\"source\":\"iana\"},\"application/davmount+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"davmount\"]},\"application/dca-rft\":{\"source\":\"iana\"},\"application/dcd\":{\"source\":\"iana\"},\"application/dec-dx\":{\"source\":\"iana\"},\"application/dialog-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/dicom\":{\"source\":\"iana\"},\"application/dicom+json\":{\"source\":\"iana\",\"compressible\":true},\"application/dicom+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/dii\":{\"source\":\"iana\"},\"application/dit\":{\"source\":\"iana\"},\"application/dns\":{\"source\":\"iana\"},\"application/dns+json\":{\"source\":\"iana\",\"compressible\":true},\"application/dns-message\":{\"source\":\"iana\"},\"application/docbook+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"dbk\"]},\"application/dots+cbor\":{\"source\":\"iana\"},\"application/dskpp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/dssc+der\":{\"source\":\"iana\",\"extensions\":[\"dssc\"]},\"application/dssc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdssc\"]},\"application/dvcs\":{\"source\":\"iana\"},\"application/ecmascript\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"es\",\"ecma\"]},\"application/edi-consent\":{\"source\":\"iana\"},\"application/edi-x12\":{\"source\":\"iana\",\"compressible\":false},\"application/edifact\":{\"source\":\"iana\",\"compressible\":false},\"application/efi\":{\"source\":\"iana\"},\"application/elm+json\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/elm+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.cap+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/emergencycalldata.comment+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.control+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.deviceinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.ecall.msd\":{\"source\":\"iana\"},\"application/emergencycalldata.providerinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.serviceinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.subscriberinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emergencycalldata.veds+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/emma+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"emma\"]},\"application/emotionml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"emotionml\"]},\"application/encaprtp\":{\"source\":\"iana\"},\"application/epp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/epub+zip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"epub\"]},\"application/eshop\":{\"source\":\"iana\"},\"application/exi\":{\"source\":\"iana\",\"extensions\":[\"exi\"]},\"application/expect-ct-report+json\":{\"source\":\"iana\",\"compressible\":true},\"application/fastinfoset\":{\"source\":\"iana\"},\"application/fastsoap\":{\"source\":\"iana\"},\"application/fdt+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"fdt\"]},\"application/fhir+json\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/fhir+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/fido.trusted-apps+json\":{\"compressible\":true},\"application/fits\":{\"source\":\"iana\"},\"application/flexfec\":{\"source\":\"iana\"},\"application/font-sfnt\":{\"source\":\"iana\"},\"application/font-tdpfr\":{\"source\":\"iana\",\"extensions\":[\"pfr\"]},\"application/font-woff\":{\"source\":\"iana\",\"compressible\":false},\"application/framework-attributes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/geo+json\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"geojson\"]},\"application/geo+json-seq\":{\"source\":\"iana\"},\"application/geopackage+sqlite3\":{\"source\":\"iana\"},\"application/geoxacml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/gltf-buffer\":{\"source\":\"iana\"},\"application/gml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"gml\"]},\"application/gpx+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"gpx\"]},\"application/gxf\":{\"source\":\"apache\",\"extensions\":[\"gxf\"]},\"application/gzip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"gz\"]},\"application/h224\":{\"source\":\"iana\"},\"application/held+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/hjson\":{\"extensions\":[\"hjson\"]},\"application/http\":{\"source\":\"iana\"},\"application/hyperstudio\":{\"source\":\"iana\",\"extensions\":[\"stk\"]},\"application/ibe-key-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ibe-pkg-reply+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ibe-pp-data\":{\"source\":\"iana\"},\"application/iges\":{\"source\":\"iana\"},\"application/im-iscomposing+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/index\":{\"source\":\"iana\"},\"application/index.cmd\":{\"source\":\"iana\"},\"application/index.obj\":{\"source\":\"iana\"},\"application/index.response\":{\"source\":\"iana\"},\"application/index.vnd\":{\"source\":\"iana\"},\"application/inkml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ink\",\"inkml\"]},\"application/iotp\":{\"source\":\"iana\"},\"application/ipfix\":{\"source\":\"iana\",\"extensions\":[\"ipfix\"]},\"application/ipp\":{\"source\":\"iana\"},\"application/isup\":{\"source\":\"iana\"},\"application/its+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"its\"]},\"application/java-archive\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"jar\",\"war\",\"ear\"]},\"application/java-serialized-object\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"ser\"]},\"application/java-vm\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"class\"]},\"application/javascript\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"js\",\"mjs\"]},\"application/jf2feed+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jose\":{\"source\":\"iana\"},\"application/jose+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jrd+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jscalendar+json\":{\"source\":\"iana\",\"compressible\":true},\"application/json\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"json\",\"map\"]},\"application/json-patch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/json-seq\":{\"source\":\"iana\"},\"application/json5\":{\"extensions\":[\"json5\"]},\"application/jsonml+json\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"jsonml\"]},\"application/jwk+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jwk-set+json\":{\"source\":\"iana\",\"compressible\":true},\"application/jwt\":{\"source\":\"iana\"},\"application/kpml-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/kpml-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/ld+json\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"jsonld\"]},\"application/lgr+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lgr\"]},\"application/link-format\":{\"source\":\"iana\"},\"application/load-control+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/lost+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lostxml\"]},\"application/lostsync+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/lpf+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/lxf\":{\"source\":\"iana\"},\"application/mac-binhex40\":{\"source\":\"iana\",\"extensions\":[\"hqx\"]},\"application/mac-compactpro\":{\"source\":\"apache\",\"extensions\":[\"cpt\"]},\"application/macwriteii\":{\"source\":\"iana\"},\"application/mads+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mads\"]},\"application/manifest+json\":{\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"webmanifest\"]},\"application/marc\":{\"source\":\"iana\",\"extensions\":[\"mrc\"]},\"application/marcxml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mrcx\"]},\"application/mathematica\":{\"source\":\"iana\",\"extensions\":[\"ma\",\"nb\",\"mb\"]},\"application/mathml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mathml\"]},\"application/mathml-content+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mathml-presentation+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-associated-procedure-description+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-deregister+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-envelope+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-msk+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-msk-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-protection-description+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-reception-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-register+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-register-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-schedule+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbms-user-service-description+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mbox\":{\"source\":\"iana\",\"extensions\":[\"mbox\"]},\"application/media-policy-dataset+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/media_control+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mediaservercontrol+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mscml\"]},\"application/merge-patch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/metalink+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"metalink\"]},\"application/metalink4+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"meta4\"]},\"application/mets+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mets\"]},\"application/mf4\":{\"source\":\"iana\"},\"application/mikey\":{\"source\":\"iana\"},\"application/mipc\":{\"source\":\"iana\"},\"application/mmt-aei+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"maei\"]},\"application/mmt-usd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"musd\"]},\"application/mods+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mods\"]},\"application/moss-keys\":{\"source\":\"iana\"},\"application/moss-signature\":{\"source\":\"iana\"},\"application/mosskey-data\":{\"source\":\"iana\"},\"application/mosskey-request\":{\"source\":\"iana\"},\"application/mp21\":{\"source\":\"iana\",\"extensions\":[\"m21\",\"mp21\"]},\"application/mp4\":{\"source\":\"iana\",\"extensions\":[\"mp4s\",\"m4p\"]},\"application/mpeg4-generic\":{\"source\":\"iana\"},\"application/mpeg4-iod\":{\"source\":\"iana\"},\"application/mpeg4-iod-xmt\":{\"source\":\"iana\"},\"application/mrb-consumer+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/mrb-publish+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/msc-ivr+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/msc-mixer+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/msword\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"doc\",\"dot\"]},\"application/mud+json\":{\"source\":\"iana\",\"compressible\":true},\"application/multipart-core\":{\"source\":\"iana\"},\"application/mxf\":{\"source\":\"iana\",\"extensions\":[\"mxf\"]},\"application/n-quads\":{\"source\":\"iana\",\"extensions\":[\"nq\"]},\"application/n-triples\":{\"source\":\"iana\",\"extensions\":[\"nt\"]},\"application/nasdata\":{\"source\":\"iana\"},\"application/news-checkgroups\":{\"source\":\"iana\",\"charset\":\"US-ASCII\"},\"application/news-groupinfo\":{\"source\":\"iana\",\"charset\":\"US-ASCII\"},\"application/news-transmission\":{\"source\":\"iana\"},\"application/nlsml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/node\":{\"source\":\"iana\",\"extensions\":[\"cjs\"]},\"application/nss\":{\"source\":\"iana\"},\"application/ocsp-request\":{\"source\":\"iana\"},\"application/ocsp-response\":{\"source\":\"iana\"},\"application/octet-stream\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"bin\",\"dms\",\"lrf\",\"mar\",\"so\",\"dist\",\"distz\",\"pkg\",\"bpk\",\"dump\",\"elc\",\"deploy\",\"exe\",\"dll\",\"deb\",\"dmg\",\"iso\",\"img\",\"msi\",\"msp\",\"msm\",\"buffer\"]},\"application/oda\":{\"source\":\"iana\",\"extensions\":[\"oda\"]},\"application/odm+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/odx\":{\"source\":\"iana\"},\"application/oebps-package+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"opf\"]},\"application/ogg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ogx\"]},\"application/omdoc+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"omdoc\"]},\"application/onenote\":{\"source\":\"apache\",\"extensions\":[\"onetoc\",\"onetoc2\",\"onetmp\",\"onepkg\"]},\"application/opc-nodeset+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/oscore\":{\"source\":\"iana\"},\"application/oxps\":{\"source\":\"iana\",\"extensions\":[\"oxps\"]},\"application/p2p-overlay+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"relo\"]},\"application/parityfec\":{\"source\":\"iana\"},\"application/passport\":{\"source\":\"iana\"},\"application/patch-ops-error+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xer\"]},\"application/pdf\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"pdf\"]},\"application/pdx\":{\"source\":\"iana\"},\"application/pem-certificate-chain\":{\"source\":\"iana\"},\"application/pgp-encrypted\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"pgp\"]},\"application/pgp-keys\":{\"source\":\"iana\"},\"application/pgp-signature\":{\"source\":\"iana\",\"extensions\":[\"asc\",\"sig\"]},\"application/pics-rules\":{\"source\":\"apache\",\"extensions\":[\"prf\"]},\"application/pidf+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/pidf-diff+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/pkcs10\":{\"source\":\"iana\",\"extensions\":[\"p10\"]},\"application/pkcs12\":{\"source\":\"iana\"},\"application/pkcs7-mime\":{\"source\":\"iana\",\"extensions\":[\"p7m\",\"p7c\"]},\"application/pkcs7-signature\":{\"source\":\"iana\",\"extensions\":[\"p7s\"]},\"application/pkcs8\":{\"source\":\"iana\",\"extensions\":[\"p8\"]},\"application/pkcs8-encrypted\":{\"source\":\"iana\"},\"application/pkix-attr-cert\":{\"source\":\"iana\",\"extensions\":[\"ac\"]},\"application/pkix-cert\":{\"source\":\"iana\",\"extensions\":[\"cer\"]},\"application/pkix-crl\":{\"source\":\"iana\",\"extensions\":[\"crl\"]},\"application/pkix-pkipath\":{\"source\":\"iana\",\"extensions\":[\"pkipath\"]},\"application/pkixcmp\":{\"source\":\"iana\",\"extensions\":[\"pki\"]},\"application/pls+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"pls\"]},\"application/poc-settings+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/postscript\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ai\",\"eps\",\"ps\"]},\"application/ppsp-tracker+json\":{\"source\":\"iana\",\"compressible\":true},\"application/problem+json\":{\"source\":\"iana\",\"compressible\":true},\"application/problem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/provenance+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"provx\"]},\"application/prs.alvestrand.titrax-sheet\":{\"source\":\"iana\"},\"application/prs.cww\":{\"source\":\"iana\",\"extensions\":[\"cww\"]},\"application/prs.cyn\":{\"source\":\"iana\",\"charset\":\"7-BIT\"},\"application/prs.hpub+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/prs.nprend\":{\"source\":\"iana\"},\"application/prs.plucker\":{\"source\":\"iana\"},\"application/prs.rdf-xml-crypt\":{\"source\":\"iana\"},\"application/prs.xsf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/pskc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"pskcxml\"]},\"application/pvd+json\":{\"source\":\"iana\",\"compressible\":true},\"application/qsig\":{\"source\":\"iana\"},\"application/raml+yaml\":{\"compressible\":true,\"extensions\":[\"raml\"]},\"application/raptorfec\":{\"source\":\"iana\"},\"application/rdap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/rdf+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rdf\",\"owl\"]},\"application/reginfo+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rif\"]},\"application/relax-ng-compact-syntax\":{\"source\":\"iana\",\"extensions\":[\"rnc\"]},\"application/remote-printing\":{\"source\":\"iana\"},\"application/reputon+json\":{\"source\":\"iana\",\"compressible\":true},\"application/resource-lists+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rl\"]},\"application/resource-lists-diff+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rld\"]},\"application/rfc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/riscos\":{\"source\":\"iana\"},\"application/rlmi+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/rls-services+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rs\"]},\"application/route-apd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rapd\"]},\"application/route-s-tsid+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sls\"]},\"application/route-usd+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rusd\"]},\"application/rpki-ghostbusters\":{\"source\":\"iana\",\"extensions\":[\"gbr\"]},\"application/rpki-manifest\":{\"source\":\"iana\",\"extensions\":[\"mft\"]},\"application/rpki-publication\":{\"source\":\"iana\"},\"application/rpki-roa\":{\"source\":\"iana\",\"extensions\":[\"roa\"]},\"application/rpki-updown\":{\"source\":\"iana\"},\"application/rsd+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"rsd\"]},\"application/rss+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"rss\"]},\"application/rtf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rtf\"]},\"application/rtploopback\":{\"source\":\"iana\"},\"application/rtx\":{\"source\":\"iana\"},\"application/samlassertion+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/samlmetadata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sarif+json\":{\"source\":\"iana\",\"compressible\":true},\"application/sbe\":{\"source\":\"iana\"},\"application/sbml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sbml\"]},\"application/scaip+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/scim+json\":{\"source\":\"iana\",\"compressible\":true},\"application/scvp-cv-request\":{\"source\":\"iana\",\"extensions\":[\"scq\"]},\"application/scvp-cv-response\":{\"source\":\"iana\",\"extensions\":[\"scs\"]},\"application/scvp-vp-request\":{\"source\":\"iana\",\"extensions\":[\"spq\"]},\"application/scvp-vp-response\":{\"source\":\"iana\",\"extensions\":[\"spp\"]},\"application/sdp\":{\"source\":\"iana\",\"extensions\":[\"sdp\"]},\"application/secevent+jwt\":{\"source\":\"iana\"},\"application/senml+cbor\":{\"source\":\"iana\"},\"application/senml+json\":{\"source\":\"iana\",\"compressible\":true},\"application/senml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"senmlx\"]},\"application/senml-etch+cbor\":{\"source\":\"iana\"},\"application/senml-etch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/senml-exi\":{\"source\":\"iana\"},\"application/sensml+cbor\":{\"source\":\"iana\"},\"application/sensml+json\":{\"source\":\"iana\",\"compressible\":true},\"application/sensml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sensmlx\"]},\"application/sensml-exi\":{\"source\":\"iana\"},\"application/sep+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sep-exi\":{\"source\":\"iana\"},\"application/session-info\":{\"source\":\"iana\"},\"application/set-payment\":{\"source\":\"iana\"},\"application/set-payment-initiation\":{\"source\":\"iana\",\"extensions\":[\"setpay\"]},\"application/set-registration\":{\"source\":\"iana\"},\"application/set-registration-initiation\":{\"source\":\"iana\",\"extensions\":[\"setreg\"]},\"application/sgml\":{\"source\":\"iana\"},\"application/sgml-open-catalog\":{\"source\":\"iana\"},\"application/shf+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"shf\"]},\"application/sieve\":{\"source\":\"iana\",\"extensions\":[\"siv\",\"sieve\"]},\"application/simple-filter+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/simple-message-summary\":{\"source\":\"iana\"},\"application/simplesymbolcontainer\":{\"source\":\"iana\"},\"application/sipc\":{\"source\":\"iana\"},\"application/slate\":{\"source\":\"iana\"},\"application/smil\":{\"source\":\"iana\"},\"application/smil+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"smi\",\"smil\"]},\"application/smpte336m\":{\"source\":\"iana\"},\"application/soap+fastinfoset\":{\"source\":\"iana\"},\"application/soap+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sparql-query\":{\"source\":\"iana\",\"extensions\":[\"rq\"]},\"application/sparql-results+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"srx\"]},\"application/spirits-event+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/sql\":{\"source\":\"iana\"},\"application/srgs\":{\"source\":\"iana\",\"extensions\":[\"gram\"]},\"application/srgs+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"grxml\"]},\"application/sru+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sru\"]},\"application/ssdl+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"ssdl\"]},\"application/ssml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ssml\"]},\"application/stix+json\":{\"source\":\"iana\",\"compressible\":true},\"application/swid+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"swidtag\"]},\"application/tamp-apex-update\":{\"source\":\"iana\"},\"application/tamp-apex-update-confirm\":{\"source\":\"iana\"},\"application/tamp-community-update\":{\"source\":\"iana\"},\"application/tamp-community-update-confirm\":{\"source\":\"iana\"},\"application/tamp-error\":{\"source\":\"iana\"},\"application/tamp-sequence-adjust\":{\"source\":\"iana\"},\"application/tamp-sequence-adjust-confirm\":{\"source\":\"iana\"},\"application/tamp-status-query\":{\"source\":\"iana\"},\"application/tamp-status-response\":{\"source\":\"iana\"},\"application/tamp-update\":{\"source\":\"iana\"},\"application/tamp-update-confirm\":{\"source\":\"iana\"},\"application/tar\":{\"compressible\":true},\"application/taxii+json\":{\"source\":\"iana\",\"compressible\":true},\"application/td+json\":{\"source\":\"iana\",\"compressible\":true},\"application/tei+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"tei\",\"teicorpus\"]},\"application/tetra_isi\":{\"source\":\"iana\"},\"application/thraud+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"tfi\"]},\"application/timestamp-query\":{\"source\":\"iana\"},\"application/timestamp-reply\":{\"source\":\"iana\"},\"application/timestamped-data\":{\"source\":\"iana\",\"extensions\":[\"tsd\"]},\"application/tlsrpt+gzip\":{\"source\":\"iana\"},\"application/tlsrpt+json\":{\"source\":\"iana\",\"compressible\":true},\"application/tnauthlist\":{\"source\":\"iana\"},\"application/toml\":{\"compressible\":true,\"extensions\":[\"toml\"]},\"application/trickle-ice-sdpfrag\":{\"source\":\"iana\"},\"application/trig\":{\"source\":\"iana\"},\"application/ttml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ttml\"]},\"application/tve-trigger\":{\"source\":\"iana\"},\"application/tzif\":{\"source\":\"iana\"},\"application/tzif-leap\":{\"source\":\"iana\"},\"application/ubjson\":{\"compressible\":false,\"extensions\":[\"ubj\"]},\"application/ulpfec\":{\"source\":\"iana\"},\"application/urc-grpsheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/urc-ressheet+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rsheet\"]},\"application/urc-targetdesc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"td\"]},\"application/urc-uisocketdesc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vcard+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vcard+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vemmi\":{\"source\":\"iana\"},\"application/vividence.scriptfile\":{\"source\":\"apache\"},\"application/vnd.1000minds.decision-model+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"1km\"]},\"application/vnd.3gpp-prose+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp-prose-pc3ch+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp-v2x-local-service-information\":{\"source\":\"iana\"},\"application/vnd.3gpp.access-transfer-events+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.bsf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.gmop+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.interworking-data\":{\"source\":\"iana\"},\"application/vnd.3gpp.mc-signalling-ear\":{\"source\":\"iana\"},\"application/vnd.3gpp.mcdata-affiliation-command+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-payload\":{\"source\":\"iana\"},\"application/vnd.3gpp.mcdata-service-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-signalling\":{\"source\":\"iana\"},\"application/vnd.3gpp.mcdata-ue-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcdata-user-profile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-affiliation-command+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-floor-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-location-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-mbms-usage-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-service-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-signed+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-ue-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-ue-init-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcptt-user-profile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-affiliation-command+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-affiliation-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-location-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-mbms-usage-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-service-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-transmission-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-ue-config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mcvideo-user-profile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.mid-call+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.pic-bw-large\":{\"source\":\"iana\",\"extensions\":[\"plb\"]},\"application/vnd.3gpp.pic-bw-small\":{\"source\":\"iana\",\"extensions\":[\"psb\"]},\"application/vnd.3gpp.pic-bw-var\":{\"source\":\"iana\",\"extensions\":[\"pvb\"]},\"application/vnd.3gpp.sms\":{\"source\":\"iana\"},\"application/vnd.3gpp.sms+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.srvcc-ext+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.srvcc-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.state-and-event-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp.ussd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp2.bcmcsinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.3gpp2.sms\":{\"source\":\"iana\"},\"application/vnd.3gpp2.tcap\":{\"source\":\"iana\",\"extensions\":[\"tcap\"]},\"application/vnd.3lightssoftware.imagescal\":{\"source\":\"iana\"},\"application/vnd.3m.post-it-notes\":{\"source\":\"iana\",\"extensions\":[\"pwn\"]},\"application/vnd.accpac.simply.aso\":{\"source\":\"iana\",\"extensions\":[\"aso\"]},\"application/vnd.accpac.simply.imp\":{\"source\":\"iana\",\"extensions\":[\"imp\"]},\"application/vnd.acucobol\":{\"source\":\"iana\",\"extensions\":[\"acu\"]},\"application/vnd.acucorp\":{\"source\":\"iana\",\"extensions\":[\"atc\",\"acutc\"]},\"application/vnd.adobe.air-application-installer-package+zip\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"air\"]},\"application/vnd.adobe.flash.movie\":{\"source\":\"iana\"},\"application/vnd.adobe.formscentral.fcdt\":{\"source\":\"iana\",\"extensions\":[\"fcdt\"]},\"application/vnd.adobe.fxp\":{\"source\":\"iana\",\"extensions\":[\"fxp\",\"fxpl\"]},\"application/vnd.adobe.partial-upload\":{\"source\":\"iana\"},\"application/vnd.adobe.xdp+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdp\"]},\"application/vnd.adobe.xfdf\":{\"source\":\"iana\",\"extensions\":[\"xfdf\"]},\"application/vnd.aether.imp\":{\"source\":\"iana\"},\"application/vnd.afpc.afplinedata\":{\"source\":\"iana\"},\"application/vnd.afpc.afplinedata-pagedef\":{\"source\":\"iana\"},\"application/vnd.afpc.cmoca-cmresource\":{\"source\":\"iana\"},\"application/vnd.afpc.foca-charset\":{\"source\":\"iana\"},\"application/vnd.afpc.foca-codedfont\":{\"source\":\"iana\"},\"application/vnd.afpc.foca-codepage\":{\"source\":\"iana\"},\"application/vnd.afpc.modca\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-cmtable\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-formdef\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-mediummap\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-objectcontainer\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-overlay\":{\"source\":\"iana\"},\"application/vnd.afpc.modca-pagesegment\":{\"source\":\"iana\"},\"application/vnd.ah-barcode\":{\"source\":\"iana\"},\"application/vnd.ahead.space\":{\"source\":\"iana\",\"extensions\":[\"ahead\"]},\"application/vnd.airzip.filesecure.azf\":{\"source\":\"iana\",\"extensions\":[\"azf\"]},\"application/vnd.airzip.filesecure.azs\":{\"source\":\"iana\",\"extensions\":[\"azs\"]},\"application/vnd.amadeus+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.amazon.ebook\":{\"source\":\"apache\",\"extensions\":[\"azw\"]},\"application/vnd.amazon.mobi8-ebook\":{\"source\":\"iana\"},\"application/vnd.americandynamics.acc\":{\"source\":\"iana\",\"extensions\":[\"acc\"]},\"application/vnd.amiga.ami\":{\"source\":\"iana\",\"extensions\":[\"ami\"]},\"application/vnd.amundsen.maze+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.android.ota\":{\"source\":\"iana\"},\"application/vnd.android.package-archive\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"apk\"]},\"application/vnd.anki\":{\"source\":\"iana\"},\"application/vnd.anser-web-certificate-issue-initiation\":{\"source\":\"iana\",\"extensions\":[\"cii\"]},\"application/vnd.anser-web-funds-transfer-initiation\":{\"source\":\"apache\",\"extensions\":[\"fti\"]},\"application/vnd.antix.game-component\":{\"source\":\"iana\",\"extensions\":[\"atx\"]},\"application/vnd.apache.thrift.binary\":{\"source\":\"iana\"},\"application/vnd.apache.thrift.compact\":{\"source\":\"iana\"},\"application/vnd.apache.thrift.json\":{\"source\":\"iana\"},\"application/vnd.api+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.aplextor.warrp+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.apothekende.reservation+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.apple.installer+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mpkg\"]},\"application/vnd.apple.keynote\":{\"source\":\"iana\",\"extensions\":[\"key\"]},\"application/vnd.apple.mpegurl\":{\"source\":\"iana\",\"extensions\":[\"m3u8\"]},\"application/vnd.apple.numbers\":{\"source\":\"iana\",\"extensions\":[\"numbers\"]},\"application/vnd.apple.pages\":{\"source\":\"iana\",\"extensions\":[\"pages\"]},\"application/vnd.apple.pkpass\":{\"compressible\":false,\"extensions\":[\"pkpass\"]},\"application/vnd.arastra.swi\":{\"source\":\"iana\"},\"application/vnd.aristanetworks.swi\":{\"source\":\"iana\",\"extensions\":[\"swi\"]},\"application/vnd.artisan+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.artsquare\":{\"source\":\"iana\"},\"application/vnd.astraea-software.iota\":{\"source\":\"iana\",\"extensions\":[\"iota\"]},\"application/vnd.audiograph\":{\"source\":\"iana\",\"extensions\":[\"aep\"]},\"application/vnd.autopackage\":{\"source\":\"iana\"},\"application/vnd.avalon+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.avistar+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.balsamiq.bmml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"bmml\"]},\"application/vnd.balsamiq.bmpr\":{\"source\":\"iana\"},\"application/vnd.banana-accounting\":{\"source\":\"iana\"},\"application/vnd.bbf.usp.error\":{\"source\":\"iana\"},\"application/vnd.bbf.usp.msg\":{\"source\":\"iana\"},\"application/vnd.bbf.usp.msg+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.bekitzur-stech+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.bint.med-content\":{\"source\":\"iana\"},\"application/vnd.biopax.rdf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.blink-idb-value-wrapper\":{\"source\":\"iana\"},\"application/vnd.blueice.multipass\":{\"source\":\"iana\",\"extensions\":[\"mpm\"]},\"application/vnd.bluetooth.ep.oob\":{\"source\":\"iana\"},\"application/vnd.bluetooth.le.oob\":{\"source\":\"iana\"},\"application/vnd.bmi\":{\"source\":\"iana\",\"extensions\":[\"bmi\"]},\"application/vnd.bpf\":{\"source\":\"iana\"},\"application/vnd.bpf3\":{\"source\":\"iana\"},\"application/vnd.businessobjects\":{\"source\":\"iana\",\"extensions\":[\"rep\"]},\"application/vnd.byu.uapi+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cab-jscript\":{\"source\":\"iana\"},\"application/vnd.canon-cpdl\":{\"source\":\"iana\"},\"application/vnd.canon-lips\":{\"source\":\"iana\"},\"application/vnd.capasystems-pg+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cendio.thinlinc.clientconf\":{\"source\":\"iana\"},\"application/vnd.century-systems.tcp_stream\":{\"source\":\"iana\"},\"application/vnd.chemdraw+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"cdxml\"]},\"application/vnd.chess-pgn\":{\"source\":\"iana\"},\"application/vnd.chipnuts.karaoke-mmd\":{\"source\":\"iana\",\"extensions\":[\"mmd\"]},\"application/vnd.ciedi\":{\"source\":\"iana\"},\"application/vnd.cinderella\":{\"source\":\"iana\",\"extensions\":[\"cdy\"]},\"application/vnd.cirpack.isdn-ext\":{\"source\":\"iana\"},\"application/vnd.citationstyles.style+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"csl\"]},\"application/vnd.claymore\":{\"source\":\"iana\",\"extensions\":[\"cla\"]},\"application/vnd.cloanto.rp9\":{\"source\":\"iana\",\"extensions\":[\"rp9\"]},\"application/vnd.clonk.c4group\":{\"source\":\"iana\",\"extensions\":[\"c4g\",\"c4d\",\"c4f\",\"c4p\",\"c4u\"]},\"application/vnd.cluetrust.cartomobile-config\":{\"source\":\"iana\",\"extensions\":[\"c11amc\"]},\"application/vnd.cluetrust.cartomobile-config-pkg\":{\"source\":\"iana\",\"extensions\":[\"c11amz\"]},\"application/vnd.coffeescript\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.document\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.document-template\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.presentation\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.presentation-template\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.spreadsheet\":{\"source\":\"iana\"},\"application/vnd.collabio.xodocuments.spreadsheet-template\":{\"source\":\"iana\"},\"application/vnd.collection+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.collection.doc+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.collection.next+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.comicbook+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.comicbook-rar\":{\"source\":\"iana\"},\"application/vnd.commerce-battelle\":{\"source\":\"iana\"},\"application/vnd.commonspace\":{\"source\":\"iana\",\"extensions\":[\"csp\"]},\"application/vnd.contact.cmsg\":{\"source\":\"iana\",\"extensions\":[\"cdbcmsg\"]},\"application/vnd.coreos.ignition+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cosmocaller\":{\"source\":\"iana\",\"extensions\":[\"cmc\"]},\"application/vnd.crick.clicker\":{\"source\":\"iana\",\"extensions\":[\"clkx\"]},\"application/vnd.crick.clicker.keyboard\":{\"source\":\"iana\",\"extensions\":[\"clkk\"]},\"application/vnd.crick.clicker.palette\":{\"source\":\"iana\",\"extensions\":[\"clkp\"]},\"application/vnd.crick.clicker.template\":{\"source\":\"iana\",\"extensions\":[\"clkt\"]},\"application/vnd.crick.clicker.wordbank\":{\"source\":\"iana\",\"extensions\":[\"clkw\"]},\"application/vnd.criticaltools.wbs+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wbs\"]},\"application/vnd.cryptii.pipe+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.crypto-shade-file\":{\"source\":\"iana\"},\"application/vnd.cryptomator.encrypted\":{\"source\":\"iana\"},\"application/vnd.ctc-posml\":{\"source\":\"iana\",\"extensions\":[\"pml\"]},\"application/vnd.ctct.ws+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cups-pdf\":{\"source\":\"iana\"},\"application/vnd.cups-postscript\":{\"source\":\"iana\"},\"application/vnd.cups-ppd\":{\"source\":\"iana\",\"extensions\":[\"ppd\"]},\"application/vnd.cups-raster\":{\"source\":\"iana\"},\"application/vnd.cups-raw\":{\"source\":\"iana\"},\"application/vnd.curl\":{\"source\":\"iana\"},\"application/vnd.curl.car\":{\"source\":\"apache\",\"extensions\":[\"car\"]},\"application/vnd.curl.pcurl\":{\"source\":\"apache\",\"extensions\":[\"pcurl\"]},\"application/vnd.cyan.dean.root+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cybank\":{\"source\":\"iana\"},\"application/vnd.cyclonedx+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.cyclonedx+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.d2l.coursepackage1p0+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.d3m-dataset\":{\"source\":\"iana\"},\"application/vnd.d3m-problem\":{\"source\":\"iana\"},\"application/vnd.dart\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dart\"]},\"application/vnd.data-vision.rdz\":{\"source\":\"iana\",\"extensions\":[\"rdz\"]},\"application/vnd.datapackage+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dataresource+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dbf\":{\"source\":\"iana\",\"extensions\":[\"dbf\"]},\"application/vnd.debian.binary-package\":{\"source\":\"iana\"},\"application/vnd.dece.data\":{\"source\":\"iana\",\"extensions\":[\"uvf\",\"uvvf\",\"uvd\",\"uvvd\"]},\"application/vnd.dece.ttml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"uvt\",\"uvvt\"]},\"application/vnd.dece.unspecified\":{\"source\":\"iana\",\"extensions\":[\"uvx\",\"uvvx\"]},\"application/vnd.dece.zip\":{\"source\":\"iana\",\"extensions\":[\"uvz\",\"uvvz\"]},\"application/vnd.denovo.fcselayout-link\":{\"source\":\"iana\",\"extensions\":[\"fe_launch\"]},\"application/vnd.desmume.movie\":{\"source\":\"iana\"},\"application/vnd.dir-bi.plate-dl-nosuffix\":{\"source\":\"iana\"},\"application/vnd.dm.delegation+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dna\":{\"source\":\"iana\",\"extensions\":[\"dna\"]},\"application/vnd.document+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dolby.mlp\":{\"source\":\"apache\",\"extensions\":[\"mlp\"]},\"application/vnd.dolby.mobile.1\":{\"source\":\"iana\"},\"application/vnd.dolby.mobile.2\":{\"source\":\"iana\"},\"application/vnd.doremir.scorecloud-binary-document\":{\"source\":\"iana\"},\"application/vnd.dpgraph\":{\"source\":\"iana\",\"extensions\":[\"dpg\"]},\"application/vnd.dreamfactory\":{\"source\":\"iana\",\"extensions\":[\"dfac\"]},\"application/vnd.drive+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ds-keypoint\":{\"source\":\"apache\",\"extensions\":[\"kpxx\"]},\"application/vnd.dtg.local\":{\"source\":\"iana\"},\"application/vnd.dtg.local.flash\":{\"source\":\"iana\"},\"application/vnd.dtg.local.html\":{\"source\":\"iana\"},\"application/vnd.dvb.ait\":{\"source\":\"iana\",\"extensions\":[\"ait\"]},\"application/vnd.dvb.dvbisl+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.dvbj\":{\"source\":\"iana\"},\"application/vnd.dvb.esgcontainer\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcdftnotifaccess\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcesgaccess\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcesgaccess2\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcesgpdd\":{\"source\":\"iana\"},\"application/vnd.dvb.ipdcroaming\":{\"source\":\"iana\"},\"application/vnd.dvb.iptv.alfec-base\":{\"source\":\"iana\"},\"application/vnd.dvb.iptv.alfec-enhancement\":{\"source\":\"iana\"},\"application/vnd.dvb.notif-aggregate-root+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-container+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-generic+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-ia-msglist+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-ia-registration-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-ia-registration-response+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.notif-init+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.dvb.pfr\":{\"source\":\"iana\"},\"application/vnd.dvb.service\":{\"source\":\"iana\",\"extensions\":[\"svc\"]},\"application/vnd.dxr\":{\"source\":\"iana\"},\"application/vnd.dynageo\":{\"source\":\"iana\",\"extensions\":[\"geo\"]},\"application/vnd.dzr\":{\"source\":\"iana\"},\"application/vnd.easykaraoke.cdgdownload\":{\"source\":\"iana\"},\"application/vnd.ecdis-update\":{\"source\":\"iana\"},\"application/vnd.ecip.rlp\":{\"source\":\"iana\"},\"application/vnd.ecowin.chart\":{\"source\":\"iana\",\"extensions\":[\"mag\"]},\"application/vnd.ecowin.filerequest\":{\"source\":\"iana\"},\"application/vnd.ecowin.fileupdate\":{\"source\":\"iana\"},\"application/vnd.ecowin.series\":{\"source\":\"iana\"},\"application/vnd.ecowin.seriesrequest\":{\"source\":\"iana\"},\"application/vnd.ecowin.seriesupdate\":{\"source\":\"iana\"},\"application/vnd.efi.img\":{\"source\":\"iana\"},\"application/vnd.efi.iso\":{\"source\":\"iana\"},\"application/vnd.emclient.accessrequest+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.enliven\":{\"source\":\"iana\",\"extensions\":[\"nml\"]},\"application/vnd.enphase.envoy\":{\"source\":\"iana\"},\"application/vnd.eprints.data+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.epson.esf\":{\"source\":\"iana\",\"extensions\":[\"esf\"]},\"application/vnd.epson.msf\":{\"source\":\"iana\",\"extensions\":[\"msf\"]},\"application/vnd.epson.quickanime\":{\"source\":\"iana\",\"extensions\":[\"qam\"]},\"application/vnd.epson.salt\":{\"source\":\"iana\",\"extensions\":[\"slt\"]},\"application/vnd.epson.ssf\":{\"source\":\"iana\",\"extensions\":[\"ssf\"]},\"application/vnd.ericsson.quickcall\":{\"source\":\"iana\"},\"application/vnd.espass-espass+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.eszigno3+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"es3\",\"et3\"]},\"application/vnd.etsi.aoc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.asic-e+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.etsi.asic-s+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.etsi.cug+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvcommand+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvdiscovery+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsad-bc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsad-cod+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsad-npvr+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvservice+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvsync+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.iptvueprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.mcid+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.mheg5\":{\"source\":\"iana\"},\"application/vnd.etsi.overload-control-policy-dataset+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.pstn+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.sci+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.simservs+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.timestamp-token\":{\"source\":\"iana\"},\"application/vnd.etsi.tsl+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.etsi.tsl.der\":{\"source\":\"iana\"},\"application/vnd.eudora.data\":{\"source\":\"iana\"},\"application/vnd.evolv.ecig.profile\":{\"source\":\"iana\"},\"application/vnd.evolv.ecig.settings\":{\"source\":\"iana\"},\"application/vnd.evolv.ecig.theme\":{\"source\":\"iana\"},\"application/vnd.exstream-empower+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.exstream-package\":{\"source\":\"iana\"},\"application/vnd.ezpix-album\":{\"source\":\"iana\",\"extensions\":[\"ez2\"]},\"application/vnd.ezpix-package\":{\"source\":\"iana\",\"extensions\":[\"ez3\"]},\"application/vnd.f-secure.mobile\":{\"source\":\"iana\"},\"application/vnd.fastcopy-disk-image\":{\"source\":\"iana\"},\"application/vnd.fdf\":{\"source\":\"iana\",\"extensions\":[\"fdf\"]},\"application/vnd.fdsn.mseed\":{\"source\":\"iana\",\"extensions\":[\"mseed\"]},\"application/vnd.fdsn.seed\":{\"source\":\"iana\",\"extensions\":[\"seed\",\"dataless\"]},\"application/vnd.ffsns\":{\"source\":\"iana\"},\"application/vnd.ficlab.flb+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.filmit.zfc\":{\"source\":\"iana\"},\"application/vnd.fints\":{\"source\":\"iana\"},\"application/vnd.firemonkeys.cloudcell\":{\"source\":\"iana\"},\"application/vnd.flographit\":{\"source\":\"iana\",\"extensions\":[\"gph\"]},\"application/vnd.fluxtime.clip\":{\"source\":\"iana\",\"extensions\":[\"ftc\"]},\"application/vnd.font-fontforge-sfd\":{\"source\":\"iana\"},\"application/vnd.framemaker\":{\"source\":\"iana\",\"extensions\":[\"fm\",\"frame\",\"maker\",\"book\"]},\"application/vnd.frogans.fnc\":{\"source\":\"iana\",\"extensions\":[\"fnc\"]},\"application/vnd.frogans.ltf\":{\"source\":\"iana\",\"extensions\":[\"ltf\"]},\"application/vnd.fsc.weblaunch\":{\"source\":\"iana\",\"extensions\":[\"fsc\"]},\"application/vnd.fujitsu.oasys\":{\"source\":\"iana\",\"extensions\":[\"oas\"]},\"application/vnd.fujitsu.oasys2\":{\"source\":\"iana\",\"extensions\":[\"oa2\"]},\"application/vnd.fujitsu.oasys3\":{\"source\":\"iana\",\"extensions\":[\"oa3\"]},\"application/vnd.fujitsu.oasysgp\":{\"source\":\"iana\",\"extensions\":[\"fg5\"]},\"application/vnd.fujitsu.oasysprs\":{\"source\":\"iana\",\"extensions\":[\"bh2\"]},\"application/vnd.fujixerox.art-ex\":{\"source\":\"iana\"},\"application/vnd.fujixerox.art4\":{\"source\":\"iana\"},\"application/vnd.fujixerox.ddd\":{\"source\":\"iana\",\"extensions\":[\"ddd\"]},\"application/vnd.fujixerox.docuworks\":{\"source\":\"iana\",\"extensions\":[\"xdw\"]},\"application/vnd.fujixerox.docuworks.binder\":{\"source\":\"iana\",\"extensions\":[\"xbd\"]},\"application/vnd.fujixerox.docuworks.container\":{\"source\":\"iana\"},\"application/vnd.fujixerox.hbpl\":{\"source\":\"iana\"},\"application/vnd.fut-misnet\":{\"source\":\"iana\"},\"application/vnd.futoin+cbor\":{\"source\":\"iana\"},\"application/vnd.futoin+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.fuzzysheet\":{\"source\":\"iana\",\"extensions\":[\"fzs\"]},\"application/vnd.genomatix.tuxedo\":{\"source\":\"iana\",\"extensions\":[\"txd\"]},\"application/vnd.gentics.grd+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.geo+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.geocube+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.geogebra.file\":{\"source\":\"iana\",\"extensions\":[\"ggb\"]},\"application/vnd.geogebra.slides\":{\"source\":\"iana\"},\"application/vnd.geogebra.tool\":{\"source\":\"iana\",\"extensions\":[\"ggt\"]},\"application/vnd.geometry-explorer\":{\"source\":\"iana\",\"extensions\":[\"gex\",\"gre\"]},\"application/vnd.geonext\":{\"source\":\"iana\",\"extensions\":[\"gxt\"]},\"application/vnd.geoplan\":{\"source\":\"iana\",\"extensions\":[\"g2w\"]},\"application/vnd.geospace\":{\"source\":\"iana\",\"extensions\":[\"g3w\"]},\"application/vnd.gerber\":{\"source\":\"iana\"},\"application/vnd.globalplatform.card-content-mgt\":{\"source\":\"iana\"},\"application/vnd.globalplatform.card-content-mgt-response\":{\"source\":\"iana\"},\"application/vnd.gmx\":{\"source\":\"iana\",\"extensions\":[\"gmx\"]},\"application/vnd.google-apps.document\":{\"compressible\":false,\"extensions\":[\"gdoc\"]},\"application/vnd.google-apps.presentation\":{\"compressible\":false,\"extensions\":[\"gslides\"]},\"application/vnd.google-apps.spreadsheet\":{\"compressible\":false,\"extensions\":[\"gsheet\"]},\"application/vnd.google-earth.kml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"kml\"]},\"application/vnd.google-earth.kmz\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"kmz\"]},\"application/vnd.gov.sk.e-form+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.gov.sk.e-form+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.gov.sk.xmldatacontainer+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.grafeq\":{\"source\":\"iana\",\"extensions\":[\"gqf\",\"gqs\"]},\"application/vnd.gridmp\":{\"source\":\"iana\"},\"application/vnd.groove-account\":{\"source\":\"iana\",\"extensions\":[\"gac\"]},\"application/vnd.groove-help\":{\"source\":\"iana\",\"extensions\":[\"ghf\"]},\"application/vnd.groove-identity-message\":{\"source\":\"iana\",\"extensions\":[\"gim\"]},\"application/vnd.groove-injector\":{\"source\":\"iana\",\"extensions\":[\"grv\"]},\"application/vnd.groove-tool-message\":{\"source\":\"iana\",\"extensions\":[\"gtm\"]},\"application/vnd.groove-tool-template\":{\"source\":\"iana\",\"extensions\":[\"tpl\"]},\"application/vnd.groove-vcard\":{\"source\":\"iana\",\"extensions\":[\"vcg\"]},\"application/vnd.hal+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hal+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"hal\"]},\"application/vnd.handheld-entertainment+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"zmm\"]},\"application/vnd.hbci\":{\"source\":\"iana\",\"extensions\":[\"hbci\"]},\"application/vnd.hc+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hcl-bireports\":{\"source\":\"iana\"},\"application/vnd.hdt\":{\"source\":\"iana\"},\"application/vnd.heroku+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hhe.lesson-player\":{\"source\":\"iana\",\"extensions\":[\"les\"]},\"application/vnd.hp-hpgl\":{\"source\":\"iana\",\"extensions\":[\"hpgl\"]},\"application/vnd.hp-hpid\":{\"source\":\"iana\",\"extensions\":[\"hpid\"]},\"application/vnd.hp-hps\":{\"source\":\"iana\",\"extensions\":[\"hps\"]},\"application/vnd.hp-jlyt\":{\"source\":\"iana\",\"extensions\":[\"jlt\"]},\"application/vnd.hp-pcl\":{\"source\":\"iana\",\"extensions\":[\"pcl\"]},\"application/vnd.hp-pclxl\":{\"source\":\"iana\",\"extensions\":[\"pclxl\"]},\"application/vnd.httphone\":{\"source\":\"iana\"},\"application/vnd.hydrostatix.sof-data\":{\"source\":\"iana\",\"extensions\":[\"sfd-hdstx\"]},\"application/vnd.hyper+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hyper-item+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hyperdrive+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.hzn-3d-crossword\":{\"source\":\"iana\"},\"application/vnd.ibm.afplinedata\":{\"source\":\"iana\"},\"application/vnd.ibm.electronic-media\":{\"source\":\"iana\"},\"application/vnd.ibm.minipay\":{\"source\":\"iana\",\"extensions\":[\"mpy\"]},\"application/vnd.ibm.modcap\":{\"source\":\"iana\",\"extensions\":[\"afp\",\"listafp\",\"list3820\"]},\"application/vnd.ibm.rights-management\":{\"source\":\"iana\",\"extensions\":[\"irm\"]},\"application/vnd.ibm.secure-container\":{\"source\":\"iana\",\"extensions\":[\"sc\"]},\"application/vnd.iccprofile\":{\"source\":\"iana\",\"extensions\":[\"icc\",\"icm\"]},\"application/vnd.ieee.1905\":{\"source\":\"iana\"},\"application/vnd.igloader\":{\"source\":\"iana\",\"extensions\":[\"igl\"]},\"application/vnd.imagemeter.folder+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.imagemeter.image+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.immervision-ivp\":{\"source\":\"iana\",\"extensions\":[\"ivp\"]},\"application/vnd.immervision-ivu\":{\"source\":\"iana\",\"extensions\":[\"ivu\"]},\"application/vnd.ims.imsccv1p1\":{\"source\":\"iana\"},\"application/vnd.ims.imsccv1p2\":{\"source\":\"iana\"},\"application/vnd.ims.imsccv1p3\":{\"source\":\"iana\"},\"application/vnd.ims.lis.v2.result+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolconsumerprofile+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolproxy+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolproxy.id+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolsettings+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ims.lti.v2.toolsettings.simple+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.informedcontrol.rms+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.informix-visionary\":{\"source\":\"iana\"},\"application/vnd.infotech.project\":{\"source\":\"iana\"},\"application/vnd.infotech.project+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.innopath.wamp.notification\":{\"source\":\"iana\"},\"application/vnd.insors.igm\":{\"source\":\"iana\",\"extensions\":[\"igm\"]},\"application/vnd.intercon.formnet\":{\"source\":\"iana\",\"extensions\":[\"xpw\",\"xpx\"]},\"application/vnd.intergeo\":{\"source\":\"iana\",\"extensions\":[\"i2g\"]},\"application/vnd.intertrust.digibox\":{\"source\":\"iana\"},\"application/vnd.intertrust.nncp\":{\"source\":\"iana\"},\"application/vnd.intu.qbo\":{\"source\":\"iana\",\"extensions\":[\"qbo\"]},\"application/vnd.intu.qfx\":{\"source\":\"iana\",\"extensions\":[\"qfx\"]},\"application/vnd.iptc.g2.catalogitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.conceptitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.knowledgeitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.newsitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.newsmessage+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.packageitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.iptc.g2.planningitem+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ipunplugged.rcprofile\":{\"source\":\"iana\",\"extensions\":[\"rcprofile\"]},\"application/vnd.irepository.package+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"irp\"]},\"application/vnd.is-xpr\":{\"source\":\"iana\",\"extensions\":[\"xpr\"]},\"application/vnd.isac.fcs\":{\"source\":\"iana\",\"extensions\":[\"fcs\"]},\"application/vnd.iso11783-10+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.jam\":{\"source\":\"iana\",\"extensions\":[\"jam\"]},\"application/vnd.japannet-directory-service\":{\"source\":\"iana\"},\"application/vnd.japannet-jpnstore-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-payment-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-registration\":{\"source\":\"iana\"},\"application/vnd.japannet-registration-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-setstore-wakeup\":{\"source\":\"iana\"},\"application/vnd.japannet-verification\":{\"source\":\"iana\"},\"application/vnd.japannet-verification-wakeup\":{\"source\":\"iana\"},\"application/vnd.jcp.javame.midlet-rms\":{\"source\":\"iana\",\"extensions\":[\"rms\"]},\"application/vnd.jisp\":{\"source\":\"iana\",\"extensions\":[\"jisp\"]},\"application/vnd.joost.joda-archive\":{\"source\":\"iana\",\"extensions\":[\"joda\"]},\"application/vnd.jsk.isdn-ngn\":{\"source\":\"iana\"},\"application/vnd.kahootz\":{\"source\":\"iana\",\"extensions\":[\"ktz\",\"ktr\"]},\"application/vnd.kde.karbon\":{\"source\":\"iana\",\"extensions\":[\"karbon\"]},\"application/vnd.kde.kchart\":{\"source\":\"iana\",\"extensions\":[\"chrt\"]},\"application/vnd.kde.kformula\":{\"source\":\"iana\",\"extensions\":[\"kfo\"]},\"application/vnd.kde.kivio\":{\"source\":\"iana\",\"extensions\":[\"flw\"]},\"application/vnd.kde.kontour\":{\"source\":\"iana\",\"extensions\":[\"kon\"]},\"application/vnd.kde.kpresenter\":{\"source\":\"iana\",\"extensions\":[\"kpr\",\"kpt\"]},\"application/vnd.kde.kspread\":{\"source\":\"iana\",\"extensions\":[\"ksp\"]},\"application/vnd.kde.kword\":{\"source\":\"iana\",\"extensions\":[\"kwd\",\"kwt\"]},\"application/vnd.kenameaapp\":{\"source\":\"iana\",\"extensions\":[\"htke\"]},\"application/vnd.kidspiration\":{\"source\":\"iana\",\"extensions\":[\"kia\"]},\"application/vnd.kinar\":{\"source\":\"iana\",\"extensions\":[\"kne\",\"knp\"]},\"application/vnd.koan\":{\"source\":\"iana\",\"extensions\":[\"skp\",\"skd\",\"skt\",\"skm\"]},\"application/vnd.kodak-descriptor\":{\"source\":\"iana\",\"extensions\":[\"sse\"]},\"application/vnd.las\":{\"source\":\"iana\"},\"application/vnd.las.las+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.las.las+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lasxml\"]},\"application/vnd.laszip\":{\"source\":\"iana\"},\"application/vnd.leap+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.liberty-request+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.llamagraphics.life-balance.desktop\":{\"source\":\"iana\",\"extensions\":[\"lbd\"]},\"application/vnd.llamagraphics.life-balance.exchange+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"lbe\"]},\"application/vnd.logipipe.circuit+zip\":{\"source\":\"iana\",\"compressible\":false},\"application/vnd.loom\":{\"source\":\"iana\"},\"application/vnd.lotus-1-2-3\":{\"source\":\"iana\",\"extensions\":[\"123\"]},\"application/vnd.lotus-approach\":{\"source\":\"iana\",\"extensions\":[\"apr\"]},\"application/vnd.lotus-freelance\":{\"source\":\"iana\",\"extensions\":[\"pre\"]},\"application/vnd.lotus-notes\":{\"source\":\"iana\",\"extensions\":[\"nsf\"]},\"application/vnd.lotus-organizer\":{\"source\":\"iana\",\"extensions\":[\"org\"]},\"application/vnd.lotus-screencam\":{\"source\":\"iana\",\"extensions\":[\"scm\"]},\"application/vnd.lotus-wordpro\":{\"source\":\"iana\",\"extensions\":[\"lwp\"]},\"application/vnd.macports.portpkg\":{\"source\":\"iana\",\"extensions\":[\"portpkg\"]},\"application/vnd.mapbox-vector-tile\":{\"source\":\"iana\"},\"application/vnd.marlin.drm.actiontoken+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.marlin.drm.conftoken+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.marlin.drm.license+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.marlin.drm.mdcf\":{\"source\":\"iana\"},\"application/vnd.mason+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.maxmind.maxmind-db\":{\"source\":\"iana\"},\"application/vnd.mcd\":{\"source\":\"iana\",\"extensions\":[\"mcd\"]},\"application/vnd.medcalcdata\":{\"source\":\"iana\",\"extensions\":[\"mc1\"]},\"application/vnd.mediastation.cdkey\":{\"source\":\"iana\",\"extensions\":[\"cdkey\"]},\"application/vnd.meridian-slingshot\":{\"source\":\"iana\"},\"application/vnd.mfer\":{\"source\":\"iana\",\"extensions\":[\"mwf\"]},\"application/vnd.mfmp\":{\"source\":\"iana\",\"extensions\":[\"mfm\"]},\"application/vnd.micro+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.micrografx.flo\":{\"source\":\"iana\",\"extensions\":[\"flo\"]},\"application/vnd.micrografx.igx\":{\"source\":\"iana\",\"extensions\":[\"igx\"]},\"application/vnd.microsoft.portable-executable\":{\"source\":\"iana\"},\"application/vnd.microsoft.windows.thumbnail-cache\":{\"source\":\"iana\"},\"application/vnd.miele+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.mif\":{\"source\":\"iana\",\"extensions\":[\"mif\"]},\"application/vnd.minisoft-hp3000-save\":{\"source\":\"iana\"},\"application/vnd.mitsubishi.misty-guard.trustweb\":{\"source\":\"iana\"},\"application/vnd.mobius.daf\":{\"source\":\"iana\",\"extensions\":[\"daf\"]},\"application/vnd.mobius.dis\":{\"source\":\"iana\",\"extensions\":[\"dis\"]},\"application/vnd.mobius.mbk\":{\"source\":\"iana\",\"extensions\":[\"mbk\"]},\"application/vnd.mobius.mqy\":{\"source\":\"iana\",\"extensions\":[\"mqy\"]},\"application/vnd.mobius.msl\":{\"source\":\"iana\",\"extensions\":[\"msl\"]},\"application/vnd.mobius.plc\":{\"source\":\"iana\",\"extensions\":[\"plc\"]},\"application/vnd.mobius.txf\":{\"source\":\"iana\",\"extensions\":[\"txf\"]},\"application/vnd.mophun.application\":{\"source\":\"iana\",\"extensions\":[\"mpn\"]},\"application/vnd.mophun.certificate\":{\"source\":\"iana\",\"extensions\":[\"mpc\"]},\"application/vnd.motorola.flexsuite\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.adsi\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.fis\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.gotap\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.kmr\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.ttc\":{\"source\":\"iana\"},\"application/vnd.motorola.flexsuite.wem\":{\"source\":\"iana\"},\"application/vnd.motorola.iprm\":{\"source\":\"iana\"},\"application/vnd.mozilla.xul+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xul\"]},\"application/vnd.ms-3mfdocument\":{\"source\":\"iana\"},\"application/vnd.ms-artgalry\":{\"source\":\"iana\",\"extensions\":[\"cil\"]},\"application/vnd.ms-asf\":{\"source\":\"iana\"},\"application/vnd.ms-cab-compressed\":{\"source\":\"iana\",\"extensions\":[\"cab\"]},\"application/vnd.ms-color.iccprofile\":{\"source\":\"apache\"},\"application/vnd.ms-excel\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"xls\",\"xlm\",\"xla\",\"xlc\",\"xlt\",\"xlw\"]},\"application/vnd.ms-excel.addin.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xlam\"]},\"application/vnd.ms-excel.sheet.binary.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xlsb\"]},\"application/vnd.ms-excel.sheet.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xlsm\"]},\"application/vnd.ms-excel.template.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"xltm\"]},\"application/vnd.ms-fontobject\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"eot\"]},\"application/vnd.ms-htmlhelp\":{\"source\":\"iana\",\"extensions\":[\"chm\"]},\"application/vnd.ms-ims\":{\"source\":\"iana\",\"extensions\":[\"ims\"]},\"application/vnd.ms-lrm\":{\"source\":\"iana\",\"extensions\":[\"lrm\"]},\"application/vnd.ms-office.activex+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-officetheme\":{\"source\":\"iana\",\"extensions\":[\"thmx\"]},\"application/vnd.ms-opentype\":{\"source\":\"apache\",\"compressible\":true},\"application/vnd.ms-outlook\":{\"compressible\":false,\"extensions\":[\"msg\"]},\"application/vnd.ms-package.obfuscated-opentype\":{\"source\":\"apache\"},\"application/vnd.ms-pki.seccat\":{\"source\":\"apache\",\"extensions\":[\"cat\"]},\"application/vnd.ms-pki.stl\":{\"source\":\"apache\",\"extensions\":[\"stl\"]},\"application/vnd.ms-playready.initiator+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-powerpoint\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ppt\",\"pps\",\"pot\"]},\"application/vnd.ms-powerpoint.addin.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"ppam\"]},\"application/vnd.ms-powerpoint.presentation.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"pptm\"]},\"application/vnd.ms-powerpoint.slide.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"sldm\"]},\"application/vnd.ms-powerpoint.slideshow.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"ppsm\"]},\"application/vnd.ms-powerpoint.template.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"potm\"]},\"application/vnd.ms-printdevicecapabilities+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-printing.printticket+xml\":{\"source\":\"apache\",\"compressible\":true},\"application/vnd.ms-printschematicket+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.ms-project\":{\"source\":\"iana\",\"extensions\":[\"mpp\",\"mpt\"]},\"application/vnd.ms-tnef\":{\"source\":\"iana\"},\"application/vnd.ms-windows.devicepairing\":{\"source\":\"iana\"},\"application/vnd.ms-windows.nwprinting.oob\":{\"source\":\"iana\"},\"application/vnd.ms-windows.printerpairing\":{\"source\":\"iana\"},\"application/vnd.ms-windows.wsd.oob\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.lic-chlg-req\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.lic-resp\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.meter-chlg-req\":{\"source\":\"iana\"},\"application/vnd.ms-wmdrm.meter-resp\":{\"source\":\"iana\"},\"application/vnd.ms-word.document.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"docm\"]},\"application/vnd.ms-word.template.macroenabled.12\":{\"source\":\"iana\",\"extensions\":[\"dotm\"]},\"application/vnd.ms-works\":{\"source\":\"iana\",\"extensions\":[\"wps\",\"wks\",\"wcm\",\"wdb\"]},\"application/vnd.ms-wpl\":{\"source\":\"iana\",\"extensions\":[\"wpl\"]},\"application/vnd.ms-xpsdocument\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"xps\"]},\"application/vnd.msa-disk-image\":{\"source\":\"iana\"},\"application/vnd.mseq\":{\"source\":\"iana\",\"extensions\":[\"mseq\"]},\"application/vnd.msign\":{\"source\":\"iana\"},\"application/vnd.multiad.creator\":{\"source\":\"iana\"},\"application/vnd.multiad.creator.cif\":{\"source\":\"iana\"},\"application/vnd.music-niff\":{\"source\":\"iana\"},\"application/vnd.musician\":{\"source\":\"iana\",\"extensions\":[\"mus\"]},\"application/vnd.muvee.style\":{\"source\":\"iana\",\"extensions\":[\"msty\"]},\"application/vnd.mynfc\":{\"source\":\"iana\",\"extensions\":[\"taglet\"]},\"application/vnd.ncd.control\":{\"source\":\"iana\"},\"application/vnd.ncd.reference\":{\"source\":\"iana\"},\"application/vnd.nearst.inv+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nebumind.line\":{\"source\":\"iana\"},\"application/vnd.nervana\":{\"source\":\"iana\"},\"application/vnd.netfpx\":{\"source\":\"iana\"},\"application/vnd.neurolanguage.nlu\":{\"source\":\"iana\",\"extensions\":[\"nlu\"]},\"application/vnd.nimn\":{\"source\":\"iana\"},\"application/vnd.nintendo.nitro.rom\":{\"source\":\"iana\"},\"application/vnd.nintendo.snes.rom\":{\"source\":\"iana\"},\"application/vnd.nitf\":{\"source\":\"iana\",\"extensions\":[\"ntf\",\"nitf\"]},\"application/vnd.noblenet-directory\":{\"source\":\"iana\",\"extensions\":[\"nnd\"]},\"application/vnd.noblenet-sealer\":{\"source\":\"iana\",\"extensions\":[\"nns\"]},\"application/vnd.noblenet-web\":{\"source\":\"iana\",\"extensions\":[\"nnw\"]},\"application/vnd.nokia.catalogs\":{\"source\":\"iana\"},\"application/vnd.nokia.conml+wbxml\":{\"source\":\"iana\"},\"application/vnd.nokia.conml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.iptv.config+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.isds-radio-presets\":{\"source\":\"iana\"},\"application/vnd.nokia.landmark+wbxml\":{\"source\":\"iana\"},\"application/vnd.nokia.landmark+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.landmarkcollection+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.n-gage.ac+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ac\"]},\"application/vnd.nokia.n-gage.data\":{\"source\":\"iana\",\"extensions\":[\"ngdat\"]},\"application/vnd.nokia.n-gage.symbian.install\":{\"source\":\"iana\",\"extensions\":[\"n-gage\"]},\"application/vnd.nokia.ncd\":{\"source\":\"iana\"},\"application/vnd.nokia.pcd+wbxml\":{\"source\":\"iana\"},\"application/vnd.nokia.pcd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.nokia.radio-preset\":{\"source\":\"iana\",\"extensions\":[\"rpst\"]},\"application/vnd.nokia.radio-presets\":{\"source\":\"iana\",\"extensions\":[\"rpss\"]},\"application/vnd.novadigm.edm\":{\"source\":\"iana\",\"extensions\":[\"edm\"]},\"application/vnd.novadigm.edx\":{\"source\":\"iana\",\"extensions\":[\"edx\"]},\"application/vnd.novadigm.ext\":{\"source\":\"iana\",\"extensions\":[\"ext\"]},\"application/vnd.ntt-local.content-share\":{\"source\":\"iana\"},\"application/vnd.ntt-local.file-transfer\":{\"source\":\"iana\"},\"application/vnd.ntt-local.ogw_remote-access\":{\"source\":\"iana\"},\"application/vnd.ntt-local.sip-ta_remote\":{\"source\":\"iana\"},\"application/vnd.ntt-local.sip-ta_tcp_stream\":{\"source\":\"iana\"},\"application/vnd.oasis.opendocument.chart\":{\"source\":\"iana\",\"extensions\":[\"odc\"]},\"application/vnd.oasis.opendocument.chart-template\":{\"source\":\"iana\",\"extensions\":[\"otc\"]},\"application/vnd.oasis.opendocument.database\":{\"source\":\"iana\",\"extensions\":[\"odb\"]},\"application/vnd.oasis.opendocument.formula\":{\"source\":\"iana\",\"extensions\":[\"odf\"]},\"application/vnd.oasis.opendocument.formula-template\":{\"source\":\"iana\",\"extensions\":[\"odft\"]},\"application/vnd.oasis.opendocument.graphics\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"odg\"]},\"application/vnd.oasis.opendocument.graphics-template\":{\"source\":\"iana\",\"extensions\":[\"otg\"]},\"application/vnd.oasis.opendocument.image\":{\"source\":\"iana\",\"extensions\":[\"odi\"]},\"application/vnd.oasis.opendocument.image-template\":{\"source\":\"iana\",\"extensions\":[\"oti\"]},\"application/vnd.oasis.opendocument.presentation\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"odp\"]},\"application/vnd.oasis.opendocument.presentation-template\":{\"source\":\"iana\",\"extensions\":[\"otp\"]},\"application/vnd.oasis.opendocument.spreadsheet\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ods\"]},\"application/vnd.oasis.opendocument.spreadsheet-template\":{\"source\":\"iana\",\"extensions\":[\"ots\"]},\"application/vnd.oasis.opendocument.text\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"odt\"]},\"application/vnd.oasis.opendocument.text-master\":{\"source\":\"iana\",\"extensions\":[\"odm\"]},\"application/vnd.oasis.opendocument.text-template\":{\"source\":\"iana\",\"extensions\":[\"ott\"]},\"application/vnd.oasis.opendocument.text-web\":{\"source\":\"iana\",\"extensions\":[\"oth\"]},\"application/vnd.obn\":{\"source\":\"iana\"},\"application/vnd.ocf+cbor\":{\"source\":\"iana\"},\"application/vnd.oci.image.manifest.v1+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oftn.l10n+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.contentaccessdownload+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.contentaccessstreaming+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.cspg-hexbinary\":{\"source\":\"iana\"},\"application/vnd.oipf.dae.svg+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.dae.xhtml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.mippvcontrolmessage+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.pae.gem\":{\"source\":\"iana\"},\"application/vnd.oipf.spdiscovery+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.spdlist+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.ueprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oipf.userprofile+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.olpc-sugar\":{\"source\":\"iana\",\"extensions\":[\"xo\"]},\"application/vnd.oma-scws-config\":{\"source\":\"iana\"},\"application/vnd.oma-scws-http-request\":{\"source\":\"iana\"},\"application/vnd.oma-scws-http-response\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.associated-procedure-parameter+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.drm-trigger+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.imd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.ltkm\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.notification+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.provisioningtrigger\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.sgboot\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.sgdd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.sgdu\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.simple-symbol-container\":{\"source\":\"iana\"},\"application/vnd.oma.bcast.smartcard-trigger+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.sprov+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.bcast.stkm\":{\"source\":\"iana\"},\"application/vnd.oma.cab-address-book+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-feature-handler+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-pcc+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-subs-invite+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.cab-user-prefs+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.dcd\":{\"source\":\"iana\"},\"application/vnd.oma.dcdc\":{\"source\":\"iana\"},\"application/vnd.oma.dd2+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dd2\"]},\"application/vnd.oma.drm.risd+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.group-usage-list+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.lwm2m+cbor\":{\"source\":\"iana\"},\"application/vnd.oma.lwm2m+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.lwm2m+tlv\":{\"source\":\"iana\"},\"application/vnd.oma.pal+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.detailed-progress-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.final-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.groups+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.invocation-descriptor+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.poc.optimized-progress-report+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.push\":{\"source\":\"iana\"},\"application/vnd.oma.scidm.messages+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oma.xcap-directory+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.omads-email+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.omads-file+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.omads-folder+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.omaloc-supl-init\":{\"source\":\"iana\"},\"application/vnd.onepager\":{\"source\":\"iana\"},\"application/vnd.onepagertamp\":{\"source\":\"iana\"},\"application/vnd.onepagertamx\":{\"source\":\"iana\"},\"application/vnd.onepagertat\":{\"source\":\"iana\"},\"application/vnd.onepagertatp\":{\"source\":\"iana\"},\"application/vnd.onepagertatx\":{\"source\":\"iana\"},\"application/vnd.openblox.game+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"obgx\"]},\"application/vnd.openblox.game-binary\":{\"source\":\"iana\"},\"application/vnd.openeye.oeb\":{\"source\":\"iana\"},\"application/vnd.openofficeorg.extension\":{\"source\":\"apache\",\"extensions\":[\"oxt\"]},\"application/vnd.openstreetmap.data+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"osm\"]},\"application/vnd.openxmlformats-officedocument.custom-properties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.customxmlproperties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawing+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.chartshapes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramcolors+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramdata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramlayout+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.drawingml.diagramstyle+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.extended-properties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.commentauthors+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.comments+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.handoutmaster+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.notesmaster+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.notesslide+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.presentation\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"pptx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.presprops+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slide\":{\"source\":\"iana\",\"extensions\":[\"sldx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slidelayout+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slidemaster+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slideshow\":{\"source\":\"iana\",\"extensions\":[\"ppsx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.slideupdateinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.tablestyles+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.tags+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.template\":{\"source\":\"iana\",\"extensions\":[\"potx\"]},\"application/vnd.openxmlformats-officedocument.presentationml.template.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.presentationml.viewprops+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.calcchain+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.chartsheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.dialogsheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.externallink+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcachedefinition+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivotcacherecords+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.pivottable+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.querytable+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionheaders+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.revisionlog+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedstrings+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"xlsx\"]},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheetmetadata+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.tablesinglecells+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.template\":{\"source\":\"iana\",\"extensions\":[\"xltx\"]},\"application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.usernames+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.volatiledependencies+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.theme+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.themeoverride+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.vmldrawing\":{\"source\":\"iana\"},\"application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"docx\"]},\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.glossary+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.fonttable+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.template\":{\"source\":\"iana\",\"extensions\":[\"dotx\"]},\"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-officedocument.wordprocessingml.websettings+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-package.core-properties+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-package.digital-signature-xmlsignature+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.openxmlformats-package.relationships+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oracle.resource+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.orange.indata\":{\"source\":\"iana\"},\"application/vnd.osa.netdeploy\":{\"source\":\"iana\"},\"application/vnd.osgeo.mapguide.package\":{\"source\":\"iana\",\"extensions\":[\"mgp\"]},\"application/vnd.osgi.bundle\":{\"source\":\"iana\"},\"application/vnd.osgi.dp\":{\"source\":\"iana\",\"extensions\":[\"dp\"]},\"application/vnd.osgi.subsystem\":{\"source\":\"iana\",\"extensions\":[\"esa\"]},\"application/vnd.otps.ct-kip+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.oxli.countgraph\":{\"source\":\"iana\"},\"application/vnd.pagerduty+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.palm\":{\"source\":\"iana\",\"extensions\":[\"pdb\",\"pqa\",\"oprc\"]},\"application/vnd.panoply\":{\"source\":\"iana\"},\"application/vnd.paos.xml\":{\"source\":\"iana\"},\"application/vnd.patentdive\":{\"source\":\"iana\"},\"application/vnd.patientecommsdoc\":{\"source\":\"iana\"},\"application/vnd.pawaafile\":{\"source\":\"iana\",\"extensions\":[\"paw\"]},\"application/vnd.pcos\":{\"source\":\"iana\"},\"application/vnd.pg.format\":{\"source\":\"iana\",\"extensions\":[\"str\"]},\"application/vnd.pg.osasli\":{\"source\":\"iana\",\"extensions\":[\"ei6\"]},\"application/vnd.piaccess.application-licence\":{\"source\":\"iana\"},\"application/vnd.picsel\":{\"source\":\"iana\",\"extensions\":[\"efif\"]},\"application/vnd.pmi.widget\":{\"source\":\"iana\",\"extensions\":[\"wg\"]},\"application/vnd.poc.group-advertisement+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.pocketlearn\":{\"source\":\"iana\",\"extensions\":[\"plf\"]},\"application/vnd.powerbuilder6\":{\"source\":\"iana\",\"extensions\":[\"pbd\"]},\"application/vnd.powerbuilder6-s\":{\"source\":\"iana\"},\"application/vnd.powerbuilder7\":{\"source\":\"iana\"},\"application/vnd.powerbuilder7-s\":{\"source\":\"iana\"},\"application/vnd.powerbuilder75\":{\"source\":\"iana\"},\"application/vnd.powerbuilder75-s\":{\"source\":\"iana\"},\"application/vnd.preminet\":{\"source\":\"iana\"},\"application/vnd.previewsystems.box\":{\"source\":\"iana\",\"extensions\":[\"box\"]},\"application/vnd.proteus.magazine\":{\"source\":\"iana\",\"extensions\":[\"mgz\"]},\"application/vnd.psfs\":{\"source\":\"iana\"},\"application/vnd.publishare-delta-tree\":{\"source\":\"iana\",\"extensions\":[\"qps\"]},\"application/vnd.pvi.ptid1\":{\"source\":\"iana\",\"extensions\":[\"ptid\"]},\"application/vnd.pwg-multiplexed\":{\"source\":\"iana\"},\"application/vnd.pwg-xhtml-print+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.qualcomm.brew-app-res\":{\"source\":\"iana\"},\"application/vnd.quarantainenet\":{\"source\":\"iana\"},\"application/vnd.quark.quarkxpress\":{\"source\":\"iana\",\"extensions\":[\"qxd\",\"qxt\",\"qwd\",\"qwt\",\"qxl\",\"qxb\"]},\"application/vnd.quobject-quoxdocument\":{\"source\":\"iana\"},\"application/vnd.radisys.moml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-conf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-conn+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-dialog+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-audit-stream+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-conf+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-base+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-fax-detect+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-fax-sendrecv+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-group+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-speech+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.radisys.msml-dialog-transform+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.rainstor.data\":{\"source\":\"iana\"},\"application/vnd.rapid\":{\"source\":\"iana\"},\"application/vnd.rar\":{\"source\":\"iana\",\"extensions\":[\"rar\"]},\"application/vnd.realvnc.bed\":{\"source\":\"iana\",\"extensions\":[\"bed\"]},\"application/vnd.recordare.musicxml\":{\"source\":\"iana\",\"extensions\":[\"mxl\"]},\"application/vnd.recordare.musicxml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"musicxml\"]},\"application/vnd.renlearn.rlprint\":{\"source\":\"iana\"},\"application/vnd.restful+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.rig.cryptonote\":{\"source\":\"iana\",\"extensions\":[\"cryptonote\"]},\"application/vnd.rim.cod\":{\"source\":\"apache\",\"extensions\":[\"cod\"]},\"application/vnd.rn-realmedia\":{\"source\":\"apache\",\"extensions\":[\"rm\"]},\"application/vnd.rn-realmedia-vbr\":{\"source\":\"apache\",\"extensions\":[\"rmvb\"]},\"application/vnd.route66.link66+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"link66\"]},\"application/vnd.rs-274x\":{\"source\":\"iana\"},\"application/vnd.ruckus.download\":{\"source\":\"iana\"},\"application/vnd.s3sms\":{\"source\":\"iana\"},\"application/vnd.sailingtracker.track\":{\"source\":\"iana\",\"extensions\":[\"st\"]},\"application/vnd.sar\":{\"source\":\"iana\"},\"application/vnd.sbm.cid\":{\"source\":\"iana\"},\"application/vnd.sbm.mid2\":{\"source\":\"iana\"},\"application/vnd.scribus\":{\"source\":\"iana\"},\"application/vnd.sealed.3df\":{\"source\":\"iana\"},\"application/vnd.sealed.csf\":{\"source\":\"iana\"},\"application/vnd.sealed.doc\":{\"source\":\"iana\"},\"application/vnd.sealed.eml\":{\"source\":\"iana\"},\"application/vnd.sealed.mht\":{\"source\":\"iana\"},\"application/vnd.sealed.net\":{\"source\":\"iana\"},\"application/vnd.sealed.ppt\":{\"source\":\"iana\"},\"application/vnd.sealed.tiff\":{\"source\":\"iana\"},\"application/vnd.sealed.xls\":{\"source\":\"iana\"},\"application/vnd.sealedmedia.softseal.html\":{\"source\":\"iana\"},\"application/vnd.sealedmedia.softseal.pdf\":{\"source\":\"iana\"},\"application/vnd.seemail\":{\"source\":\"iana\",\"extensions\":[\"see\"]},\"application/vnd.seis+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.sema\":{\"source\":\"iana\",\"extensions\":[\"sema\"]},\"application/vnd.semd\":{\"source\":\"iana\",\"extensions\":[\"semd\"]},\"application/vnd.semf\":{\"source\":\"iana\",\"extensions\":[\"semf\"]},\"application/vnd.shade-save-file\":{\"source\":\"iana\"},\"application/vnd.shana.informed.formdata\":{\"source\":\"iana\",\"extensions\":[\"ifm\"]},\"application/vnd.shana.informed.formtemplate\":{\"source\":\"iana\",\"extensions\":[\"itp\"]},\"application/vnd.shana.informed.interchange\":{\"source\":\"iana\",\"extensions\":[\"iif\"]},\"application/vnd.shana.informed.package\":{\"source\":\"iana\",\"extensions\":[\"ipk\"]},\"application/vnd.shootproof+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.shopkick+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.shp\":{\"source\":\"iana\"},\"application/vnd.shx\":{\"source\":\"iana\"},\"application/vnd.sigrok.session\":{\"source\":\"iana\"},\"application/vnd.simtech-mindmapper\":{\"source\":\"iana\",\"extensions\":[\"twd\",\"twds\"]},\"application/vnd.siren+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.smaf\":{\"source\":\"iana\",\"extensions\":[\"mmf\"]},\"application/vnd.smart.notebook\":{\"source\":\"iana\"},\"application/vnd.smart.teacher\":{\"source\":\"iana\",\"extensions\":[\"teacher\"]},\"application/vnd.snesdev-page-table\":{\"source\":\"iana\"},\"application/vnd.software602.filler.form+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"fo\"]},\"application/vnd.software602.filler.form-xml-zip\":{\"source\":\"iana\"},\"application/vnd.solent.sdkm+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"sdkm\",\"sdkd\"]},\"application/vnd.spotfire.dxp\":{\"source\":\"iana\",\"extensions\":[\"dxp\"]},\"application/vnd.spotfire.sfs\":{\"source\":\"iana\",\"extensions\":[\"sfs\"]},\"application/vnd.sqlite3\":{\"source\":\"iana\"},\"application/vnd.sss-cod\":{\"source\":\"iana\"},\"application/vnd.sss-dtf\":{\"source\":\"iana\"},\"application/vnd.sss-ntf\":{\"source\":\"iana\"},\"application/vnd.stardivision.calc\":{\"source\":\"apache\",\"extensions\":[\"sdc\"]},\"application/vnd.stardivision.draw\":{\"source\":\"apache\",\"extensions\":[\"sda\"]},\"application/vnd.stardivision.impress\":{\"source\":\"apache\",\"extensions\":[\"sdd\"]},\"application/vnd.stardivision.math\":{\"source\":\"apache\",\"extensions\":[\"smf\"]},\"application/vnd.stardivision.writer\":{\"source\":\"apache\",\"extensions\":[\"sdw\",\"vor\"]},\"application/vnd.stardivision.writer-global\":{\"source\":\"apache\",\"extensions\":[\"sgl\"]},\"application/vnd.stepmania.package\":{\"source\":\"iana\",\"extensions\":[\"smzip\"]},\"application/vnd.stepmania.stepchart\":{\"source\":\"iana\",\"extensions\":[\"sm\"]},\"application/vnd.street-stream\":{\"source\":\"iana\"},\"application/vnd.sun.wadl+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wadl\"]},\"application/vnd.sun.xml.calc\":{\"source\":\"apache\",\"extensions\":[\"sxc\"]},\"application/vnd.sun.xml.calc.template\":{\"source\":\"apache\",\"extensions\":[\"stc\"]},\"application/vnd.sun.xml.draw\":{\"source\":\"apache\",\"extensions\":[\"sxd\"]},\"application/vnd.sun.xml.draw.template\":{\"source\":\"apache\",\"extensions\":[\"std\"]},\"application/vnd.sun.xml.impress\":{\"source\":\"apache\",\"extensions\":[\"sxi\"]},\"application/vnd.sun.xml.impress.template\":{\"source\":\"apache\",\"extensions\":[\"sti\"]},\"application/vnd.sun.xml.math\":{\"source\":\"apache\",\"extensions\":[\"sxm\"]},\"application/vnd.sun.xml.writer\":{\"source\":\"apache\",\"extensions\":[\"sxw\"]},\"application/vnd.sun.xml.writer.global\":{\"source\":\"apache\",\"extensions\":[\"sxg\"]},\"application/vnd.sun.xml.writer.template\":{\"source\":\"apache\",\"extensions\":[\"stw\"]},\"application/vnd.sus-calendar\":{\"source\":\"iana\",\"extensions\":[\"sus\",\"susp\"]},\"application/vnd.svd\":{\"source\":\"iana\",\"extensions\":[\"svd\"]},\"application/vnd.swiftview-ics\":{\"source\":\"iana\"},\"application/vnd.sycle+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.symbian.install\":{\"source\":\"apache\",\"extensions\":[\"sis\",\"sisx\"]},\"application/vnd.syncml+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"xsm\"]},\"application/vnd.syncml.dm+wbxml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"bdm\"]},\"application/vnd.syncml.dm+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"xdm\"]},\"application/vnd.syncml.dm.notification\":{\"source\":\"iana\"},\"application/vnd.syncml.dmddf+wbxml\":{\"source\":\"iana\"},\"application/vnd.syncml.dmddf+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"ddf\"]},\"application/vnd.syncml.dmtnds+wbxml\":{\"source\":\"iana\"},\"application/vnd.syncml.dmtnds+xml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true},\"application/vnd.syncml.ds.notification\":{\"source\":\"iana\"},\"application/vnd.tableschema+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.tao.intent-module-archive\":{\"source\":\"iana\",\"extensions\":[\"tao\"]},\"application/vnd.tcpdump.pcap\":{\"source\":\"iana\",\"extensions\":[\"pcap\",\"cap\",\"dmp\"]},\"application/vnd.think-cell.ppttc+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.tmd.mediaflex.api+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.tml\":{\"source\":\"iana\"},\"application/vnd.tmobile-livetv\":{\"source\":\"iana\",\"extensions\":[\"tmo\"]},\"application/vnd.tri.onesource\":{\"source\":\"iana\"},\"application/vnd.trid.tpt\":{\"source\":\"iana\",\"extensions\":[\"tpt\"]},\"application/vnd.triscape.mxs\":{\"source\":\"iana\",\"extensions\":[\"mxs\"]},\"application/vnd.trueapp\":{\"source\":\"iana\",\"extensions\":[\"tra\"]},\"application/vnd.truedoc\":{\"source\":\"iana\"},\"application/vnd.ubisoft.webplayer\":{\"source\":\"iana\"},\"application/vnd.ufdl\":{\"source\":\"iana\",\"extensions\":[\"ufd\",\"ufdl\"]},\"application/vnd.uiq.theme\":{\"source\":\"iana\",\"extensions\":[\"utz\"]},\"application/vnd.umajin\":{\"source\":\"iana\",\"extensions\":[\"umj\"]},\"application/vnd.unity\":{\"source\":\"iana\",\"extensions\":[\"unityweb\"]},\"application/vnd.uoml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"uoml\"]},\"application/vnd.uplanet.alert\":{\"source\":\"iana\"},\"application/vnd.uplanet.alert-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.bearer-choice\":{\"source\":\"iana\"},\"application/vnd.uplanet.bearer-choice-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.cacheop\":{\"source\":\"iana\"},\"application/vnd.uplanet.cacheop-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.channel\":{\"source\":\"iana\"},\"application/vnd.uplanet.channel-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.list\":{\"source\":\"iana\"},\"application/vnd.uplanet.list-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.listcmd\":{\"source\":\"iana\"},\"application/vnd.uplanet.listcmd-wbxml\":{\"source\":\"iana\"},\"application/vnd.uplanet.signal\":{\"source\":\"iana\"},\"application/vnd.uri-map\":{\"source\":\"iana\"},\"application/vnd.valve.source.material\":{\"source\":\"iana\"},\"application/vnd.vcx\":{\"source\":\"iana\",\"extensions\":[\"vcx\"]},\"application/vnd.vd-study\":{\"source\":\"iana\"},\"application/vnd.vectorworks\":{\"source\":\"iana\"},\"application/vnd.vel+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.verimatrix.vcas\":{\"source\":\"iana\"},\"application/vnd.veryant.thin\":{\"source\":\"iana\"},\"application/vnd.ves.encrypted\":{\"source\":\"iana\"},\"application/vnd.vidsoft.vidconference\":{\"source\":\"iana\"},\"application/vnd.visio\":{\"source\":\"iana\",\"extensions\":[\"vsd\",\"vst\",\"vss\",\"vsw\"]},\"application/vnd.visionary\":{\"source\":\"iana\",\"extensions\":[\"vis\"]},\"application/vnd.vividence.scriptfile\":{\"source\":\"iana\"},\"application/vnd.vsf\":{\"source\":\"iana\",\"extensions\":[\"vsf\"]},\"application/vnd.wap.sic\":{\"source\":\"iana\"},\"application/vnd.wap.slc\":{\"source\":\"iana\"},\"application/vnd.wap.wbxml\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"wbxml\"]},\"application/vnd.wap.wmlc\":{\"source\":\"iana\",\"extensions\":[\"wmlc\"]},\"application/vnd.wap.wmlscriptc\":{\"source\":\"iana\",\"extensions\":[\"wmlsc\"]},\"application/vnd.webturbo\":{\"source\":\"iana\",\"extensions\":[\"wtb\"]},\"application/vnd.wfa.dpp\":{\"source\":\"iana\"},\"application/vnd.wfa.p2p\":{\"source\":\"iana\"},\"application/vnd.wfa.wsc\":{\"source\":\"iana\"},\"application/vnd.windows.devicepairing\":{\"source\":\"iana\"},\"application/vnd.wmc\":{\"source\":\"iana\"},\"application/vnd.wmf.bootstrap\":{\"source\":\"iana\"},\"application/vnd.wolfram.mathematica\":{\"source\":\"iana\"},\"application/vnd.wolfram.mathematica.package\":{\"source\":\"iana\"},\"application/vnd.wolfram.player\":{\"source\":\"iana\",\"extensions\":[\"nbp\"]},\"application/vnd.wordperfect\":{\"source\":\"iana\",\"extensions\":[\"wpd\"]},\"application/vnd.wqd\":{\"source\":\"iana\",\"extensions\":[\"wqd\"]},\"application/vnd.wrq-hp3000-labelled\":{\"source\":\"iana\"},\"application/vnd.wt.stf\":{\"source\":\"iana\",\"extensions\":[\"stf\"]},\"application/vnd.wv.csp+wbxml\":{\"source\":\"iana\"},\"application/vnd.wv.csp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.wv.ssp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.xacml+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.xara\":{\"source\":\"iana\",\"extensions\":[\"xar\"]},\"application/vnd.xfdl\":{\"source\":\"iana\",\"extensions\":[\"xfdl\"]},\"application/vnd.xfdl.webform\":{\"source\":\"iana\"},\"application/vnd.xmi+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/vnd.xmpie.cpkg\":{\"source\":\"iana\"},\"application/vnd.xmpie.dpkg\":{\"source\":\"iana\"},\"application/vnd.xmpie.plan\":{\"source\":\"iana\"},\"application/vnd.xmpie.ppkg\":{\"source\":\"iana\"},\"application/vnd.xmpie.xlim\":{\"source\":\"iana\"},\"application/vnd.yamaha.hv-dic\":{\"source\":\"iana\",\"extensions\":[\"hvd\"]},\"application/vnd.yamaha.hv-script\":{\"source\":\"iana\",\"extensions\":[\"hvs\"]},\"application/vnd.yamaha.hv-voice\":{\"source\":\"iana\",\"extensions\":[\"hvp\"]},\"application/vnd.yamaha.openscoreformat\":{\"source\":\"iana\",\"extensions\":[\"osf\"]},\"application/vnd.yamaha.openscoreformat.osfpvg+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"osfpvg\"]},\"application/vnd.yamaha.remote-setup\":{\"source\":\"iana\"},\"application/vnd.yamaha.smaf-audio\":{\"source\":\"iana\",\"extensions\":[\"saf\"]},\"application/vnd.yamaha.smaf-phrase\":{\"source\":\"iana\",\"extensions\":[\"spf\"]},\"application/vnd.yamaha.through-ngn\":{\"source\":\"iana\"},\"application/vnd.yamaha.tunnel-udpencap\":{\"source\":\"iana\"},\"application/vnd.yaoweme\":{\"source\":\"iana\"},\"application/vnd.yellowriver-custom-menu\":{\"source\":\"iana\",\"extensions\":[\"cmp\"]},\"application/vnd.youtube.yt\":{\"source\":\"iana\"},\"application/vnd.zul\":{\"source\":\"iana\",\"extensions\":[\"zir\",\"zirz\"]},\"application/vnd.zzazz.deck+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"zaz\"]},\"application/voicexml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"vxml\"]},\"application/voucher-cms+json\":{\"source\":\"iana\",\"compressible\":true},\"application/vq-rtcpxr\":{\"source\":\"iana\"},\"application/wasm\":{\"compressible\":true,\"extensions\":[\"wasm\"]},\"application/watcherinfo+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/webpush-options+json\":{\"source\":\"iana\",\"compressible\":true},\"application/whoispp-query\":{\"source\":\"iana\"},\"application/whoispp-response\":{\"source\":\"iana\"},\"application/widget\":{\"source\":\"iana\",\"extensions\":[\"wgt\"]},\"application/winhlp\":{\"source\":\"apache\",\"extensions\":[\"hlp\"]},\"application/wita\":{\"source\":\"iana\"},\"application/wordperfect5.1\":{\"source\":\"iana\"},\"application/wsdl+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wsdl\"]},\"application/wspolicy+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"wspolicy\"]},\"application/x-7z-compressed\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"7z\"]},\"application/x-abiword\":{\"source\":\"apache\",\"extensions\":[\"abw\"]},\"application/x-ace-compressed\":{\"source\":\"apache\",\"extensions\":[\"ace\"]},\"application/x-amf\":{\"source\":\"apache\"},\"application/x-apple-diskimage\":{\"source\":\"apache\",\"extensions\":[\"dmg\"]},\"application/x-arj\":{\"compressible\":false,\"extensions\":[\"arj\"]},\"application/x-authorware-bin\":{\"source\":\"apache\",\"extensions\":[\"aab\",\"x32\",\"u32\",\"vox\"]},\"application/x-authorware-map\":{\"source\":\"apache\",\"extensions\":[\"aam\"]},\"application/x-authorware-seg\":{\"source\":\"apache\",\"extensions\":[\"aas\"]},\"application/x-bcpio\":{\"source\":\"apache\",\"extensions\":[\"bcpio\"]},\"application/x-bdoc\":{\"compressible\":false,\"extensions\":[\"bdoc\"]},\"application/x-bittorrent\":{\"source\":\"apache\",\"extensions\":[\"torrent\"]},\"application/x-blorb\":{\"source\":\"apache\",\"extensions\":[\"blb\",\"blorb\"]},\"application/x-bzip\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"bz\"]},\"application/x-bzip2\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"bz2\",\"boz\"]},\"application/x-cbr\":{\"source\":\"apache\",\"extensions\":[\"cbr\",\"cba\",\"cbt\",\"cbz\",\"cb7\"]},\"application/x-cdlink\":{\"source\":\"apache\",\"extensions\":[\"vcd\"]},\"application/x-cfs-compressed\":{\"source\":\"apache\",\"extensions\":[\"cfs\"]},\"application/x-chat\":{\"source\":\"apache\",\"extensions\":[\"chat\"]},\"application/x-chess-pgn\":{\"source\":\"apache\",\"extensions\":[\"pgn\"]},\"application/x-chrome-extension\":{\"extensions\":[\"crx\"]},\"application/x-cocoa\":{\"source\":\"nginx\",\"extensions\":[\"cco\"]},\"application/x-compress\":{\"source\":\"apache\"},\"application/x-conference\":{\"source\":\"apache\",\"extensions\":[\"nsc\"]},\"application/x-cpio\":{\"source\":\"apache\",\"extensions\":[\"cpio\"]},\"application/x-csh\":{\"source\":\"apache\",\"extensions\":[\"csh\"]},\"application/x-deb\":{\"compressible\":false},\"application/x-debian-package\":{\"source\":\"apache\",\"extensions\":[\"deb\",\"udeb\"]},\"application/x-dgc-compressed\":{\"source\":\"apache\",\"extensions\":[\"dgc\"]},\"application/x-director\":{\"source\":\"apache\",\"extensions\":[\"dir\",\"dcr\",\"dxr\",\"cst\",\"cct\",\"cxt\",\"w3d\",\"fgd\",\"swa\"]},\"application/x-doom\":{\"source\":\"apache\",\"extensions\":[\"wad\"]},\"application/x-dtbncx+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"ncx\"]},\"application/x-dtbook+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"dtb\"]},\"application/x-dtbresource+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"res\"]},\"application/x-dvi\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"dvi\"]},\"application/x-envoy\":{\"source\":\"apache\",\"extensions\":[\"evy\"]},\"application/x-eva\":{\"source\":\"apache\",\"extensions\":[\"eva\"]},\"application/x-font-bdf\":{\"source\":\"apache\",\"extensions\":[\"bdf\"]},\"application/x-font-dos\":{\"source\":\"apache\"},\"application/x-font-framemaker\":{\"source\":\"apache\"},\"application/x-font-ghostscript\":{\"source\":\"apache\",\"extensions\":[\"gsf\"]},\"application/x-font-libgrx\":{\"source\":\"apache\"},\"application/x-font-linux-psf\":{\"source\":\"apache\",\"extensions\":[\"psf\"]},\"application/x-font-pcf\":{\"source\":\"apache\",\"extensions\":[\"pcf\"]},\"application/x-font-snf\":{\"source\":\"apache\",\"extensions\":[\"snf\"]},\"application/x-font-speedo\":{\"source\":\"apache\"},\"application/x-font-sunos-news\":{\"source\":\"apache\"},\"application/x-font-type1\":{\"source\":\"apache\",\"extensions\":[\"pfa\",\"pfb\",\"pfm\",\"afm\"]},\"application/x-font-vfont\":{\"source\":\"apache\"},\"application/x-freearc\":{\"source\":\"apache\",\"extensions\":[\"arc\"]},\"application/x-futuresplash\":{\"source\":\"apache\",\"extensions\":[\"spl\"]},\"application/x-gca-compressed\":{\"source\":\"apache\",\"extensions\":[\"gca\"]},\"application/x-glulx\":{\"source\":\"apache\",\"extensions\":[\"ulx\"]},\"application/x-gnumeric\":{\"source\":\"apache\",\"extensions\":[\"gnumeric\"]},\"application/x-gramps-xml\":{\"source\":\"apache\",\"extensions\":[\"gramps\"]},\"application/x-gtar\":{\"source\":\"apache\",\"extensions\":[\"gtar\"]},\"application/x-gzip\":{\"source\":\"apache\"},\"application/x-hdf\":{\"source\":\"apache\",\"extensions\":[\"hdf\"]},\"application/x-httpd-php\":{\"compressible\":true,\"extensions\":[\"php\"]},\"application/x-install-instructions\":{\"source\":\"apache\",\"extensions\":[\"install\"]},\"application/x-iso9660-image\":{\"source\":\"apache\",\"extensions\":[\"iso\"]},\"application/x-java-archive-diff\":{\"source\":\"nginx\",\"extensions\":[\"jardiff\"]},\"application/x-java-jnlp-file\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"jnlp\"]},\"application/x-javascript\":{\"compressible\":true},\"application/x-keepass2\":{\"extensions\":[\"kdbx\"]},\"application/x-latex\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"latex\"]},\"application/x-lua-bytecode\":{\"extensions\":[\"luac\"]},\"application/x-lzh-compressed\":{\"source\":\"apache\",\"extensions\":[\"lzh\",\"lha\"]},\"application/x-makeself\":{\"source\":\"nginx\",\"extensions\":[\"run\"]},\"application/x-mie\":{\"source\":\"apache\",\"extensions\":[\"mie\"]},\"application/x-mobipocket-ebook\":{\"source\":\"apache\",\"extensions\":[\"prc\",\"mobi\"]},\"application/x-mpegurl\":{\"compressible\":false},\"application/x-ms-application\":{\"source\":\"apache\",\"extensions\":[\"application\"]},\"application/x-ms-shortcut\":{\"source\":\"apache\",\"extensions\":[\"lnk\"]},\"application/x-ms-wmd\":{\"source\":\"apache\",\"extensions\":[\"wmd\"]},\"application/x-ms-wmz\":{\"source\":\"apache\",\"extensions\":[\"wmz\"]},\"application/x-ms-xbap\":{\"source\":\"apache\",\"extensions\":[\"xbap\"]},\"application/x-msaccess\":{\"source\":\"apache\",\"extensions\":[\"mdb\"]},\"application/x-msbinder\":{\"source\":\"apache\",\"extensions\":[\"obd\"]},\"application/x-mscardfile\":{\"source\":\"apache\",\"extensions\":[\"crd\"]},\"application/x-msclip\":{\"source\":\"apache\",\"extensions\":[\"clp\"]},\"application/x-msdos-program\":{\"extensions\":[\"exe\"]},\"application/x-msdownload\":{\"source\":\"apache\",\"extensions\":[\"exe\",\"dll\",\"com\",\"bat\",\"msi\"]},\"application/x-msmediaview\":{\"source\":\"apache\",\"extensions\":[\"mvb\",\"m13\",\"m14\"]},\"application/x-msmetafile\":{\"source\":\"apache\",\"extensions\":[\"wmf\",\"wmz\",\"emf\",\"emz\"]},\"application/x-msmoney\":{\"source\":\"apache\",\"extensions\":[\"mny\"]},\"application/x-mspublisher\":{\"source\":\"apache\",\"extensions\":[\"pub\"]},\"application/x-msschedule\":{\"source\":\"apache\",\"extensions\":[\"scd\"]},\"application/x-msterminal\":{\"source\":\"apache\",\"extensions\":[\"trm\"]},\"application/x-mswrite\":{\"source\":\"apache\",\"extensions\":[\"wri\"]},\"application/x-netcdf\":{\"source\":\"apache\",\"extensions\":[\"nc\",\"cdf\"]},\"application/x-ns-proxy-autoconfig\":{\"compressible\":true,\"extensions\":[\"pac\"]},\"application/x-nzb\":{\"source\":\"apache\",\"extensions\":[\"nzb\"]},\"application/x-perl\":{\"source\":\"nginx\",\"extensions\":[\"pl\",\"pm\"]},\"application/x-pilot\":{\"source\":\"nginx\",\"extensions\":[\"prc\",\"pdb\"]},\"application/x-pkcs12\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"p12\",\"pfx\"]},\"application/x-pkcs7-certificates\":{\"source\":\"apache\",\"extensions\":[\"p7b\",\"spc\"]},\"application/x-pkcs7-certreqresp\":{\"source\":\"apache\",\"extensions\":[\"p7r\"]},\"application/x-pki-message\":{\"source\":\"iana\"},\"application/x-rar-compressed\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"rar\"]},\"application/x-redhat-package-manager\":{\"source\":\"nginx\",\"extensions\":[\"rpm\"]},\"application/x-research-info-systems\":{\"source\":\"apache\",\"extensions\":[\"ris\"]},\"application/x-sea\":{\"source\":\"nginx\",\"extensions\":[\"sea\"]},\"application/x-sh\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"sh\"]},\"application/x-shar\":{\"source\":\"apache\",\"extensions\":[\"shar\"]},\"application/x-shockwave-flash\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"swf\"]},\"application/x-silverlight-app\":{\"source\":\"apache\",\"extensions\":[\"xap\"]},\"application/x-sql\":{\"source\":\"apache\",\"extensions\":[\"sql\"]},\"application/x-stuffit\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"sit\"]},\"application/x-stuffitx\":{\"source\":\"apache\",\"extensions\":[\"sitx\"]},\"application/x-subrip\":{\"source\":\"apache\",\"extensions\":[\"srt\"]},\"application/x-sv4cpio\":{\"source\":\"apache\",\"extensions\":[\"sv4cpio\"]},\"application/x-sv4crc\":{\"source\":\"apache\",\"extensions\":[\"sv4crc\"]},\"application/x-t3vm-image\":{\"source\":\"apache\",\"extensions\":[\"t3\"]},\"application/x-tads\":{\"source\":\"apache\",\"extensions\":[\"gam\"]},\"application/x-tar\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"tar\"]},\"application/x-tcl\":{\"source\":\"apache\",\"extensions\":[\"tcl\",\"tk\"]},\"application/x-tex\":{\"source\":\"apache\",\"extensions\":[\"tex\"]},\"application/x-tex-tfm\":{\"source\":\"apache\",\"extensions\":[\"tfm\"]},\"application/x-texinfo\":{\"source\":\"apache\",\"extensions\":[\"texinfo\",\"texi\"]},\"application/x-tgif\":{\"source\":\"apache\",\"extensions\":[\"obj\"]},\"application/x-ustar\":{\"source\":\"apache\",\"extensions\":[\"ustar\"]},\"application/x-virtualbox-hdd\":{\"compressible\":true,\"extensions\":[\"hdd\"]},\"application/x-virtualbox-ova\":{\"compressible\":true,\"extensions\":[\"ova\"]},\"application/x-virtualbox-ovf\":{\"compressible\":true,\"extensions\":[\"ovf\"]},\"application/x-virtualbox-vbox\":{\"compressible\":true,\"extensions\":[\"vbox\"]},\"application/x-virtualbox-vbox-extpack\":{\"compressible\":false,\"extensions\":[\"vbox-extpack\"]},\"application/x-virtualbox-vdi\":{\"compressible\":true,\"extensions\":[\"vdi\"]},\"application/x-virtualbox-vhd\":{\"compressible\":true,\"extensions\":[\"vhd\"]},\"application/x-virtualbox-vmdk\":{\"compressible\":true,\"extensions\":[\"vmdk\"]},\"application/x-wais-source\":{\"source\":\"apache\",\"extensions\":[\"src\"]},\"application/x-web-app-manifest+json\":{\"compressible\":true,\"extensions\":[\"webapp\"]},\"application/x-www-form-urlencoded\":{\"source\":\"iana\",\"compressible\":true},\"application/x-x509-ca-cert\":{\"source\":\"iana\",\"extensions\":[\"der\",\"crt\",\"pem\"]},\"application/x-x509-ca-ra-cert\":{\"source\":\"iana\"},\"application/x-x509-next-ca-cert\":{\"source\":\"iana\"},\"application/x-xfig\":{\"source\":\"apache\",\"extensions\":[\"fig\"]},\"application/x-xliff+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xlf\"]},\"application/x-xpinstall\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"xpi\"]},\"application/x-xz\":{\"source\":\"apache\",\"extensions\":[\"xz\"]},\"application/x-zmachine\":{\"source\":\"apache\",\"extensions\":[\"z1\",\"z2\",\"z3\",\"z4\",\"z5\",\"z6\",\"z7\",\"z8\"]},\"application/x400-bp\":{\"source\":\"iana\"},\"application/xacml+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xaml+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xaml\"]},\"application/xcap-att+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xav\"]},\"application/xcap-caps+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xca\"]},\"application/xcap-diff+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xdf\"]},\"application/xcap-el+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xel\"]},\"application/xcap-error+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xcap-ns+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xns\"]},\"application/xcon-conference-info+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xcon-conference-info-diff+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xenc+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xenc\"]},\"application/xhtml+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xhtml\",\"xht\"]},\"application/xhtml-voice+xml\":{\"source\":\"apache\",\"compressible\":true},\"application/xliff+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xlf\"]},\"application/xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xml\",\"xsl\",\"xsd\",\"rng\"]},\"application/xml-dtd\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dtd\"]},\"application/xml-external-parsed-entity\":{\"source\":\"iana\"},\"application/xml-patch+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xmpp+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/xop+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xop\"]},\"application/xproc+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xpl\"]},\"application/xslt+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xsl\",\"xslt\"]},\"application/xspf+xml\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"xspf\"]},\"application/xv+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"mxml\",\"xhvml\",\"xvml\",\"xvm\"]},\"application/yang\":{\"source\":\"iana\",\"extensions\":[\"yang\"]},\"application/yang-data+json\":{\"source\":\"iana\",\"compressible\":true},\"application/yang-data+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/yang-patch+json\":{\"source\":\"iana\",\"compressible\":true},\"application/yang-patch+xml\":{\"source\":\"iana\",\"compressible\":true},\"application/yin+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"yin\"]},\"application/zip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"zip\"]},\"application/zlib\":{\"source\":\"iana\"},\"application/zstd\":{\"source\":\"iana\"},\"audio/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"audio/32kadpcm\":{\"source\":\"iana\"},\"audio/3gpp\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"3gpp\"]},\"audio/3gpp2\":{\"source\":\"iana\"},\"audio/aac\":{\"source\":\"iana\"},\"audio/ac3\":{\"source\":\"iana\"},\"audio/adpcm\":{\"source\":\"apache\",\"extensions\":[\"adp\"]},\"audio/amr\":{\"source\":\"iana\",\"extensions\":[\"amr\"]},\"audio/amr-wb\":{\"source\":\"iana\"},\"audio/amr-wb+\":{\"source\":\"iana\"},\"audio/aptx\":{\"source\":\"iana\"},\"audio/asc\":{\"source\":\"iana\"},\"audio/atrac-advanced-lossless\":{\"source\":\"iana\"},\"audio/atrac-x\":{\"source\":\"iana\"},\"audio/atrac3\":{\"source\":\"iana\"},\"audio/basic\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"au\",\"snd\"]},\"audio/bv16\":{\"source\":\"iana\"},\"audio/bv32\":{\"source\":\"iana\"},\"audio/clearmode\":{\"source\":\"iana\"},\"audio/cn\":{\"source\":\"iana\"},\"audio/dat12\":{\"source\":\"iana\"},\"audio/dls\":{\"source\":\"iana\"},\"audio/dsr-es201108\":{\"source\":\"iana\"},\"audio/dsr-es202050\":{\"source\":\"iana\"},\"audio/dsr-es202211\":{\"source\":\"iana\"},\"audio/dsr-es202212\":{\"source\":\"iana\"},\"audio/dv\":{\"source\":\"iana\"},\"audio/dvi4\":{\"source\":\"iana\"},\"audio/eac3\":{\"source\":\"iana\"},\"audio/encaprtp\":{\"source\":\"iana\"},\"audio/evrc\":{\"source\":\"iana\"},\"audio/evrc-qcp\":{\"source\":\"iana\"},\"audio/evrc0\":{\"source\":\"iana\"},\"audio/evrc1\":{\"source\":\"iana\"},\"audio/evrcb\":{\"source\":\"iana\"},\"audio/evrcb0\":{\"source\":\"iana\"},\"audio/evrcb1\":{\"source\":\"iana\"},\"audio/evrcnw\":{\"source\":\"iana\"},\"audio/evrcnw0\":{\"source\":\"iana\"},\"audio/evrcnw1\":{\"source\":\"iana\"},\"audio/evrcwb\":{\"source\":\"iana\"},\"audio/evrcwb0\":{\"source\":\"iana\"},\"audio/evrcwb1\":{\"source\":\"iana\"},\"audio/evs\":{\"source\":\"iana\"},\"audio/flexfec\":{\"source\":\"iana\"},\"audio/fwdred\":{\"source\":\"iana\"},\"audio/g711-0\":{\"source\":\"iana\"},\"audio/g719\":{\"source\":\"iana\"},\"audio/g722\":{\"source\":\"iana\"},\"audio/g7221\":{\"source\":\"iana\"},\"audio/g723\":{\"source\":\"iana\"},\"audio/g726-16\":{\"source\":\"iana\"},\"audio/g726-24\":{\"source\":\"iana\"},\"audio/g726-32\":{\"source\":\"iana\"},\"audio/g726-40\":{\"source\":\"iana\"},\"audio/g728\":{\"source\":\"iana\"},\"audio/g729\":{\"source\":\"iana\"},\"audio/g7291\":{\"source\":\"iana\"},\"audio/g729d\":{\"source\":\"iana\"},\"audio/g729e\":{\"source\":\"iana\"},\"audio/gsm\":{\"source\":\"iana\"},\"audio/gsm-efr\":{\"source\":\"iana\"},\"audio/gsm-hr-08\":{\"source\":\"iana\"},\"audio/ilbc\":{\"source\":\"iana\"},\"audio/ip-mr_v2.5\":{\"source\":\"iana\"},\"audio/isac\":{\"source\":\"apache\"},\"audio/l16\":{\"source\":\"iana\"},\"audio/l20\":{\"source\":\"iana\"},\"audio/l24\":{\"source\":\"iana\",\"compressible\":false},\"audio/l8\":{\"source\":\"iana\"},\"audio/lpc\":{\"source\":\"iana\"},\"audio/melp\":{\"source\":\"iana\"},\"audio/melp1200\":{\"source\":\"iana\"},\"audio/melp2400\":{\"source\":\"iana\"},\"audio/melp600\":{\"source\":\"iana\"},\"audio/mhas\":{\"source\":\"iana\"},\"audio/midi\":{\"source\":\"apache\",\"extensions\":[\"mid\",\"midi\",\"kar\",\"rmi\"]},\"audio/mobile-xmf\":{\"source\":\"iana\",\"extensions\":[\"mxmf\"]},\"audio/mp3\":{\"compressible\":false,\"extensions\":[\"mp3\"]},\"audio/mp4\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"m4a\",\"mp4a\"]},\"audio/mp4a-latm\":{\"source\":\"iana\"},\"audio/mpa\":{\"source\":\"iana\"},\"audio/mpa-robust\":{\"source\":\"iana\"},\"audio/mpeg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"mpga\",\"mp2\",\"mp2a\",\"mp3\",\"m2a\",\"m3a\"]},\"audio/mpeg4-generic\":{\"source\":\"iana\"},\"audio/musepack\":{\"source\":\"apache\"},\"audio/ogg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"oga\",\"ogg\",\"spx\",\"opus\"]},\"audio/opus\":{\"source\":\"iana\"},\"audio/parityfec\":{\"source\":\"iana\"},\"audio/pcma\":{\"source\":\"iana\"},\"audio/pcma-wb\":{\"source\":\"iana\"},\"audio/pcmu\":{\"source\":\"iana\"},\"audio/pcmu-wb\":{\"source\":\"iana\"},\"audio/prs.sid\":{\"source\":\"iana\"},\"audio/qcelp\":{\"source\":\"iana\"},\"audio/raptorfec\":{\"source\":\"iana\"},\"audio/red\":{\"source\":\"iana\"},\"audio/rtp-enc-aescm128\":{\"source\":\"iana\"},\"audio/rtp-midi\":{\"source\":\"iana\"},\"audio/rtploopback\":{\"source\":\"iana\"},\"audio/rtx\":{\"source\":\"iana\"},\"audio/s3m\":{\"source\":\"apache\",\"extensions\":[\"s3m\"]},\"audio/scip\":{\"source\":\"iana\"},\"audio/silk\":{\"source\":\"apache\",\"extensions\":[\"sil\"]},\"audio/smv\":{\"source\":\"iana\"},\"audio/smv-qcp\":{\"source\":\"iana\"},\"audio/smv0\":{\"source\":\"iana\"},\"audio/sofa\":{\"source\":\"iana\"},\"audio/sp-midi\":{\"source\":\"iana\"},\"audio/speex\":{\"source\":\"iana\"},\"audio/t140c\":{\"source\":\"iana\"},\"audio/t38\":{\"source\":\"iana\"},\"audio/telephone-event\":{\"source\":\"iana\"},\"audio/tetra_acelp\":{\"source\":\"iana\"},\"audio/tetra_acelp_bb\":{\"source\":\"iana\"},\"audio/tone\":{\"source\":\"iana\"},\"audio/tsvcis\":{\"source\":\"iana\"},\"audio/uemclip\":{\"source\":\"iana\"},\"audio/ulpfec\":{\"source\":\"iana\"},\"audio/usac\":{\"source\":\"iana\"},\"audio/vdvi\":{\"source\":\"iana\"},\"audio/vmr-wb\":{\"source\":\"iana\"},\"audio/vnd.3gpp.iufp\":{\"source\":\"iana\"},\"audio/vnd.4sb\":{\"source\":\"iana\"},\"audio/vnd.audiokoz\":{\"source\":\"iana\"},\"audio/vnd.celp\":{\"source\":\"iana\"},\"audio/vnd.cisco.nse\":{\"source\":\"iana\"},\"audio/vnd.cmles.radio-events\":{\"source\":\"iana\"},\"audio/vnd.cns.anp1\":{\"source\":\"iana\"},\"audio/vnd.cns.inf1\":{\"source\":\"iana\"},\"audio/vnd.dece.audio\":{\"source\":\"iana\",\"extensions\":[\"uva\",\"uvva\"]},\"audio/vnd.digital-winds\":{\"source\":\"iana\",\"extensions\":[\"eol\"]},\"audio/vnd.dlna.adts\":{\"source\":\"iana\"},\"audio/vnd.dolby.heaac.1\":{\"source\":\"iana\"},\"audio/vnd.dolby.heaac.2\":{\"source\":\"iana\"},\"audio/vnd.dolby.mlp\":{\"source\":\"iana\"},\"audio/vnd.dolby.mps\":{\"source\":\"iana\"},\"audio/vnd.dolby.pl2\":{\"source\":\"iana\"},\"audio/vnd.dolby.pl2x\":{\"source\":\"iana\"},\"audio/vnd.dolby.pl2z\":{\"source\":\"iana\"},\"audio/vnd.dolby.pulse.1\":{\"source\":\"iana\"},\"audio/vnd.dra\":{\"source\":\"iana\",\"extensions\":[\"dra\"]},\"audio/vnd.dts\":{\"source\":\"iana\",\"extensions\":[\"dts\"]},\"audio/vnd.dts.hd\":{\"source\":\"iana\",\"extensions\":[\"dtshd\"]},\"audio/vnd.dts.uhd\":{\"source\":\"iana\"},\"audio/vnd.dvb.file\":{\"source\":\"iana\"},\"audio/vnd.everad.plj\":{\"source\":\"iana\"},\"audio/vnd.hns.audio\":{\"source\":\"iana\"},\"audio/vnd.lucent.voice\":{\"source\":\"iana\",\"extensions\":[\"lvp\"]},\"audio/vnd.ms-playready.media.pya\":{\"source\":\"iana\",\"extensions\":[\"pya\"]},\"audio/vnd.nokia.mobile-xmf\":{\"source\":\"iana\"},\"audio/vnd.nortel.vbk\":{\"source\":\"iana\"},\"audio/vnd.nuera.ecelp4800\":{\"source\":\"iana\",\"extensions\":[\"ecelp4800\"]},\"audio/vnd.nuera.ecelp7470\":{\"source\":\"iana\",\"extensions\":[\"ecelp7470\"]},\"audio/vnd.nuera.ecelp9600\":{\"source\":\"iana\",\"extensions\":[\"ecelp9600\"]},\"audio/vnd.octel.sbc\":{\"source\":\"iana\"},\"audio/vnd.presonus.multitrack\":{\"source\":\"iana\"},\"audio/vnd.qcelp\":{\"source\":\"iana\"},\"audio/vnd.rhetorex.32kadpcm\":{\"source\":\"iana\"},\"audio/vnd.rip\":{\"source\":\"iana\",\"extensions\":[\"rip\"]},\"audio/vnd.rn-realaudio\":{\"compressible\":false},\"audio/vnd.sealedmedia.softseal.mpeg\":{\"source\":\"iana\"},\"audio/vnd.vmx.cvsd\":{\"source\":\"iana\"},\"audio/vnd.wave\":{\"compressible\":false},\"audio/vorbis\":{\"source\":\"iana\",\"compressible\":false},\"audio/vorbis-config\":{\"source\":\"iana\"},\"audio/wav\":{\"compressible\":false,\"extensions\":[\"wav\"]},\"audio/wave\":{\"compressible\":false,\"extensions\":[\"wav\"]},\"audio/webm\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"weba\"]},\"audio/x-aac\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"aac\"]},\"audio/x-aiff\":{\"source\":\"apache\",\"extensions\":[\"aif\",\"aiff\",\"aifc\"]},\"audio/x-caf\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"caf\"]},\"audio/x-flac\":{\"source\":\"apache\",\"extensions\":[\"flac\"]},\"audio/x-m4a\":{\"source\":\"nginx\",\"extensions\":[\"m4a\"]},\"audio/x-matroska\":{\"source\":\"apache\",\"extensions\":[\"mka\"]},\"audio/x-mpegurl\":{\"source\":\"apache\",\"extensions\":[\"m3u\"]},\"audio/x-ms-wax\":{\"source\":\"apache\",\"extensions\":[\"wax\"]},\"audio/x-ms-wma\":{\"source\":\"apache\",\"extensions\":[\"wma\"]},\"audio/x-pn-realaudio\":{\"source\":\"apache\",\"extensions\":[\"ram\",\"ra\"]},\"audio/x-pn-realaudio-plugin\":{\"source\":\"apache\",\"extensions\":[\"rmp\"]},\"audio/x-realaudio\":{\"source\":\"nginx\",\"extensions\":[\"ra\"]},\"audio/x-tta\":{\"source\":\"apache\"},\"audio/x-wav\":{\"source\":\"apache\",\"extensions\":[\"wav\"]},\"audio/xm\":{\"source\":\"apache\",\"extensions\":[\"xm\"]},\"chemical/x-cdx\":{\"source\":\"apache\",\"extensions\":[\"cdx\"]},\"chemical/x-cif\":{\"source\":\"apache\",\"extensions\":[\"cif\"]},\"chemical/x-cmdf\":{\"source\":\"apache\",\"extensions\":[\"cmdf\"]},\"chemical/x-cml\":{\"source\":\"apache\",\"extensions\":[\"cml\"]},\"chemical/x-csml\":{\"source\":\"apache\",\"extensions\":[\"csml\"]},\"chemical/x-pdb\":{\"source\":\"apache\"},\"chemical/x-xyz\":{\"source\":\"apache\",\"extensions\":[\"xyz\"]},\"font/collection\":{\"source\":\"iana\",\"extensions\":[\"ttc\"]},\"font/otf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"otf\"]},\"font/sfnt\":{\"source\":\"iana\"},\"font/ttf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"ttf\"]},\"font/woff\":{\"source\":\"iana\",\"extensions\":[\"woff\"]},\"font/woff2\":{\"source\":\"iana\",\"extensions\":[\"woff2\"]},\"image/aces\":{\"source\":\"iana\",\"extensions\":[\"exr\"]},\"image/apng\":{\"compressible\":false,\"extensions\":[\"apng\"]},\"image/avci\":{\"source\":\"iana\"},\"image/avcs\":{\"source\":\"iana\"},\"image/avif\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"avif\"]},\"image/bmp\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"bmp\"]},\"image/cgm\":{\"source\":\"iana\",\"extensions\":[\"cgm\"]},\"image/dicom-rle\":{\"source\":\"iana\",\"extensions\":[\"drle\"]},\"image/emf\":{\"source\":\"iana\",\"extensions\":[\"emf\"]},\"image/fits\":{\"source\":\"iana\",\"extensions\":[\"fits\"]},\"image/g3fax\":{\"source\":\"iana\",\"extensions\":[\"g3\"]},\"image/gif\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"gif\"]},\"image/heic\":{\"source\":\"iana\",\"extensions\":[\"heic\"]},\"image/heic-sequence\":{\"source\":\"iana\",\"extensions\":[\"heics\"]},\"image/heif\":{\"source\":\"iana\",\"extensions\":[\"heif\"]},\"image/heif-sequence\":{\"source\":\"iana\",\"extensions\":[\"heifs\"]},\"image/hej2k\":{\"source\":\"iana\",\"extensions\":[\"hej2\"]},\"image/hsj2\":{\"source\":\"iana\",\"extensions\":[\"hsj2\"]},\"image/ief\":{\"source\":\"iana\",\"extensions\":[\"ief\"]},\"image/jls\":{\"source\":\"iana\",\"extensions\":[\"jls\"]},\"image/jp2\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jp2\",\"jpg2\"]},\"image/jpeg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jpeg\",\"jpg\",\"jpe\"]},\"image/jph\":{\"source\":\"iana\",\"extensions\":[\"jph\"]},\"image/jphc\":{\"source\":\"iana\",\"extensions\":[\"jhc\"]},\"image/jpm\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jpm\"]},\"image/jpx\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"jpx\",\"jpf\"]},\"image/jxr\":{\"source\":\"iana\",\"extensions\":[\"jxr\"]},\"image/jxra\":{\"source\":\"iana\",\"extensions\":[\"jxra\"]},\"image/jxrs\":{\"source\":\"iana\",\"extensions\":[\"jxrs\"]},\"image/jxs\":{\"source\":\"iana\",\"extensions\":[\"jxs\"]},\"image/jxsc\":{\"source\":\"iana\",\"extensions\":[\"jxsc\"]},\"image/jxsi\":{\"source\":\"iana\",\"extensions\":[\"jxsi\"]},\"image/jxss\":{\"source\":\"iana\",\"extensions\":[\"jxss\"]},\"image/ktx\":{\"source\":\"iana\",\"extensions\":[\"ktx\"]},\"image/ktx2\":{\"source\":\"iana\",\"extensions\":[\"ktx2\"]},\"image/naplps\":{\"source\":\"iana\"},\"image/pjpeg\":{\"compressible\":false},\"image/png\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"png\"]},\"image/prs.btif\":{\"source\":\"iana\",\"extensions\":[\"btif\"]},\"image/prs.pti\":{\"source\":\"iana\",\"extensions\":[\"pti\"]},\"image/pwg-raster\":{\"source\":\"iana\"},\"image/sgi\":{\"source\":\"apache\",\"extensions\":[\"sgi\"]},\"image/svg+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"svg\",\"svgz\"]},\"image/t38\":{\"source\":\"iana\",\"extensions\":[\"t38\"]},\"image/tiff\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"tif\",\"tiff\"]},\"image/tiff-fx\":{\"source\":\"iana\",\"extensions\":[\"tfx\"]},\"image/vnd.adobe.photoshop\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"psd\"]},\"image/vnd.airzip.accelerator.azv\":{\"source\":\"iana\",\"extensions\":[\"azv\"]},\"image/vnd.cns.inf2\":{\"source\":\"iana\"},\"image/vnd.dece.graphic\":{\"source\":\"iana\",\"extensions\":[\"uvi\",\"uvvi\",\"uvg\",\"uvvg\"]},\"image/vnd.djvu\":{\"source\":\"iana\",\"extensions\":[\"djvu\",\"djv\"]},\"image/vnd.dvb.subtitle\":{\"source\":\"iana\",\"extensions\":[\"sub\"]},\"image/vnd.dwg\":{\"source\":\"iana\",\"extensions\":[\"dwg\"]},\"image/vnd.dxf\":{\"source\":\"iana\",\"extensions\":[\"dxf\"]},\"image/vnd.fastbidsheet\":{\"source\":\"iana\",\"extensions\":[\"fbs\"]},\"image/vnd.fpx\":{\"source\":\"iana\",\"extensions\":[\"fpx\"]},\"image/vnd.fst\":{\"source\":\"iana\",\"extensions\":[\"fst\"]},\"image/vnd.fujixerox.edmics-mmr\":{\"source\":\"iana\",\"extensions\":[\"mmr\"]},\"image/vnd.fujixerox.edmics-rlc\":{\"source\":\"iana\",\"extensions\":[\"rlc\"]},\"image/vnd.globalgraphics.pgb\":{\"source\":\"iana\"},\"image/vnd.microsoft.icon\":{\"source\":\"iana\",\"extensions\":[\"ico\"]},\"image/vnd.mix\":{\"source\":\"iana\"},\"image/vnd.mozilla.apng\":{\"source\":\"iana\"},\"image/vnd.ms-dds\":{\"extensions\":[\"dds\"]},\"image/vnd.ms-modi\":{\"source\":\"iana\",\"extensions\":[\"mdi\"]},\"image/vnd.ms-photo\":{\"source\":\"apache\",\"extensions\":[\"wdp\"]},\"image/vnd.net-fpx\":{\"source\":\"iana\",\"extensions\":[\"npx\"]},\"image/vnd.pco.b16\":{\"source\":\"iana\",\"extensions\":[\"b16\"]},\"image/vnd.radiance\":{\"source\":\"iana\"},\"image/vnd.sealed.png\":{\"source\":\"iana\"},\"image/vnd.sealedmedia.softseal.gif\":{\"source\":\"iana\"},\"image/vnd.sealedmedia.softseal.jpg\":{\"source\":\"iana\"},\"image/vnd.svf\":{\"source\":\"iana\"},\"image/vnd.tencent.tap\":{\"source\":\"iana\",\"extensions\":[\"tap\"]},\"image/vnd.valve.source.texture\":{\"source\":\"iana\",\"extensions\":[\"vtf\"]},\"image/vnd.wap.wbmp\":{\"source\":\"iana\",\"extensions\":[\"wbmp\"]},\"image/vnd.xiff\":{\"source\":\"iana\",\"extensions\":[\"xif\"]},\"image/vnd.zbrush.pcx\":{\"source\":\"iana\",\"extensions\":[\"pcx\"]},\"image/webp\":{\"source\":\"apache\",\"extensions\":[\"webp\"]},\"image/wmf\":{\"source\":\"iana\",\"extensions\":[\"wmf\"]},\"image/x-3ds\":{\"source\":\"apache\",\"extensions\":[\"3ds\"]},\"image/x-cmu-raster\":{\"source\":\"apache\",\"extensions\":[\"ras\"]},\"image/x-cmx\":{\"source\":\"apache\",\"extensions\":[\"cmx\"]},\"image/x-freehand\":{\"source\":\"apache\",\"extensions\":[\"fh\",\"fhc\",\"fh4\",\"fh5\",\"fh7\"]},\"image/x-icon\":{\"source\":\"apache\",\"compressible\":true,\"extensions\":[\"ico\"]},\"image/x-jng\":{\"source\":\"nginx\",\"extensions\":[\"jng\"]},\"image/x-mrsid-image\":{\"source\":\"apache\",\"extensions\":[\"sid\"]},\"image/x-ms-bmp\":{\"source\":\"nginx\",\"compressible\":true,\"extensions\":[\"bmp\"]},\"image/x-pcx\":{\"source\":\"apache\",\"extensions\":[\"pcx\"]},\"image/x-pict\":{\"source\":\"apache\",\"extensions\":[\"pic\",\"pct\"]},\"image/x-portable-anymap\":{\"source\":\"apache\",\"extensions\":[\"pnm\"]},\"image/x-portable-bitmap\":{\"source\":\"apache\",\"extensions\":[\"pbm\"]},\"image/x-portable-graymap\":{\"source\":\"apache\",\"extensions\":[\"pgm\"]},\"image/x-portable-pixmap\":{\"source\":\"apache\",\"extensions\":[\"ppm\"]},\"image/x-rgb\":{\"source\":\"apache\",\"extensions\":[\"rgb\"]},\"image/x-tga\":{\"source\":\"apache\",\"extensions\":[\"tga\"]},\"image/x-xbitmap\":{\"source\":\"apache\",\"extensions\":[\"xbm\"]},\"image/x-xcf\":{\"compressible\":false},\"image/x-xpixmap\":{\"source\":\"apache\",\"extensions\":[\"xpm\"]},\"image/x-xwindowdump\":{\"source\":\"apache\",\"extensions\":[\"xwd\"]},\"message/cpim\":{\"source\":\"iana\"},\"message/delivery-status\":{\"source\":\"iana\"},\"message/disposition-notification\":{\"source\":\"iana\",\"extensions\":[\"disposition-notification\"]},\"message/external-body\":{\"source\":\"iana\"},\"message/feedback-report\":{\"source\":\"iana\"},\"message/global\":{\"source\":\"iana\",\"extensions\":[\"u8msg\"]},\"message/global-delivery-status\":{\"source\":\"iana\",\"extensions\":[\"u8dsn\"]},\"message/global-disposition-notification\":{\"source\":\"iana\",\"extensions\":[\"u8mdn\"]},\"message/global-headers\":{\"source\":\"iana\",\"extensions\":[\"u8hdr\"]},\"message/http\":{\"source\":\"iana\",\"compressible\":false},\"message/imdn+xml\":{\"source\":\"iana\",\"compressible\":true},\"message/news\":{\"source\":\"iana\"},\"message/partial\":{\"source\":\"iana\",\"compressible\":false},\"message/rfc822\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"eml\",\"mime\"]},\"message/s-http\":{\"source\":\"iana\"},\"message/sip\":{\"source\":\"iana\"},\"message/sipfrag\":{\"source\":\"iana\"},\"message/tracking-status\":{\"source\":\"iana\"},\"message/vnd.si.simp\":{\"source\":\"iana\"},\"message/vnd.wfa.wsc\":{\"source\":\"iana\",\"extensions\":[\"wsc\"]},\"model/3mf\":{\"source\":\"iana\",\"extensions\":[\"3mf\"]},\"model/e57\":{\"source\":\"iana\"},\"model/gltf+json\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"gltf\"]},\"model/gltf-binary\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"glb\"]},\"model/iges\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"igs\",\"iges\"]},\"model/mesh\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"msh\",\"mesh\",\"silo\"]},\"model/mtl\":{\"source\":\"iana\",\"extensions\":[\"mtl\"]},\"model/obj\":{\"source\":\"iana\",\"extensions\":[\"obj\"]},\"model/stl\":{\"source\":\"iana\",\"extensions\":[\"stl\"]},\"model/vnd.collada+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"dae\"]},\"model/vnd.dwf\":{\"source\":\"iana\",\"extensions\":[\"dwf\"]},\"model/vnd.flatland.3dml\":{\"source\":\"iana\"},\"model/vnd.gdl\":{\"source\":\"iana\",\"extensions\":[\"gdl\"]},\"model/vnd.gs-gdl\":{\"source\":\"apache\"},\"model/vnd.gs.gdl\":{\"source\":\"iana\"},\"model/vnd.gtw\":{\"source\":\"iana\",\"extensions\":[\"gtw\"]},\"model/vnd.moml+xml\":{\"source\":\"iana\",\"compressible\":true},\"model/vnd.mts\":{\"source\":\"iana\",\"extensions\":[\"mts\"]},\"model/vnd.opengex\":{\"source\":\"iana\",\"extensions\":[\"ogex\"]},\"model/vnd.parasolid.transmit.binary\":{\"source\":\"iana\",\"extensions\":[\"x_b\"]},\"model/vnd.parasolid.transmit.text\":{\"source\":\"iana\",\"extensions\":[\"x_t\"]},\"model/vnd.rosette.annotated-data-model\":{\"source\":\"iana\"},\"model/vnd.sap.vds\":{\"source\":\"iana\",\"extensions\":[\"vds\"]},\"model/vnd.usdz+zip\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"usdz\"]},\"model/vnd.valve.source.compiled-map\":{\"source\":\"iana\",\"extensions\":[\"bsp\"]},\"model/vnd.vtu\":{\"source\":\"iana\",\"extensions\":[\"vtu\"]},\"model/vrml\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"wrl\",\"vrml\"]},\"model/x3d+binary\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"x3db\",\"x3dbz\"]},\"model/x3d+fastinfoset\":{\"source\":\"iana\",\"extensions\":[\"x3db\"]},\"model/x3d+vrml\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"x3dv\",\"x3dvz\"]},\"model/x3d+xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"x3d\",\"x3dz\"]},\"model/x3d-vrml\":{\"source\":\"iana\",\"extensions\":[\"x3dv\"]},\"multipart/alternative\":{\"source\":\"iana\",\"compressible\":false},\"multipart/appledouble\":{\"source\":\"iana\"},\"multipart/byteranges\":{\"source\":\"iana\"},\"multipart/digest\":{\"source\":\"iana\"},\"multipart/encrypted\":{\"source\":\"iana\",\"compressible\":false},\"multipart/form-data\":{\"source\":\"iana\",\"compressible\":false},\"multipart/header-set\":{\"source\":\"iana\"},\"multipart/mixed\":{\"source\":\"iana\"},\"multipart/multilingual\":{\"source\":\"iana\"},\"multipart/parallel\":{\"source\":\"iana\"},\"multipart/related\":{\"source\":\"iana\",\"compressible\":false},\"multipart/report\":{\"source\":\"iana\"},\"multipart/signed\":{\"source\":\"iana\",\"compressible\":false},\"multipart/vnd.bint.med-plus\":{\"source\":\"iana\"},\"multipart/voice-message\":{\"source\":\"iana\"},\"multipart/x-mixed-replace\":{\"source\":\"iana\"},\"text/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"text/cache-manifest\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"appcache\",\"manifest\"]},\"text/calendar\":{\"source\":\"iana\",\"extensions\":[\"ics\",\"ifb\"]},\"text/calender\":{\"compressible\":true},\"text/cmd\":{\"compressible\":true},\"text/coffeescript\":{\"extensions\":[\"coffee\",\"litcoffee\"]},\"text/cql\":{\"source\":\"iana\"},\"text/cql-expression\":{\"source\":\"iana\"},\"text/cql-identifier\":{\"source\":\"iana\"},\"text/css\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"css\"]},\"text/csv\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"csv\"]},\"text/csv-schema\":{\"source\":\"iana\"},\"text/directory\":{\"source\":\"iana\"},\"text/dns\":{\"source\":\"iana\"},\"text/ecmascript\":{\"source\":\"iana\"},\"text/encaprtp\":{\"source\":\"iana\"},\"text/enriched\":{\"source\":\"iana\"},\"text/fhirpath\":{\"source\":\"iana\"},\"text/flexfec\":{\"source\":\"iana\"},\"text/fwdred\":{\"source\":\"iana\"},\"text/gff3\":{\"source\":\"iana\"},\"text/grammar-ref-list\":{\"source\":\"iana\"},\"text/html\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"html\",\"htm\",\"shtml\"]},\"text/jade\":{\"extensions\":[\"jade\"]},\"text/javascript\":{\"source\":\"iana\",\"compressible\":true},\"text/jcr-cnd\":{\"source\":\"iana\"},\"text/jsx\":{\"compressible\":true,\"extensions\":[\"jsx\"]},\"text/less\":{\"compressible\":true,\"extensions\":[\"less\"]},\"text/markdown\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"markdown\",\"md\"]},\"text/mathml\":{\"source\":\"nginx\",\"extensions\":[\"mml\"]},\"text/mdx\":{\"compressible\":true,\"extensions\":[\"mdx\"]},\"text/mizar\":{\"source\":\"iana\"},\"text/n3\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"n3\"]},\"text/parameters\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/parityfec\":{\"source\":\"iana\"},\"text/plain\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"txt\",\"text\",\"conf\",\"def\",\"list\",\"log\",\"in\",\"ini\"]},\"text/provenance-notation\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/prs.fallenstein.rst\":{\"source\":\"iana\"},\"text/prs.lines.tag\":{\"source\":\"iana\",\"extensions\":[\"dsc\"]},\"text/prs.prop.logic\":{\"source\":\"iana\"},\"text/raptorfec\":{\"source\":\"iana\"},\"text/red\":{\"source\":\"iana\"},\"text/rfc822-headers\":{\"source\":\"iana\"},\"text/richtext\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rtx\"]},\"text/rtf\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"rtf\"]},\"text/rtp-enc-aescm128\":{\"source\":\"iana\"},\"text/rtploopback\":{\"source\":\"iana\"},\"text/rtx\":{\"source\":\"iana\"},\"text/sgml\":{\"source\":\"iana\",\"extensions\":[\"sgml\",\"sgm\"]},\"text/shaclc\":{\"source\":\"iana\"},\"text/shex\":{\"extensions\":[\"shex\"]},\"text/slim\":{\"extensions\":[\"slim\",\"slm\"]},\"text/spdx\":{\"source\":\"iana\",\"extensions\":[\"spdx\"]},\"text/strings\":{\"source\":\"iana\"},\"text/stylus\":{\"extensions\":[\"stylus\",\"styl\"]},\"text/t140\":{\"source\":\"iana\"},\"text/tab-separated-values\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"tsv\"]},\"text/troff\":{\"source\":\"iana\",\"extensions\":[\"t\",\"tr\",\"roff\",\"man\",\"me\",\"ms\"]},\"text/turtle\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"ttl\"]},\"text/ulpfec\":{\"source\":\"iana\"},\"text/uri-list\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"uri\",\"uris\",\"urls\"]},\"text/vcard\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"vcard\"]},\"text/vnd.a\":{\"source\":\"iana\"},\"text/vnd.abc\":{\"source\":\"iana\"},\"text/vnd.ascii-art\":{\"source\":\"iana\"},\"text/vnd.curl\":{\"source\":\"iana\",\"extensions\":[\"curl\"]},\"text/vnd.curl.dcurl\":{\"source\":\"apache\",\"extensions\":[\"dcurl\"]},\"text/vnd.curl.mcurl\":{\"source\":\"apache\",\"extensions\":[\"mcurl\"]},\"text/vnd.curl.scurl\":{\"source\":\"apache\",\"extensions\":[\"scurl\"]},\"text/vnd.debian.copyright\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/vnd.dmclientscript\":{\"source\":\"iana\"},\"text/vnd.dvb.subtitle\":{\"source\":\"iana\",\"extensions\":[\"sub\"]},\"text/vnd.esmertec.theme-descriptor\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/vnd.ficlab.flt\":{\"source\":\"iana\"},\"text/vnd.fly\":{\"source\":\"iana\",\"extensions\":[\"fly\"]},\"text/vnd.fmi.flexstor\":{\"source\":\"iana\",\"extensions\":[\"flx\"]},\"text/vnd.gml\":{\"source\":\"iana\"},\"text/vnd.graphviz\":{\"source\":\"iana\",\"extensions\":[\"gv\"]},\"text/vnd.hans\":{\"source\":\"iana\"},\"text/vnd.hgl\":{\"source\":\"iana\"},\"text/vnd.in3d.3dml\":{\"source\":\"iana\",\"extensions\":[\"3dml\"]},\"text/vnd.in3d.spot\":{\"source\":\"iana\",\"extensions\":[\"spot\"]},\"text/vnd.iptc.newsml\":{\"source\":\"iana\"},\"text/vnd.iptc.nitf\":{\"source\":\"iana\"},\"text/vnd.latex-z\":{\"source\":\"iana\"},\"text/vnd.motorola.reflex\":{\"source\":\"iana\"},\"text/vnd.ms-mediapackage\":{\"source\":\"iana\"},\"text/vnd.net2phone.commcenter.command\":{\"source\":\"iana\"},\"text/vnd.radisys.msml-basic-layout\":{\"source\":\"iana\"},\"text/vnd.senx.warpscript\":{\"source\":\"iana\"},\"text/vnd.si.uricatalogue\":{\"source\":\"iana\"},\"text/vnd.sosi\":{\"source\":\"iana\"},\"text/vnd.sun.j2me.app-descriptor\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"extensions\":[\"jad\"]},\"text/vnd.trolltech.linguist\":{\"source\":\"iana\",\"charset\":\"UTF-8\"},\"text/vnd.wap.si\":{\"source\":\"iana\"},\"text/vnd.wap.sl\":{\"source\":\"iana\"},\"text/vnd.wap.wml\":{\"source\":\"iana\",\"extensions\":[\"wml\"]},\"text/vnd.wap.wmlscript\":{\"source\":\"iana\",\"extensions\":[\"wmls\"]},\"text/vtt\":{\"source\":\"iana\",\"charset\":\"UTF-8\",\"compressible\":true,\"extensions\":[\"vtt\"]},\"text/x-asm\":{\"source\":\"apache\",\"extensions\":[\"s\",\"asm\"]},\"text/x-c\":{\"source\":\"apache\",\"extensions\":[\"c\",\"cc\",\"cxx\",\"cpp\",\"h\",\"hh\",\"dic\"]},\"text/x-component\":{\"source\":\"nginx\",\"extensions\":[\"htc\"]},\"text/x-fortran\":{\"source\":\"apache\",\"extensions\":[\"f\",\"for\",\"f77\",\"f90\"]},\"text/x-gwt-rpc\":{\"compressible\":true},\"text/x-handlebars-template\":{\"extensions\":[\"hbs\"]},\"text/x-java-source\":{\"source\":\"apache\",\"extensions\":[\"java\"]},\"text/x-jquery-tmpl\":{\"compressible\":true},\"text/x-lua\":{\"extensions\":[\"lua\"]},\"text/x-markdown\":{\"compressible\":true,\"extensions\":[\"mkd\"]},\"text/x-nfo\":{\"source\":\"apache\",\"extensions\":[\"nfo\"]},\"text/x-opml\":{\"source\":\"apache\",\"extensions\":[\"opml\"]},\"text/x-org\":{\"compressible\":true,\"extensions\":[\"org\"]},\"text/x-pascal\":{\"source\":\"apache\",\"extensions\":[\"p\",\"pas\"]},\"text/x-processing\":{\"compressible\":true,\"extensions\":[\"pde\"]},\"text/x-sass\":{\"extensions\":[\"sass\"]},\"text/x-scss\":{\"extensions\":[\"scss\"]},\"text/x-setext\":{\"source\":\"apache\",\"extensions\":[\"etx\"]},\"text/x-sfv\":{\"source\":\"apache\",\"extensions\":[\"sfv\"]},\"text/x-suse-ymp\":{\"compressible\":true,\"extensions\":[\"ymp\"]},\"text/x-uuencode\":{\"source\":\"apache\",\"extensions\":[\"uu\"]},\"text/x-vcalendar\":{\"source\":\"apache\",\"extensions\":[\"vcs\"]},\"text/x-vcard\":{\"source\":\"apache\",\"extensions\":[\"vcf\"]},\"text/xml\":{\"source\":\"iana\",\"compressible\":true,\"extensions\":[\"xml\"]},\"text/xml-external-parsed-entity\":{\"source\":\"iana\"},\"text/yaml\":{\"extensions\":[\"yaml\",\"yml\"]},\"video/1d-interleaved-parityfec\":{\"source\":\"iana\"},\"video/3gpp\":{\"source\":\"iana\",\"extensions\":[\"3gp\",\"3gpp\"]},\"video/3gpp-tt\":{\"source\":\"iana\"},\"video/3gpp2\":{\"source\":\"iana\",\"extensions\":[\"3g2\"]},\"video/av1\":{\"source\":\"iana\"},\"video/bmpeg\":{\"source\":\"iana\"},\"video/bt656\":{\"source\":\"iana\"},\"video/celb\":{\"source\":\"iana\"},\"video/dv\":{\"source\":\"iana\"},\"video/encaprtp\":{\"source\":\"iana\"},\"video/ffv1\":{\"source\":\"iana\"},\"video/flexfec\":{\"source\":\"iana\"},\"video/h261\":{\"source\":\"iana\",\"extensions\":[\"h261\"]},\"video/h263\":{\"source\":\"iana\",\"extensions\":[\"h263\"]},\"video/h263-1998\":{\"source\":\"iana\"},\"video/h263-2000\":{\"source\":\"iana\"},\"video/h264\":{\"source\":\"iana\",\"extensions\":[\"h264\"]},\"video/h264-rcdo\":{\"source\":\"iana\"},\"video/h264-svc\":{\"source\":\"iana\"},\"video/h265\":{\"source\":\"iana\"},\"video/iso.segment\":{\"source\":\"iana\",\"extensions\":[\"m4s\"]},\"video/jpeg\":{\"source\":\"iana\",\"extensions\":[\"jpgv\"]},\"video/jpeg2000\":{\"source\":\"iana\"},\"video/jpm\":{\"source\":\"apache\",\"extensions\":[\"jpm\",\"jpgm\"]},\"video/mj2\":{\"source\":\"iana\",\"extensions\":[\"mj2\",\"mjp2\"]},\"video/mp1s\":{\"source\":\"iana\"},\"video/mp2p\":{\"source\":\"iana\"},\"video/mp2t\":{\"source\":\"iana\",\"extensions\":[\"ts\"]},\"video/mp4\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"mp4\",\"mp4v\",\"mpg4\"]},\"video/mp4v-es\":{\"source\":\"iana\"},\"video/mpeg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"mpeg\",\"mpg\",\"mpe\",\"m1v\",\"m2v\"]},\"video/mpeg4-generic\":{\"source\":\"iana\"},\"video/mpv\":{\"source\":\"iana\"},\"video/nv\":{\"source\":\"iana\"},\"video/ogg\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"ogv\"]},\"video/parityfec\":{\"source\":\"iana\"},\"video/pointer\":{\"source\":\"iana\"},\"video/quicktime\":{\"source\":\"iana\",\"compressible\":false,\"extensions\":[\"qt\",\"mov\"]},\"video/raptorfec\":{\"source\":\"iana\"},\"video/raw\":{\"source\":\"iana\"},\"video/rtp-enc-aescm128\":{\"source\":\"iana\"},\"video/rtploopback\":{\"source\":\"iana\"},\"video/rtx\":{\"source\":\"iana\"},\"video/scip\":{\"source\":\"iana\"},\"video/smpte291\":{\"source\":\"iana\"},\"video/smpte292m\":{\"source\":\"iana\"},\"video/ulpfec\":{\"source\":\"iana\"},\"video/vc1\":{\"source\":\"iana\"},\"video/vc2\":{\"source\":\"iana\"},\"video/vnd.cctv\":{\"source\":\"iana\"},\"video/vnd.dece.hd\":{\"source\":\"iana\",\"extensions\":[\"uvh\",\"uvvh\"]},\"video/vnd.dece.mobile\":{\"source\":\"iana\",\"extensions\":[\"uvm\",\"uvvm\"]},\"video/vnd.dece.mp4\":{\"source\":\"iana\"},\"video/vnd.dece.pd\":{\"source\":\"iana\",\"extensions\":[\"uvp\",\"uvvp\"]},\"video/vnd.dece.sd\":{\"source\":\"iana\",\"extensions\":[\"uvs\",\"uvvs\"]},\"video/vnd.dece.video\":{\"source\":\"iana\",\"extensions\":[\"uvv\",\"uvvv\"]},\"video/vnd.directv.mpeg\":{\"source\":\"iana\"},\"video/vnd.directv.mpeg-tts\":{\"source\":\"iana\"},\"video/vnd.dlna.mpeg-tts\":{\"source\":\"iana\"},\"video/vnd.dvb.file\":{\"source\":\"iana\",\"extensions\":[\"dvb\"]},\"video/vnd.fvt\":{\"source\":\"iana\",\"extensions\":[\"fvt\"]},\"video/vnd.hns.video\":{\"source\":\"iana\"},\"video/vnd.iptvforum.1dparityfec-1010\":{\"source\":\"iana\"},\"video/vnd.iptvforum.1dparityfec-2005\":{\"source\":\"iana\"},\"video/vnd.iptvforum.2dparityfec-1010\":{\"source\":\"iana\"},\"video/vnd.iptvforum.2dparityfec-2005\":{\"source\":\"iana\"},\"video/vnd.iptvforum.ttsavc\":{\"source\":\"iana\"},\"video/vnd.iptvforum.ttsmpeg2\":{\"source\":\"iana\"},\"video/vnd.motorola.video\":{\"source\":\"iana\"},\"video/vnd.motorola.videop\":{\"source\":\"iana\"},\"video/vnd.mpegurl\":{\"source\":\"iana\",\"extensions\":[\"mxu\",\"m4u\"]},\"video/vnd.ms-playready.media.pyv\":{\"source\":\"iana\",\"extensions\":[\"pyv\"]},\"video/vnd.nokia.interleaved-multimedia\":{\"source\":\"iana\"},\"video/vnd.nokia.mp4vr\":{\"source\":\"iana\"},\"video/vnd.nokia.videovoip\":{\"source\":\"iana\"},\"video/vnd.objectvideo\":{\"source\":\"iana\"},\"video/vnd.radgamettools.bink\":{\"source\":\"iana\"},\"video/vnd.radgamettools.smacker\":{\"source\":\"iana\"},\"video/vnd.sealed.mpeg1\":{\"source\":\"iana\"},\"video/vnd.sealed.mpeg4\":{\"source\":\"iana\"},\"video/vnd.sealed.swf\":{\"source\":\"iana\"},\"video/vnd.sealedmedia.softseal.mov\":{\"source\":\"iana\"},\"video/vnd.uvvu.mp4\":{\"source\":\"iana\",\"extensions\":[\"uvu\",\"uvvu\"]},\"video/vnd.vivo\":{\"source\":\"iana\",\"extensions\":[\"viv\"]},\"video/vnd.youtube.yt\":{\"source\":\"iana\"},\"video/vp8\":{\"source\":\"iana\"},\"video/webm\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"webm\"]},\"video/x-f4v\":{\"source\":\"apache\",\"extensions\":[\"f4v\"]},\"video/x-fli\":{\"source\":\"apache\",\"extensions\":[\"fli\"]},\"video/x-flv\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"flv\"]},\"video/x-m4v\":{\"source\":\"apache\",\"extensions\":[\"m4v\"]},\"video/x-matroska\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"mkv\",\"mk3d\",\"mks\"]},\"video/x-mng\":{\"source\":\"apache\",\"extensions\":[\"mng\"]},\"video/x-ms-asf\":{\"source\":\"apache\",\"extensions\":[\"asf\",\"asx\"]},\"video/x-ms-vob\":{\"source\":\"apache\",\"extensions\":[\"vob\"]},\"video/x-ms-wm\":{\"source\":\"apache\",\"extensions\":[\"wm\"]},\"video/x-ms-wmv\":{\"source\":\"apache\",\"compressible\":false,\"extensions\":[\"wmv\"]},\"video/x-ms-wmx\":{\"source\":\"apache\",\"extensions\":[\"wmx\"]},\"video/x-ms-wvx\":{\"source\":\"apache\",\"extensions\":[\"wvx\"]},\"video/x-msvideo\":{\"source\":\"apache\",\"extensions\":[\"avi\"]},\"video/x-sgi-movie\":{\"source\":\"apache\",\"extensions\":[\"movie\"]},\"video/x-smv\":{\"source\":\"apache\",\"extensions\":[\"smv\"]},\"x-conference/x-cooltalk\":{\"source\":\"apache\",\"extensions\":[\"ice\"]},\"x-shader/x-fragment\":{\"compressible\":true},\"x-shader/x-vertex\":{\"compressible\":true}}");
 
 /***/ }),
 
