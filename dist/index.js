@@ -20,6 +20,15 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_5__);
 /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(1383);
 /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__nccwpck_require__.n(semver__WEBPACK_IMPORTED_MODULE_6__);
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 
 
 
@@ -30,9 +39,11 @@ __nccwpck_require__.r(__webpack_exports__);
 const owner = 'gohugoio';
 const repo = 'hugo';
 const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
-async function getRelease(userAgent, version) {
-    const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_4__.HttpClient(userAgent);
-    return (await http.getJson(`${releaseUrl}/${version}`)).result;
+function getRelease(userAgent, version) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_4__.HttpClient(userAgent);
+        return (yield http.getJson(`${releaseUrl}/${version}`)).result;
+    });
 }
 function getEnvValue(envKey) {
     const envValue = process.env[`${envKey}`];
@@ -61,25 +72,27 @@ const osArch = getOsArch();
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${repo}.exe` : repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
-async function getHugoExec(semver, downloadUrl) {
-    const downloadPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.downloadTool)(downloadUrl);
-    let extractedFolder;
-    if (isWindows) {
-        const { extractZip } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
-        extractedFolder = await extractZip(downloadPath);
-    }
-    else {
-        const { extractTar } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
-        extractedFolder = await extractTar(downloadPath);
-    }
-    const cachedPath = await (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.cacheDir)(extractedFolder, `${repo}${extended}`, semver, osArch);
-    (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(cachedPath);
-    (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Running ${executable} …`);
-    return executable;
+function getHugoExec(semver, downloadUrl) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const downloadPath = yield (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.downloadTool)(downloadUrl);
+        let extractedFolder;
+        if (isWindows) {
+            const { extractZip } = yield Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
+            extractedFolder = yield extractZip(downloadPath);
+        }
+        else {
+            const { extractTar } = yield Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 7784, 7));
+            extractedFolder = yield extractTar(downloadPath);
+        }
+        const cachedPath = yield (0,_actions_tool_cache__WEBPACK_IMPORTED_MODULE_3__.cacheDir)(extractedFolder, `${repo}${extended}`, semver, osArch);
+        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(cachedPath);
+        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Running ${executable} …`);
+        return executable;
+    });
 }
-(async () => {
+(() => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const hugoRelease = await getRelease(userAgent, version);
+        const hugoRelease = yield getRelease(userAgent, version);
         if (!hugoRelease)
             throw Error(`Hugo version ${version} not found`);
         const tagName = hugoRelease.tag_name;
@@ -87,30 +100,30 @@ async function getHugoExec(semver, downloadUrl) {
         const path = [];
         path.push((0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
         const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
-        const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
+        const cacheKey = yield (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
-            await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);
+            yield (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);
         }
         else {
             (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mNo cache found for key ${key}`);
             const downloadUrl = `${releaseUrl}/download/${tagName}/${repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-            await (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${await getHugoExec(semver, downloadUrl)} ${args}`);
+            yield (0,_actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${yield getHugoExec(semver, downloadUrl)} ${args}`);
             try {
-                const cacheId = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.saveCache)(path, key);
+                const cacheId = yield (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.saveCache)(path, key);
                 (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`Save Cache succeeded: cacheId ${cacheId}`);
             }
             catch (saveCacheError) {
-                const { warning } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
+                const { warning } = yield Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
                 warning(`Save Cache failed: ${saveCacheError.message}`);
             }
         }
     }
     catch (error) {
-        const { setFailed } = await Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
+        const { setFailed } = yield Promise.resolve(/* import() */).then(__nccwpck_require__.t.bind(__nccwpck_require__, 2186, 7));
         setFailed(`Action failed with error: ${error.message}`);
     }
-})();
+}))();
 //# sourceMappingURL=main.js.map
 
 /***/ }),
