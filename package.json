@@ -7,7 +7,7 @@
     "npm": ">=6.14.11"
   },
   "scripts": {
-    "build": "tsc && ncc build --target es2020",
+    "build": "tsc && ncc build",
     "format": "prettier --write **/*.ts **/*.json **/*.md **/*.yaml",
     "format:check": "prettier --check **/*.ts **/*.json **/*.md **/*.yaml",
     "lint": "eslint ./src/**/*.ts",
