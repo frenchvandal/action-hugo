@@ -29,6 +29,9 @@ function getEnvValue(envKey: string): string {
   return envValue;
 }
 
+// os.arch does not match the relative download url, e.g.
+// os.arch == 'x64' != hugo_{VERSION}_{OS}-64bit.zip
+// os.arch == 'arm64' != hugo_{VERSION}_{OS}-ARM64.zip
 function getOsArch(arch: string = process.arch): string {
   switch (arch) {
     case 'x64':
