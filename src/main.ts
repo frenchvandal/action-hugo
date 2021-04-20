@@ -105,11 +105,11 @@ async function getHugoExec(
 
     if (cacheKey) {
       addPath(path[0]);
-      await exec(`${executable}`, args);
+      await exec(`${executable} ${args}`);
     } else {
       info(`\u001b[38;5;4mNo cache found for key ${key}`);
       const downloadUrl = `${releaseUrl}/download/${tagName}/${repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-      await exec(`${await getHugoExec(semver, downloadUrl)}`, args);
+      await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
 
       try {
         const cacheId = await saveCache(path, key);
