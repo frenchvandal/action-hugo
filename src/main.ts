@@ -48,7 +48,7 @@ const cacheDirectory: string = getEnvValue('RUNNER_TOOL_CACHE');
 const extended: string =
   getInput('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
-const args: string = getInput('args') || 'version';
+const args: string[] = [...getInput('args')] || ['version'];
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnvValue('RUNNER_OS');
 const osArch = getOsArch();
@@ -105,14 +105,13 @@ async function getHugoExec(
 
     if (cacheKey) {
       addPath(path[0]);
-      await exec(`${executable} ${args}`);
+      await exec(`${executable}`, args);
     } else {
       info(`\u001b[38;5;4mNo cache found for key ${key}`);
       const downloadUrl = `${releaseUrl}/download/${tagName}/${repo}${extended}_${semver}_${osPlatform}-${osArch}${extension}`;
-      await exec(`${await getHugoExec(semver, downloadUrl)} ${args}`);
+      await exec(`${await getHugoExec(semver, downloadUrl)}`, args);
 
       try {
-        //const { saveCache } = await import('@actions/cache');
         const cacheId = await saveCache(path, key);
         info(`Save Cache succeeded: cacheId ${cacheId}`);
       } catch (saveCacheError) {
