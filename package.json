@@ -16,7 +16,13 @@
     "release": "standard-version"
   },
   "repository": "github:frenchvandal/action-hugo",
-  "keywords": ["actions", "hugo", "build", "package", "website"],
+  "keywords": [
+    "actions",
+    "hugo",
+    "build",
+    "package",
+    "website"
+  ],
   "author": "frenchvandal",
   "license": "MIT",
   "bugs": {
