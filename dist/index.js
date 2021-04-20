@@ -65163,7 +65163,7 @@ function getOsArch(arch = process.arch) {
 const cacheDirectory = getEnvValue('RUNNER_TOOL_CACHE');
 const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
 const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version') || 'latest';
-const args = [...(0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args')] || ['version'];
+const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args') || 'version';
 const isWindows = process.platform === 'win32';
 const osPlatform = getEnvValue('RUNNER_OS');
 const osArch = getOsArch();

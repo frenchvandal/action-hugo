@@ -48,7 +48,7 @@ const cacheDirectory: string = getEnvValue('RUNNER_TOOL_CACHE');
 const extended: string =
   getInput('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
-const args: string[] = [...getInput('args')] || ['version'];
+const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnvValue('RUNNER_OS');
 const osArch = getOsArch();
