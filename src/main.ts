@@ -1,8 +1,9 @@
 import { restoreCache, saveCache } from '@actions/cache';
 import { addPath, getInput, info } from '@actions/core';
 import { exec } from '@actions/exec';
-import { cacheDir, downloadTool } from '@actions/tool-cache';
 import { HttpClient } from '@actions/http-client';
+import { cacheDir, downloadTool } from '@actions/tool-cache';
+import { release, type } from 'os';
 import { join } from 'path';
 import { clean } from 'semver';
 
@@ -100,6 +101,8 @@ async function getHugoExec(
 
 (async (): Promise<void> => {
   try {
+    info(`\u001b[38;5;4mos.release() ${release}`);
+    info(`\u001b[38;5;4mos.type() ${type}`);
     const hugoRelease: ReleaseJson | null = await getRelease(
       userAgent,
       version,
