@@ -15,6 +15,12 @@ const repo = 'hugo';
 
 const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
 
+const archMatrix = new Map<string, string>([
+  ['x64', '64bit'],
+  ['arm', 'ARM'],
+  ['arm64', 'ARM64'],
+]);
+
 async function getRelease(
   userAgent: string,
   version: string,
@@ -23,35 +29,41 @@ async function getRelease(
   return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
 }
 
-function getEnvValue(envKey: string): string {
-  const envValue: string | undefined = process.env[`${envKey}`];
-  if (!envValue) throw new Error(`Expected ${envKey} to be defined`);
-  return envValue;
+function getEnv(name: string): string {
+  const value: string | undefined = process.env[`${name}`];
+  if (!value) throw new Error(`Expected ${name} to be defined`);
+  return value;
+}
+
+function translateKeyToValue(key: string, matrix: Map<string, string>): string {
+  const value: string | undefined = matrix.get(key);
+  if (!value) throw new Error(`${value} is not defined`);
+  return value;
 }
 
 // os.arch does not match the relative download url, e.g.
 // os.arch == 'x64' != hugo_{VERSION}_{OS}-64bit.zip
 // os.arch == 'arm64' != hugo_{VERSION}_{OS}-ARM64.zip
-function getOsArch(arch: string = process.arch): string {
-  switch (arch) {
-    case 'x64':
-      return '64bit';
-    case 'arm64':
-    case 'arm':
-      return arch.toUpperCase();
-    default:
-      throw new Error(`${arch} is not supported`);
-  }
-}
+//function getOsArch(arch: string = process.arch): string {
+//  switch (arch) {
+//    case 'x64':
+//      return '64bit';
+//    case 'arm64':
+//    case 'arm':
+//      return arch.toUpperCase();
+//    default:
+//      throw new Error(`${arch} is not supported`);
+//  }
+//}
 
-const cacheDirectory: string = getEnvValue('RUNNER_TOOL_CACHE');
+const cacheDirectory: string = getEnv('RUNNER_TOOL_CACHE');
 const extended: string =
   getInput('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
-const osPlatform: string = getEnvValue('RUNNER_OS');
-const osArch = getOsArch();
+const osPlatform: string = getEnv('RUNNER_OS');
+const osArch = translateKeyToValue(process.arch, archMatrix);
 const userAgent = `Node.js/${process.version.substr(
   1,
 )} (${osPlatform}; ${osArch})`;

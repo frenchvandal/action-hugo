@@ -65139,34 +65139,34 @@ __nccwpck_require__.r(__webpack_exports__);
 const owner = 'gohugoio';
 const repo = 'hugo';
 const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
+const archMatrix = new Map([
+    ['x64', '64bit'],
+    ['arm', 'ARM'],
+    ['arm64', 'ARM64'],
+]);
 async function getRelease(userAgent, version) {
     const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_4__.HttpClient(userAgent);
     return (await http.getJson(`${releaseUrl}/${version}`)).result;
 }
-function getEnvValue(envKey) {
-    const envValue = process.env[`${envKey}`];
-    if (!envValue)
-        throw new Error(`Expected ${envKey} to be defined`);
-    return envValue;
+function getEnv(name) {
+    const value = process.env[`${name}`];
+    if (!value)
+        throw new Error(`Expected ${name} to be defined`);
+    return value;
 }
-function getOsArch(arch = process.arch) {
-    switch (arch) {
-        case 'x64':
-            return '64bit';
-        case 'arm64':
-        case 'arm':
-            return arch.toUpperCase();
-        default:
-            throw new Error(`${arch} is not supported`);
-    }
+function translateKeyToValue(key, matrix) {
+    const value = matrix.get(key);
+    if (!value)
+        throw new Error(`${value} is not defined`);
+    return value;
 }
-const cacheDirectory = getEnvValue('RUNNER_TOOL_CACHE');
+const cacheDirectory = getEnv('RUNNER_TOOL_CACHE');
 const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
 const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version') || 'latest';
 const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args') || 'version';
 const isWindows = process.platform === 'win32';
-const osPlatform = getEnvValue('RUNNER_OS');
-const osArch = getOsArch();
+const osPlatform = getEnv('RUNNER_OS');
+const osArch = translateKeyToValue(process.arch, archMatrix);
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${repo}.exe` : repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
