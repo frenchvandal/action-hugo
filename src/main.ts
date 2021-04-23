@@ -32,8 +32,9 @@ async function getRelease(
 
 function getEnv(name: string): string {
   const value: string | undefined = process.env[`${name}`];
-  if (!value)
+  if (!value) {
     throw new Error(`Envrionment variable ${name} expected to be defined`);
+  }
   return value;
 }
 
