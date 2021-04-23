@@ -65154,13 +65154,13 @@ async function getRelease(userAgent, version) {
 function getEnv(name) {
     const value = process.env[`${name}`];
     if (!value)
-        throw new Error(`Expected ${name} to be defined`);
+        throw new Error(`Variable ${name} expected to be defined`);
     return value;
 }
 function translateKeyToValue(key, matrix) {
     const value = matrix.get(key);
     if (!value)
-        throw new Error(`${value} is not defined`);
+        throw new Error(`${value} is not supported`);
     return value;
 }
 const cacheDirectory = getEnv('RUNNER_TOOL_CACHE');

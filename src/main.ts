@@ -32,13 +32,13 @@ async function getRelease(
 
 function getEnv(name: string): string {
   const value: string | undefined = process.env[`${name}`];
-  if (!value) throw new Error(`Expected ${name} to be defined`);
+  if (!value) throw new Error(`Variable ${name} expected to be defined`);
   return value;
 }
 
 function translateKeyToValue(key: string, matrix: Map<string, string>): string {
   const value: string | undefined = matrix.get(key);
-  if (!value) throw new Error(`${value} is not defined`);
+  if (!value) throw new Error(`${value} is not supported`);
   return value;
 }
 
