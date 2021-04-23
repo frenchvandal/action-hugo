@@ -36,10 +36,10 @@ function getEnv(name: string): string {
   return value;
 }
 
-function translateKeyToValue(key: string, matrix: Map<string, string>): string {
-  const value: string | undefined = matrix.get(key);
-  if (!value) throw new Error(`${value} is not supported`);
-  return value;
+function sourceToTarget(source: string, matrix: Map<string, string>): string {
+  const target: string | undefined = matrix.get(source);
+  if (!target) throw new Error(`${source} is not supported`);
+  return target;
 }
 
 // os.arch does not match the relative download url, e.g.
@@ -64,7 +64,7 @@ const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnv('RUNNER_OS');
-const osArch = translateKeyToValue(process.arch, archMatrix);
+const osArch = sourceToTarget(process.arch, archMatrix);
 const userAgent = `Node.js/${process.version.substr(
   1,
 )} (${osPlatform}; ${osArch})`;

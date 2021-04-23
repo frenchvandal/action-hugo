@@ -65157,11 +65157,11 @@ function getEnv(name) {
         throw new Error(`Variable ${name} expected to be defined`);
     return value;
 }
-function translateKeyToValue(key, matrix) {
-    const value = matrix.get(key);
-    if (!value)
-        throw new Error(`${value} is not supported`);
-    return value;
+function sourceToTarget(source, matrix) {
+    const target = matrix.get(source);
+    if (!target)
+        throw new Error(`${source} is not supported`);
+    return target;
 }
 const cacheDirectory = getEnv('RUNNER_TOOL_CACHE');
 const extended = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
@@ -65169,7 +65169,7 @@ const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version
 const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args') || 'version';
 const isWindows = process.platform === 'win32';
 const osPlatform = getEnv('RUNNER_OS');
-const osArch = translateKeyToValue(process.arch, archMatrix);
+const osArch = sourceToTarget(process.arch, archMatrix);
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${repo}.exe` : repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';
