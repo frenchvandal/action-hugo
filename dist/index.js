@@ -65154,7 +65154,7 @@ async function getRelease(userAgent, version) {
 function getEnv(name) {
     const value = process.env[`${name}`];
     if (!value)
-        throw new Error(`Variable ${name} expected to be defined`);
+        throw new Error(`Envrionment variable ${name} expected to be defined`);
     return value;
 }
 function sourceToTarget(source, matrix) {

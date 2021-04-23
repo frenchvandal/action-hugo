@@ -32,7 +32,8 @@ async function getRelease(
 
 function getEnv(name: string): string {
   const value: string | undefined = process.env[`${name}`];
-  if (!value) throw new Error(`Variable ${name} expected to be defined`);
+  if (!value)
+    throw new Error(`Envrionment variable ${name} expected to be defined`);
   return value;
 }
 
@@ -41,21 +42,6 @@ function sourceToTarget(source: string, matrix: Map<string, string>): string {
   if (!target) throw new Error(`${source} is not supported`);
   return target;
 }
-
-// os.arch does not match the relative download url, e.g.
-// os.arch == 'x64' != hugo_{VERSION}_{OS}-64bit.zip
-// os.arch == 'arm64' != hugo_{VERSION}_{OS}-ARM64.zip
-//function getOsArch(arch: string = process.arch): string {
-//  switch (arch) {
-//    case 'x64':
-//      return '64bit';
-//    case 'arm64':
-//    case 'arm':
-//      return arch.toUpperCase();
-//    default:
-//      throw new Error(`${arch} is not supported`);
-//  }
-//}
 
 const cacheDirectory: string = getEnv('RUNNER_TOOL_CACHE');
 const extended: string =
