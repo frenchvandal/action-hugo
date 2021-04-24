@@ -13,7 +13,8 @@
     "lint": "eslint ./src/**/*.ts",
     "lint:fix": "eslint --fix ./src/**/*.ts",
     "pre-checkin": "concurrently \"npm:format\" \"npm:build\"",
-    "release": "standard-version"
+    "release": "standard-version",
+    "prepare": "husky install"
   },
   "repository": "github:frenchvandal/action-hugo",
   "keywords": ["actions", "hugo", "build", "package", "website"],
@@ -48,9 +49,14 @@
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-github": "^4.1.3",
     "eslint-plugin-prettier": "^3.4.0",
+    "husky": "^6.0.0",
+    "lint-staged": "^10.5.4",
     "prettier": "^2.2.1",
     "standard-version": "^9.2.0",
     "testyts": "^1.3.0",
     "typescript": "^4.2.4"
+  },
+  "lint-staged": {
+    "*.{js,json,md,ts,yaml}": "prettier --write"
   }
 }
