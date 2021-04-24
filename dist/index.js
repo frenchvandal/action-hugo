@@ -65142,7 +65142,7 @@ __nccwpck_require__.r(__webpack_exports__);
 const owner = 'gohugoio';
 const repo = 'hugo';
 const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
-const archMatrix = new Map([
+const archMap = new Map([
     ['x64', '64bit'],
     ['arm', 'ARM'],
     ['arm64', 'ARM64'],
@@ -65158,8 +65158,8 @@ function getEnv(name) {
     }
     return value;
 }
-function sourceToTarget(source, matrix) {
-    const target = matrix.get(source);
+function sourceToTarget(source, map) {
+    const target = map.get(source);
     if (!target)
         throw new Error(`${source} is not supported`);
     return target;
@@ -65170,7 +65170,7 @@ const version = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('version
 const args = (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)('args') || 'version';
 const isWindows = process.platform === 'win32';
 const osPlatform = getEnv('RUNNER_OS');
-const osArch = sourceToTarget(process.arch, archMatrix);
+const osArch = sourceToTarget(process.arch, archMap);
 const userAgent = `Node.js/${process.version.substr(1)} (${osPlatform}; ${osArch})`;
 const executable = isWindows === true ? `${repo}.exe` : repo;
 const extension = isWindows === true ? '.zip' : '.tar.gz';

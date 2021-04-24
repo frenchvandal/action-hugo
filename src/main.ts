@@ -16,7 +16,7 @@ const repo = 'hugo';
 
 const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
 
-const archMatrix = new Map<string, string>([
+const archMap = new Map<string, string>([
   ['x64', '64bit'],
   ['arm', 'ARM'],
   ['arm64', 'ARM64'],
@@ -38,8 +38,8 @@ function getEnv(name: string): string {
   return value;
 }
 
-function sourceToTarget(source: string, matrix: Map<string, string>): string {
-  const target: string | undefined = matrix.get(source);
+function sourceToTarget(source: string, map: Map<string, string>): string {
+  const target: string | undefined = map.get(source);
   if (!target) throw new Error(`${source} is not supported`);
   return target;
 }
@@ -51,7 +51,7 @@ const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnv('RUNNER_OS');
-const osArch = sourceToTarget(process.arch, archMatrix);
+const osArch = sourceToTarget(process.arch, archMap);
 const userAgent = `Node.js/${process.version.substr(
   1,
 )} (${osPlatform}; ${osArch})`;
