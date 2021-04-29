@@ -3,6 +3,7 @@
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "editorconfig.editorconfig",
-    "github.vscode-pull-request-github"
+    "github.vscode-pull-request-github",
+    "ms-vscode.PowerShell"
   ]
 }
