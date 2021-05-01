@@ -4,6 +4,6 @@
     "esbenp.prettier-vscode",
     "editorconfig.editorconfig",
     "github.vscode-pull-request-github",
-    "ms-vscode.PowerShell"
+    "ms-vscode.powershell"
   ]
 }
