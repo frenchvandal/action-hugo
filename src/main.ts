@@ -88,6 +88,7 @@ async function getHugoExec(
 
 (async (): Promise<void> => {
   try {
+    info(`${process.env}`);
     info(`\u001b[38;5;4mos.release() ${release}`);
     info(`\u001b[38;5;4mos.type() ${type}`);
     const hugoRelease: ReleaseJson | null = await getRelease(

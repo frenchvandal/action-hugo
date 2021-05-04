@@ -65192,6 +65192,7 @@ async function getHugoExec(semver, downloadUrl) {
 }
 (async () => {
     try {
+        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`${process.env}`);
         (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mos.release() ${os__WEBPACK_IMPORTED_MODULE_5__.release}`);
         (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mos.type() ${os__WEBPACK_IMPORTED_MODULE_5__.type}`);
         const hugoRelease = await getRelease(userAgent, version);
