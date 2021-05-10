@@ -62784,13 +62784,10 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(1514);
 /* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__nccwpck_require__.n(_actions_exec__WEBPACK_IMPORTED_MODULE_2__);
 /* harmony import */ var _actions_http_client__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(9925);
-/* harmony import */ var os__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(2087);
-/* harmony import */ var os__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__nccwpck_require__.n(os__WEBPACK_IMPORTED_MODULE_4__);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(5622);
-/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_5__);
-/* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(1383);
-/* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__nccwpck_require__.n(semver__WEBPACK_IMPORTED_MODULE_6__);
-
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(5622);
+/* harmony import */ var path__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__nccwpck_require__.n(path__WEBPACK_IMPORTED_MODULE_4__);
+/* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(1383);
+/* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__nccwpck_require__.n(semver__WEBPACK_IMPORTED_MODULE_5__);
 
 
 
@@ -62852,15 +62849,13 @@ async function getHugoExec(semver, downloadUrl) {
 }
 (async () => {
     try {
-        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mos.release() ${os__WEBPACK_IMPORTED_MODULE_4__.release}`);
-        (0,_actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`\u001b[38;5;4mos.type() ${os__WEBPACK_IMPORTED_MODULE_4__.type}`);
         const hugoRelease = await getRelease(userAgent, version);
         if (!hugoRelease)
             throw Error(`Hugo version ${version} not found`);
         const tagName = hugoRelease.tag_name;
-        const semver = (0,semver__WEBPACK_IMPORTED_MODULE_6__.clean)(tagName) || tagName.replace(/^v/, '');
+        const semver = (0,semver__WEBPACK_IMPORTED_MODULE_5__.clean)(tagName) || tagName.replace(/^v/, '');
         const path = [];
-        path.push((0,path__WEBPACK_IMPORTED_MODULE_5__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
+        path.push((0,path__WEBPACK_IMPORTED_MODULE_4__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
         const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
         const cacheKey = await (0,_actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
