@@ -4,15 +4,10 @@ import { exec } from '@actions/exec';
 import { HttpClient } from '@actions/http-client';
 import { join } from 'path';
 import { clean } from 'semver';
-import github from '@actions/github';
 
 interface ReleaseJson {
   tag_name: string;
 }
-
-const context = github.context.payload.action || '';
-
-info(context);
 
 const owner = 'gohugoio';
 const repo = 'hugo';
