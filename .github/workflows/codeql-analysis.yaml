@@ -38,9 +38,7 @@ jobs:
             ${{ runner.os }}-
 
       - name: Install Dependencies
-        run: |
-          npm install -g npm@latest
-          npm install
+        run: npm install
 
       - name: Compile TypeScript
         run: tsc
