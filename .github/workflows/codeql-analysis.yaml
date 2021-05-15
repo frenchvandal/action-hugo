@@ -25,6 +25,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Update NPM
+        run: sudo npm install -g npm@latest
+
       - name: Cache node modules
         uses: actions/cache@v2
         env:
