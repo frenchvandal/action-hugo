@@ -1,18 +1,15 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "es2020",
+    "module": "esnext",
     "moduleResolution": "node",
     "sourceMap": true,
-    "experimentalDecorators": true,
     "outDir": "./lib",
     "rootDir": "./src",
     "removeComments": true,
     "strict": true,
-    "noImplicitAny": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true
+    "strictFunctionTypes": true,
+    "esModuleInterop": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["commitlint.config.ts", "dist"]
+  "include": ["src/**/*"]
 }

@@ -7,18 +7,18 @@
     "npm": ">=6.14.12"
   },
   "scripts": {
-    "precompile": "npm run lint && npm run format",
+    "precompile": "npm run lint && prettier --write src/**/*.ts",
     "compile": "tsc",
     "postcompile": "prettier --write lib/**/*.js",
     "lint:check": "eslint src/**/*.ts",
     "lint": "eslint --fix src/**/*.ts",
-    "format:check": "prettier --check **/*.js **/*.json **/*.md **/*.ts **/*.yaml",
-    "format": "prettier --write **/*.js **/*.json **/*.md **/*.ts **/*.yaml",
+    "format:check": "prettier --check **/*.{js,json,md,ts,yaml}",
+    "format": "prettier --write **/*.{js,json,md,ts,yaml}",
     "prebuild": "npm run compile",
     "build": "ncc build lib/main.js -o dist",
     "postbuild": "prettier --write dist/**/*.js",
     "update": "npx -y typesync && npx -y npm-check-updates -u",
-    "postupdate": "npm install && npm update"
+    "postupdate": "npm install && npm update && npm run format"
   },
   "repository": "github:frenchvandal/action-hugo",
   "keywords": [

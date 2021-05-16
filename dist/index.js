@@ -5797,10 +5797,7 @@
           }
           // if reusing agent across request and tunneling agent isn't assigned create a new agent
           if (this._keepAlive && !agent) {
-            const options = {
-              keepAlive: this._keepAlive,
-              maxSockets: maxSockets
-            };
+            const options = { keepAlive: this._keepAlive, maxSockets: maxSockets };
             agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
             this._agent = agent;
           }
@@ -7218,10 +7215,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
         var __setModuleDefault = Object.create
           ? function (o, v) {
-              Object.defineProperty(o, "default", {
-                enumerable: true,
-                value: v
-              });
+              Object.defineProperty(o, "default", { enumerable: true, value: v });
             }
           : function (o, v) {
               o["default"] = v;
@@ -9935,10 +9929,7 @@ PERFORMANCE OF THIS SOFTWARE.
         Sanitizer.prototype.replacer = function (key, value) {
           // Ensure Errors include their interesting non-enumerable members
           if (value instanceof Error) {
-            return tslib.__assign(tslib.__assign({}, value), {
-              name: value.name,
-              message: value.message
-            });
+            return tslib.__assign(tslib.__assign({}, value), { name: value.name, message: value.message });
           }
           if (key === "_headersMap") {
             return this.sanitizeHeaders(key, value);
@@ -12927,12 +12918,7 @@ PERFORMANCE OF THIS SOFTWARE.
         var userAgentHeaderName = getValueOrFunctionResult(options.userAgentHeaderName, getDefaultUserAgentHeaderName);
         var userAgentHeaderValue = getValueOrFunctionResult(options.userAgent, getDefaultUserAgentValue);
         if (userAgentHeaderName && userAgentHeaderValue) {
-          factories.push(
-            userAgentPolicy({
-              key: userAgentHeaderName,
-              value: userAgentHeaderValue
-            })
-          );
+          factories.push(userAgentPolicy({ key: userAgentHeaderName, value: userAgentHeaderValue }));
         }
         factories.push(redirectPolicy());
         factories.push(rpRegistrationPolicy(options.rpRegistrationRetryTimeout));
@@ -13141,9 +13127,7 @@ PERFORMANCE OF THIS SOFTWARE.
         if (bodyMapper || _response.request.method === "HEAD" || isPrimitiveType(_response.parsedBody)) {
           // primitive body types and HEAD booleans
           return addOperationResponse(
-            tslib.__assign(tslib.__assign({}, parsedHeaders), {
-              body: _response.parsedBody
-            })
+            tslib.__assign(tslib.__assign({}, parsedHeaders), { body: _response.parsedBody })
           );
         }
         return addOperationResponse(tslib.__assign(tslib.__assign({}, parsedHeaders), _response.parsedBody));
@@ -19772,10 +19756,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
         var __setModuleDefault = Object.create
           ? function (o, v) {
-              Object.defineProperty(o, "default", {
-                enumerable: true,
-                value: v
-              });
+              Object.defineProperty(o, "default", { enumerable: true, value: v });
             }
           : function (o, v) {
               o["default"] = v;
@@ -21464,10 +21445,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
         var __setModuleDefault = Object.create
           ? function (o, v) {
-              Object.defineProperty(o, "default", {
-                enumerable: true,
-                value: v
-              });
+              Object.defineProperty(o, "default", { enumerable: true, value: v });
             }
           : function (o, v) {
               o["default"] = v;
@@ -22704,10 +22682,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
         var __setModuleDefault = Object.create
           ? function (o, v) {
-              Object.defineProperty(o, "default", {
-                enumerable: true,
-                value: v
-              });
+              Object.defineProperty(o, "default", { enumerable: true, value: v });
             }
           : function (o, v) {
               o["default"] = v;
@@ -23534,10 +23509,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
         var __setModuleDefault = Object.create
           ? function (o, v) {
-              Object.defineProperty(o, "default", {
-                enumerable: true,
-                value: v
-              });
+              Object.defineProperty(o, "default", { enumerable: true, value: v });
             }
           : function (o, v) {
               o["default"] = v;
@@ -31631,9 +31603,7 @@ PERFORMANCE OF THIS SOFTWARE.
         headerParameters: [version, requestId],
         requestBody: {
           parameterPath: "blobServiceProperties",
-          mapper: tslib.__assign(tslib.__assign({}, BlobServiceProperties), {
-            required: true
-          })
+          mapper: tslib.__assign(tslib.__assign({}, BlobServiceProperties), { required: true })
         },
         contentType: "application/xml; charset=utf-8",
         responses: {
@@ -31709,9 +31679,7 @@ PERFORMANCE OF THIS SOFTWARE.
         headerParameters: [version, requestId],
         requestBody: {
           parameterPath: "keyInfo",
-          mapper: tslib.__assign(tslib.__assign({}, KeyInfo), {
-            required: true
-          })
+          mapper: tslib.__assign(tslib.__assign({}, KeyInfo), { required: true })
         },
         contentType: "application/xml; charset=utf-8",
         responses: {
@@ -34408,9 +34376,7 @@ PERFORMANCE OF THIS SOFTWARE.
         ],
         requestBody: {
           parameterPath: "blocks",
-          mapper: tslib.__assign(tslib.__assign({}, BlockLookupList), {
-            required: true
-          })
+          mapper: tslib.__assign(tslib.__assign({}, BlockLookupList), { required: true })
         },
         contentType: "application/xml; charset=utf-8",
         responses: {
@@ -34802,12 +34768,7 @@ PERFORMANCE OF THIS SOFTWARE.
           } else if (!accountSas) {
             throw new Error("Invalid SharedAccessSignature in the provided SAS Connection String");
           }
-          return {
-            kind: "SASConnString",
-            url: blobEndpoint,
-            accountName: accountName,
-            accountSas: accountSas
-          };
+          return { kind: "SASConnString", url: blobEndpoint, accountName: accountName, accountSas: accountSas };
         }
       }
       /**
@@ -35830,9 +35791,7 @@ PERFORMANCE OF THIS SOFTWARE.
         // changes made by other factories (like UniqueRequestIDPolicyFactory)
         var telemetryPolicy = new TelemetryPolicyFactory(pipelineOptions.userAgentOptions);
         var factories = [
-          coreHttp.tracingPolicy({
-            userAgent: telemetryPolicy.telemetryString
-          }),
+          coreHttp.tracingPolicy({ userAgent: telemetryPolicy.telemetryString }),
           coreHttp.keepAlivePolicy(pipelineOptions.keepAliveOptions),
           telemetryPolicy,
           coreHttp.generateClientRequestIdPolicy(),
@@ -39175,12 +39134,7 @@ PERFORMANCE OF THIS SOFTWARE.
                 case 4:
                   _c._itemsRemainingInBlock = _d.sent();
                   // skip block length
-                  return [
-                    4 /*yield*/,
-                    AvroParser.readLong(this._dataStream, {
-                      abortSignal: options.abortSignal
-                    })
-                  ];
+                  return [4 /*yield*/, AvroParser.readLong(this._dataStream, { abortSignal: options.abortSignal })];
                 case 5:
                   // skip block length
                   _d.sent();
@@ -39190,12 +39144,7 @@ PERFORMANCE OF THIS SOFTWARE.
                   _d.label = 6;
                 case 6:
                   if (!(i < this._objectIndex)) return [3 /*break*/, 9];
-                  return [
-                    4 /*yield*/,
-                    this._itemType.read(this._dataStream, {
-                      abortSignal: options.abortSignal
-                    })
-                  ];
+                  return [4 /*yield*/, this._itemType.read(this._dataStream, { abortSignal: options.abortSignal })];
                 case 7:
                   _d.sent();
                   this._itemsRemainingInBlock--;
@@ -39281,11 +39230,7 @@ PERFORMANCE OF THIS SOFTWARE.
                   // Ignore block size
                   return [
                     4 /*yield*/,
-                    tslib.__await(
-                      AvroParser.readLong(this._dataStream, {
-                        abortSignal: options.abortSignal
-                      })
-                    )
+                    tslib.__await(AvroParser.readLong(this._dataStream, { abortSignal: options.abortSignal }))
                   ];
                 case 9:
                   // Ignore block size
@@ -39434,9 +39379,7 @@ PERFORMANCE OF THIS SOFTWARE.
           _this.onProgress = options.onProgress;
           _this.onError = options.onError;
           _this.avroReader = new AvroReader(new AvroReadableFromStream(_this.source));
-          _this.avroIter = _this.avroReader.parseObjects({
-            abortSignal: options.abortSignal
-          });
+          _this.avroIter = _this.avroReader.parseObjects({ abortSignal: options.abortSignal });
           return _this;
         }
         BlobQuickQueryStream.prototype._read = function () {
@@ -40285,12 +40228,7 @@ PERFORMANCE OF THIS SOFTWARE.
                 _a.label = 3;
               case 3:
                 _a.trys.push([3, 5, , 6]);
-                return [
-                  4 /*yield*/,
-                  state.blobClient.getProperties({
-                    abortSignal: options.abortSignal
-                  })
-                ];
+                return [4 /*yield*/, state.blobClient.getProperties({ abortSignal: options.abortSignal })];
               case 4:
                 result = _a.sent();
                 (copyStatus = result.copyStatus), (copyProgress = result.copyProgress);
@@ -42242,10 +42180,7 @@ PERFORMANCE OF THIS SOFTWARE.
                     this.blobContext.abortCopyFromURL(
                       copyId,
                       tslib.__assign(
-                        {
-                          abortSignal: options.abortSignal,
-                          leaseAccessConditions: options.conditions
-                        },
+                        { abortSignal: options.abortSignal, leaseAccessConditions: options.conditions },
                         convertTracingToRequestOptionsBase(updatedOptions)
                       )
                     )
@@ -42534,9 +42469,7 @@ PERFORMANCE OF THIS SOFTWARE.
                               // only if convenience layer download try is enabled
                               transferProgress_1 += chunkEnd - off;
                               if (options.onProgress) {
-                                options.onProgress({
-                                  loadedBytes: transferProgress_1
-                                });
+                                options.onProgress({ loadedBytes: transferProgress_1 });
                               }
                               return [2 /*return*/];
                           }
@@ -42990,11 +42923,7 @@ PERFORMANCE OF THIS SOFTWARE.
                   _d.trys.push([1, 3, 4, 5]);
                   return [
                     4 /*yield*/,
-                    this.create(
-                      tslib.__assign(tslib.__assign({}, updatedOptions), {
-                        conditions: conditions
-                      })
-                    )
+                    this.create(tslib.__assign(tslib.__assign({}, updatedOptions), { conditions: conditions }))
                   ];
                 case 2:
                   res = _d.sent();
@@ -43216,10 +43145,7 @@ PERFORMANCE OF THIS SOFTWARE.
                       tslib.__assign(
                         {
                           abortSignal: options.abortSignal,
-                          sourceRange: rangeToString({
-                            offset: sourceOffset,
-                            count: count
-                          }),
+                          sourceRange: rangeToString({ offset: sourceOffset, count: count }),
                           sourceContentMD5: options.sourceContentMD5,
                           sourceContentCrc64: options.sourceContentCrc64,
                           leaseAccessConditions: options.conditions,
@@ -44308,9 +44234,7 @@ PERFORMANCE OF THIS SOFTWARE.
                               // Update progress after block is successfully uploaded to server, in case of block trying
                               transferProgress_3 += length;
                               if (options.onProgress) {
-                                options.onProgress({
-                                  loadedBytes: transferProgress_3
-                                });
+                                options.onProgress({ loadedBytes: transferProgress_3 });
                               }
                               return [2 /*return*/];
                           }
@@ -44637,10 +44561,7 @@ PERFORMANCE OF THIS SOFTWARE.
                             ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions
                           }),
                           onUploadProgress: options.onProgress,
-                          range: rangeToString({
-                            offset: offset,
-                            count: count
-                          }),
+                          range: rangeToString({ offset: offset, count: count }),
                           sequenceNumberAccessConditions: options.conditions,
                           transactionalContentMD5: options.transactionalContentMD5,
                           transactionalContentCrc64: options.transactionalContentCrc64,
@@ -44787,10 +44708,7 @@ PERFORMANCE OF THIS SOFTWARE.
                           modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), {
                             ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions
                           }),
-                          range: rangeToString({
-                            offset: offset,
-                            count: count
-                          }),
+                          range: rangeToString({ offset: offset, count: count }),
                           sequenceNumberAccessConditions: options.conditions,
                           cpkInfo: options.customerProvidedKey,
                           encryptionScope: options.encryptionScope
@@ -44857,10 +44775,7 @@ PERFORMANCE OF THIS SOFTWARE.
                             modifiedAccessConditions: tslib.__assign(tslib.__assign({}, options.conditions), {
                               ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions
                             }),
-                            range: rangeToString({
-                              offset: offset,
-                              count: count
-                            })
+                            range: rangeToString({ offset: offset, count: count })
                           },
                           convertTracingToRequestOptionsBase(updatedOptions)
                         )
@@ -44924,10 +44839,7 @@ PERFORMANCE OF THIS SOFTWARE.
                               ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions
                             }),
                             prevsnapshot: prevSnapshot,
-                            range: rangeToString({
-                              offset: offset,
-                              count: count
-                            })
+                            range: rangeToString({ offset: offset, count: count })
                           },
                           convertTracingToRequestOptionsBase(updatedOptions)
                         )
@@ -44991,10 +44903,7 @@ PERFORMANCE OF THIS SOFTWARE.
                               ifTags: (_a = options.conditions) === null || _a === void 0 ? void 0 : _a.tagConditions
                             }),
                             prevSnapshotUrl: prevSnapshotUrl,
-                            range: rangeToString({
-                              offset: offset,
-                              count: count
-                            })
+                            range: rangeToString({ offset: offset, count: count })
                           },
                           convertTracingToRequestOptionsBase(updatedOptions)
                         )
@@ -46669,10 +46578,7 @@ PERFORMANCE OF THIS SOFTWARE.
                     4 /*yield*/,
                     this.containerContext.getAccessPolicy(
                       tslib.__assign(
-                        {
-                          abortSignal: options.abortSignal,
-                          leaseAccessConditions: options.conditions
-                        },
+                        { abortSignal: options.abortSignal, leaseAccessConditions: options.conditions },
                         convertTracingToRequestOptionsBase(updatedOptions)
                       )
                     )
@@ -48296,10 +48202,7 @@ PERFORMANCE OF THIS SOFTWARE.
                   containerUndeleteResponse = _b.sent();
                   return [
                     2 /*return*/,
-                    {
-                      containerClient: containerClient,
-                      containerUndeleteResponse: containerUndeleteResponse
-                    }
+                    { containerClient: containerClient, containerUndeleteResponse: containerUndeleteResponse }
                   ];
                 case 3:
                   e_3 = _b.sent();
@@ -48360,10 +48263,7 @@ PERFORMANCE OF THIS SOFTWARE.
                   containerRenameResponse = _c.sent();
                   return [
                     2 /*return*/,
-                    {
-                      containerClient: containerClient,
-                      containerRenameResponse: containerRenameResponse
-                    }
+                    { containerClient: containerClient, containerRenameResponse: containerRenameResponse }
                   ];
                 case 3:
                   e_4 = _c.sent();
@@ -48619,18 +48519,9 @@ PERFORMANCE OF THIS SOFTWARE.
                     4 /*yield*/,
                     this.serviceContext.listContainersSegment(
                       tslib.__assign(
-                        tslib.__assign(
-                          tslib.__assign(
-                            {
-                              abortSignal: options.abortSignal,
-                              marker: marker
-                            },
-                            options
-                          ),
-                          {
-                            include: typeof options.include === "string" ? [options.include] : options.include
-                          }
-                        ),
+                        tslib.__assign(tslib.__assign({ abortSignal: options.abortSignal, marker: marker }, options), {
+                          include: typeof options.include === "string" ? [options.include] : options.include
+                        }),
                         convertTracingToRequestOptionsBase(updatedOptions)
                       )
                     )
@@ -48710,10 +48601,7 @@ PERFORMANCE OF THIS SOFTWARE.
                       if (((_a = blob.tags) === null || _a === void 0 ? void 0 : _a.blobTagSet.length) === 1) {
                         tagValue = blob.tags.blobTagSet[0].value;
                       }
-                      return tslib.__assign(tslib.__assign({}, blob), {
-                        tags: toTags(blob.tags),
-                        tagValue: tagValue
-                      });
+                      return tslib.__assign(tslib.__assign({}, blob), { tags: toTags(blob.tags), tagValue: tagValue });
                     })
                   });
                   return [2 /*return*/, wrappedResponse];
@@ -49843,10 +49731,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
         var __setModuleDefault = Object.create
           ? function (o, v) {
-              Object.defineProperty(o, "default", {
-                enumerable: true,
-                value: v
-              });
+              Object.defineProperty(o, "default", { enumerable: true, value: v });
             }
           : function (o, v) {
               o["default"] = v;
@@ -66852,10 +66737,7 @@ PERFORMANCE OF THIS SOFTWARE.
     /******/ __nccwpck_require__.d = (exports, definition) => {
       /******/ for (var key in definition) {
         /******/ if (__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
-          /******/ Object.defineProperty(exports, key, {
-            enumerable: true,
-            get: definition[key]
-          });
+          /******/ Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
           /******/
         }
         /******/
@@ -66905,9 +66787,7 @@ PERFORMANCE OF THIS SOFTWARE.
     /******/ // define __esModule on exports
     /******/ __nccwpck_require__.r = (exports) => {
       /******/ if (typeof Symbol !== "undefined" && Symbol.toStringTag) {
-        /******/ Object.defineProperty(exports, Symbol.toStringTag, {
-          value: "Module"
-        });
+        /******/ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
         /******/
       }
       /******/ Object.defineProperty(exports, "__esModule", { value: true });
