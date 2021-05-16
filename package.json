@@ -74,6 +74,16 @@
   },
   "prettier": {
     "singleQuote": true,
-    "trailingComma": "all"
+    "trailingComma": "all",
+    "overrides": [
+      {
+        "files": "dist/**/*.js",
+        "options": {
+          "printWidth": 120,
+          "singleQuote": false,
+          "trailingComma": "none"
+        }
+      }
+    ]
   }
 }
