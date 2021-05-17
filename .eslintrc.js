@@ -11,12 +11,7 @@ module.exports = {
     sourceType: 'module',
     project: './tsconfig.json',
   },
-  ignorePatterns: [
-    '.eslintrc.js',
-    'commitlint.config.ts',
-    'dist',
-    'node_modules',
-  ],
+  ignorePatterns: ['.eslintrc.js', 'lib', 'dist', 'node_modules'],
   rules: {
     'prettier/prettier': [
       'error',
