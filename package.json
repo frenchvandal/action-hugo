@@ -7,15 +7,15 @@
     "npm": ">=6.14.12"
   },
   "scripts": {
-    "precompile": "npm run lint && prettier --write src/**/*.ts",
     "compile": "tsc",
+    "precompile": "npm run lint && prettier --write src/**/*.ts",
     "postcompile": "prettier --write lib/**/*.js",
     "lint:check": "eslint src/**/*.ts",
     "lint": "eslint --fix src/**/*.ts",
-    "format:check": "prettier --check **/*.{js,json,md,ts,yaml}",
-    "format": "prettier --write **/*.{js,json,md,ts,yaml}",
-    "prebuild": "npm run compile",
+    "format:check": "prettier **/* --check --ignore-unknown",
+    "format": "prettier **/* --write --ignore-unknown",
     "build": "ncc build lib/main.js -o dist",
+    "prebuild": "npm run compile",
     "postbuild": "prettier --write dist/**/*.js",
     "update": "npx -y typesync && npx -y npm-check-updates -u",
     "postupdate": "npm install && npm update && npm run format"
