@@ -1,6 +1,6 @@
 * text=auto
-/dist/** linguist-generated=true
-/lib/**  linguist-generated=true
+dist/** linguist-generated=true
+lib/**  linguist-generated=true
 *.{cmd,[cC][mM][dD]} text eol=crlf
 *.{bat,[bB][aA][tT]} text eol=crlf
 *.md  text diff=markdown eol=lf
