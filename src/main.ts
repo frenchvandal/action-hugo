@@ -1,5 +1,5 @@
 import { restoreCache } from '@actions/cache';
-import { addPath, getInput, info } from '@actions/core';
+import { addPath, getBooleanInput, getInput, info } from '@actions/core';
 import { exec } from '@actions/exec';
 import { HttpClient } from '@actions/http-client';
 import { join } from 'path';
@@ -43,8 +43,7 @@ function sourceToTarget(source: string, map: Map<string, string>): string {
 }
 
 const cacheDirectory: string = getEnv('RUNNER_TOOL_CACHE');
-const extended: string =
-  getInput('extended').toLowerCase().trim() === 'true' ? '_extended' : '';
+const extended: string = getBooleanInput('extended') ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';

@@ -12,7 +12,7 @@ inputs:
     required: false
   extended:
     description: 'Use Hugo extended'
-    default: 'false'
+    default: false
     required: false
   args:
     description: 'Arguments to pass to Hugo'
