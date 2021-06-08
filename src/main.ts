@@ -113,15 +113,15 @@ async function getHugoExec(
 
       try {
         const { saveCache } = await import('@actions/cache');
-        const cacheId = await saveCache(path, key);
+        const cacheId: number = await saveCache(path, key);
         info(`Save Cache succeeded: cacheId ${cacheId}`);
-      } catch (saveCacheError) {
+      } catch (saveCacheError: any) {
         const { warning } = await import('@actions/core');
         warning(`Save Cache failed: ${saveCacheError.message}`);
       }
     }
-  } catch (error) {
+  } catch (err: any) {
     const { setFailed } = await import('@actions/core');
-    setFailed(`Action failed with error: ${error.message}`);
+    setFailed(`Action failed with error: ${err.message}`);
   }
 })();
