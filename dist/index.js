@@ -7594,9 +7594,15 @@ PERFORMANCE OF THIS SOFTWARE.
           return r;
         };
 
-        __spreadArray = function (to, from) {
-          for (var i = 0, il = from.length, j = to.length; i < il; i++, j++) to[j] = from[i];
-          return to;
+        __spreadArray = function (to, from, pack) {
+          if (pack || arguments.length === 2)
+            for (var i = 0, l = from.length, ar; i < l; i++) {
+              if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+              }
+            }
+          return to.concat(ar || from);
         };
 
         __await = function (v) {
@@ -8233,7 +8239,7 @@ PERFORMANCE OF THIS SOFTWARE.
         /**
          * The core-http version
          */
-        coreHttpVersion: "1.2.5",
+        coreHttpVersion: "1.2.6",
         /**
          * Specifies HTTP.
          */
@@ -9289,7 +9295,18 @@ PERFORMANCE OF THIS SOFTWARE.
             // paging
             if (Array.isArray(responseBody[key]) && modelProps[key].serializedName === "") {
               propertyInstance = responseBody[key];
-              instance = serializer.deserialize(propertyMapper, propertyInstance, propertyObjectName, options);
+              var arrayInstance = serializer.deserialize(propertyMapper, propertyInstance, propertyObjectName, options);
+              // Copy over any properties that have already been added into the instance, where they do
+              // not exist on the newly de-serialized array
+              for (var _f = 0, _g = Object.entries(instance); _f < _g.length; _f++) {
+                var _h = _g[_f],
+                  k = _h[0],
+                  v = _h[1];
+                if (!Object.prototype.hasOwnProperty.call(arrayInstance, k)) {
+                  arrayInstance[k] = v;
+                }
+              }
+              instance = arrayInstance;
             } else if (propertyInstance !== undefined || propertyMapper.defaultValue !== undefined) {
               serializedValue = serializer.deserialize(propertyMapper, propertyInstance, propertyObjectName, options);
               instance[key] = serializedValue;
@@ -9318,8 +9335,8 @@ PERFORMANCE OF THIS SOFTWARE.
             }
           }
         } else if (responseBody) {
-          for (var _f = 0, _g = Object.keys(responseBody); _f < _g.length; _f++) {
-            var key = _g[_f];
+          for (var _j = 0, _k = Object.keys(responseBody); _j < _k.length; _j++) {
+            var key = _k[_j];
             if (
               instance[key] === undefined &&
               !handledPropertyNames.includes(key) &&
@@ -16885,9 +16902,15 @@ PERFORMANCE OF THIS SOFTWARE.
           return r;
         };
 
-        __spreadArray = function (to, from) {
-          for (var i = 0, il = from.length, j = to.length; i < il; i++, j++) to[j] = from[i];
-          return to;
+        __spreadArray = function (to, from, pack) {
+          if (pack || arguments.length === 2)
+            for (var i = 0, l = from.length, ar; i < l; i++) {
+              if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+              }
+            }
+          return to.concat(ar || from);
         };
 
         __await = function (v) {
@@ -18574,9 +18597,15 @@ PERFORMANCE OF THIS SOFTWARE.
           return r;
         };
 
-        __spreadArray = function (to, from) {
-          for (var i = 0, il = from.length, j = to.length; i < il; i++, j++) to[j] = from[i];
-          return to;
+        __spreadArray = function (to, from, pack) {
+          if (pack || arguments.length === 2)
+            for (var i = 0, l = from.length, ar; i < l; i++) {
+              if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+              }
+            }
+          return to.concat(ar || from);
         };
 
         __await = function (v) {
@@ -19930,9 +19959,15 @@ PERFORMANCE OF THIS SOFTWARE.
           return r;
         };
 
-        __spreadArray = function (to, from) {
-          for (var i = 0, il = from.length, j = to.length; i < il; i++, j++) to[j] = from[i];
-          return to;
+        __spreadArray = function (to, from, pack) {
+          if (pack || arguments.length === 2)
+            for (var i = 0, l = from.length, ar; i < l; i++) {
+              if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+              }
+            }
+          return to.concat(ar || from);
         };
 
         __await = function (v) {
@@ -20757,9 +20792,15 @@ PERFORMANCE OF THIS SOFTWARE.
           return r;
         };
 
-        __spreadArray = function (to, from) {
-          for (var i = 0, il = from.length, j = to.length; i < il; i++, j++) to[j] = from[i];
-          return to;
+        __spreadArray = function (to, from, pack) {
+          if (pack || arguments.length === 2)
+            for (var i = 0, l = from.length, ar; i < l; i++) {
+              if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+              }
+            }
+          return to.concat(ar || from);
         };
 
         __await = function (v) {
@@ -49476,9 +49517,15 @@ PERFORMANCE OF THIS SOFTWARE.
           return r;
         };
 
-        __spreadArray = function (to, from) {
-          for (var i = 0, il = from.length, j = to.length; i < il; i++, j++) to[j] = from[i];
-          return to;
+        __spreadArray = function (to, from, pack) {
+          if (pack || arguments.length === 2)
+            for (var i = 0, l = from.length, ar; i < l; i++) {
+              if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+              }
+            }
+          return to.concat(ar || from);
         };
 
         __await = function (v) {
