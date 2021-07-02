@@ -7804,29 +7804,25 @@ PERFORMANCE OF THIS SOFTWARE.
        * A static-key-based credential that supports updating
        * the underlying key value.
        */
-      var AzureKeyCredential = /** @class */ (function () {
+      class AzureKeyCredential {
         /**
          * Create an instance of an AzureKeyCredential for use
          * with a service client.
          *
          * @param key - The initial value of the key to use in authentication
          */
-        function AzureKeyCredential(key) {
+        constructor(key) {
           if (!key) {
             throw new Error("key must be a non-empty string");
           }
           this._key = key;
         }
-        Object.defineProperty(AzureKeyCredential.prototype, "key", {
-          /**
-           * The value of the key to be used in authentication
-           */
-          get: function () {
-            return this._key;
-          },
-          enumerable: false,
-          configurable: true
-        });
+        /**
+         * The value of the key to be used in authentication
+         */
+        get key() {
+          return this._key;
+        }
         /**
          * Change the value of the key.
          *
@@ -7835,11 +7831,10 @@ PERFORMANCE OF THIS SOFTWARE.
          *
          * @param newKey - The new key value to be used
          */
-        AzureKeyCredential.prototype.update = function (newKey) {
+        update(newKey) {
           this._key = newKey;
-        };
-        return AzureKeyCredential;
-      })();
+        }
+      }
 
       // Copyright (c) Microsoft Corporation.
       // Licensed under the MIT license.
@@ -7862,8 +7857,7 @@ PERFORMANCE OF THIS SOFTWARE.
         if (!isDefined(thing) || typeof thing !== "object") {
           return false;
         }
-        for (var _i = 0, properties_1 = properties; _i < properties_1.length; _i++) {
-          var property = properties_1[_i];
+        for (const property of properties) {
           if (!objectHasProperty(thing, property)) {
             return false;
           }
@@ -7886,7 +7880,7 @@ PERFORMANCE OF THIS SOFTWARE.
        * A static name/key-based credential that supports updating
        * the underlying name and key values.
        */
-      var AzureNamedKeyCredential = /** @class */ (function () {
+      class AzureNamedKeyCredential {
         /**
          * Create an instance of an AzureNamedKeyCredential for use
          * with a service client.
@@ -7894,33 +7888,25 @@ PERFORMANCE OF THIS SOFTWARE.
          * @param name - The initial value of the name to use in authentication.
          * @param key - The initial value of the key to use in authentication.
          */
-        function AzureNamedKeyCredential(name, key) {
+        constructor(name, key) {
           if (!name || !key) {
             throw new TypeError("name and key must be non-empty strings");
           }
           this._name = name;
           this._key = key;
         }
-        Object.defineProperty(AzureNamedKeyCredential.prototype, "key", {
-          /**
-           * The value of the key to be used in authentication.
-           */
-          get: function () {
-            return this._key;
-          },
-          enumerable: false,
-          configurable: true
-        });
-        Object.defineProperty(AzureNamedKeyCredential.prototype, "name", {
-          /**
-           * The value of the name to be used in authentication.
-           */
-          get: function () {
-            return this._name;
-          },
-          enumerable: false,
-          configurable: true
-        });
+        /**
+         * The value of the key to be used in authentication.
+         */
+        get key() {
+          return this._key;
+        }
+        /**
+         * The value of the name to be used in authentication.
+         */
+        get name() {
+          return this._name;
+        }
         /**
          * Change the value of the key.
          *
@@ -7930,15 +7916,14 @@ PERFORMANCE OF THIS SOFTWARE.
          * @param newName - The new name value to be used.
          * @param newKey - The new key value to be used.
          */
-        AzureNamedKeyCredential.prototype.update = function (newName, newKey) {
+        update(newName, newKey) {
           if (!newName || !newKey) {
             throw new TypeError("newName and newKey must be non-empty strings");
           }
           this._name = newName;
           this._key = newKey;
-        };
-        return AzureNamedKeyCredential;
-      })();
+        }
+      }
       /**
        * Tests an object to determine whether it implements NamedKeyCredential.
        *
@@ -7957,29 +7942,25 @@ PERFORMANCE OF THIS SOFTWARE.
        * A static-signature-based credential that supports updating
        * the underlying signature value.
        */
-      var AzureSASCredential = /** @class */ (function () {
+      class AzureSASCredential {
         /**
          * Create an instance of an AzureSASCredential for use
          * with a service client.
          *
          * @param signature - The initial value of the shared access signature to use in authentication
          */
-        function AzureSASCredential(signature) {
+        constructor(signature) {
           if (!signature) {
             throw new Error("shared access signature must be a non-empty string");
           }
           this._signature = signature;
         }
-        Object.defineProperty(AzureSASCredential.prototype, "signature", {
-          /**
-           * The value of the shared access signature to be used in authentication
-           */
-          get: function () {
-            return this._signature;
-          },
-          enumerable: false,
-          configurable: true
-        });
+        /**
+         * The value of the shared access signature to be used in authentication
+         */
+        get signature() {
+          return this._signature;
+        }
         /**
          * Change the value of the signature.
          *
@@ -7988,14 +7969,13 @@ PERFORMANCE OF THIS SOFTWARE.
          *
          * @param newSignature - The new shared access signature value to be used
          */
-        AzureSASCredential.prototype.update = function (newSignature) {
+        update(newSignature) {
           if (!newSignature) {
             throw new Error("shared access signature must be a non-empty string");
           }
           this._signature = newSignature;
-        };
-        return AzureSASCredential;
-      })();
+        }
+      }
       /**
        * Tests an object to determine whether it implements SASCredential.
        *
@@ -8018,7 +7998,7 @@ PERFORMANCE OF THIS SOFTWARE.
         // a ServiceClientCredentials implementor (like TokenClientCredentials
         // in ms-rest-nodeauth) doesn't get mistaken for a TokenCredential if
         // it doesn't actually implement TokenCredential also.
-        var castCredential = credential;
+        const castCredential = credential;
         return (
           castCredential &&
           typeof castCredential.getToken === "function" &&
