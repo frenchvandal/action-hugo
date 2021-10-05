@@ -50,7 +50,7 @@
     "@types/prettier": "^2.4.1",
     "@types/semver": "^7.3.8",
     "@types/standard-version": "^7.0.1",
-    "@typescript-eslint/eslint-plugin": "^4.32.0",
+    "@typescript-eslint/eslint-plugin": "^4.33.0",
     "@typescript-eslint/parser": "^4.32.0",
     "@vercel/ncc": "^0.31.1",
     "eslint": "^7.32.0",
