@@ -76,9 +76,9 @@ exports.modules = {
     const core_1 = __webpack_require__(2186);
     // needs to be require for core node modules to be mocked
     /* eslint @typescript-eslint/no-require-imports: 0 */
-    const os = __webpack_require__(2087);
-    const cp = __webpack_require__(3129);
-    const fs = __webpack_require__(5747);
+    const os = __webpack_require__(2037);
+    const cp = __webpack_require__(2081);
+    const fs = __webpack_require__(7147);
     function _findMatch(versionSpec, stable, candidates, archFilter) {
       return __awaiter(this, void 0, void 0, function* () {
         const platFilter = os.platform();
@@ -381,17 +381,17 @@ exports.modules = {
         void 0;
     const core = __importStar(__webpack_require__(2186));
     const io = __importStar(__webpack_require__(7436));
-    const fs = __importStar(__webpack_require__(5747));
+    const fs = __importStar(__webpack_require__(7147));
     const mm = __importStar(__webpack_require__(2473));
-    const os = __importStar(__webpack_require__(2087));
-    const path = __importStar(__webpack_require__(5622));
+    const os = __importStar(__webpack_require__(2037));
+    const path = __importStar(__webpack_require__(1017));
     const httpm = __importStar(__webpack_require__(9925));
     const semver = __importStar(__webpack_require__(562));
-    const stream = __importStar(__webpack_require__(2413));
-    const util = __importStar(__webpack_require__(1669));
+    const stream = __importStar(__webpack_require__(2781));
+    const util = __importStar(__webpack_require__(3837));
     const v4_1 = __importDefault(__webpack_require__(824));
     const exec_1 = __webpack_require__(1514);
-    const assert_1 = __webpack_require__(2357);
+    const assert_1 = __webpack_require__(9491);
     const retry_helper_1 = __webpack_require__(8279);
     class HTTPError extends Error {
       constructor(httpStatusCode) {

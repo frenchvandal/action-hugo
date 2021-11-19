@@ -49,7 +49,7 @@ const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnv('RUNNER_OS');
 const osArch = sourceToTarget(process.arch, archMap);
-const userAgent = `Node.js/${process.version.substr(
+const userAgent = `Node.js/${process.version.substring(
   1,
 )} (${osPlatform}; ${osArch})`;
 const executable: string = isWindows === true ? `${repo}.exe` : repo;
