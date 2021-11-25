@@ -40,7 +40,6 @@
     "@actions/exec": "^1.1.0",
     "@actions/http-client": "^1.0.11",
     "@actions/tool-cache": "^1.7.1",
-    "esbuild": "^0.13.15",
     "semver": "^7.3.5"
   },
   "devDependencies": {
