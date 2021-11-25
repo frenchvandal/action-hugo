@@ -63816,7 +63816,7 @@ PERFORMANCE OF THIS SOFTWARE.
         const hugoRelease = await getRelease(userAgent, version);
         if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
         const tagName = hugoRelease.tag_name;
-        const semver = (0, semver__WEBPACK_IMPORTED_MODULE_5__.clean)(tagName) || tagName.replace(/^v/, "");
+        const semver = (0, semver__WEBPACK_IMPORTED_MODULE_5__.clean)(tagName) ?? tagName.replace(/^v/, "");
         const path = [];
         path.push((0, path__WEBPACK_IMPORTED_MODULE_4__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
         const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
