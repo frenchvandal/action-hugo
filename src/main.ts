@@ -11,9 +11,7 @@ interface ReleaseJson {
 
 const owner = 'gohugoio';
 const repo = 'hugo';
-
 const releaseUrl = `https://github.com/${owner}/${repo}/releases`;
-
 const archMap = new Map<string, string>([
   ['x64', '64bit'],
   ['arm', 'ARM'],
@@ -29,7 +27,7 @@ async function getRelease(
 }
 
 function getEnv(name: string): string {
-  const value: string | undefined = process.env[`${name}`];
+  const value: string | undefined = process.env[name];
   if (!value) {
     throw new Error(`Envrionment variable ${name} expected to be defined`);
   }

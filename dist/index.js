@@ -63765,7 +63765,7 @@ PERFORMANCE OF THIS SOFTWARE.
       return (await http.getJson(`${releaseUrl}/${version}`)).result;
     }
     function getEnv(name) {
-      const value = process.env[`${name}`];
+      const value = process.env[name];
       if (!value) {
         throw new Error(`Envrionment variable ${name} expected to be defined`);
       }
