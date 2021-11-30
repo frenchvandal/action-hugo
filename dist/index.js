@@ -63764,18 +63764,18 @@ PERFORMANCE OF THIS SOFTWARE.
       const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_3__.HttpClient(userAgent);
       return (await http.getJson(`${releaseUrl}/${version}`)).result;
     }
-    function getEnv(name) {
+    const getEnv = function getValueFromEnvironmentVariable(name) {
       const value = process.env[name];
       if (!value) {
-        throw new Error(`Envrionment variable ${name} expected to be defined`);
+        throw new Error(`Environment variable ${name} expected to be defined`);
       }
       return value;
-    }
-    function sourceToTarget(source, map) {
+    };
+    const sourceToTarget = function convertSourceValueToTargetValue(source, map) {
       const target = map.get(source);
       if (!target) throw new Error(`${source} is not supported`);
       return target;
-    }
+    };
     const cacheDirectory = getEnv("RUNNER_TOOL_CACHE");
     const extended = (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.getBooleanInput)("extended") ? "_extended" : "";
     const version = (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.getInput)("version") || "latest";

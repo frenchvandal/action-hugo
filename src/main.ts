@@ -26,19 +26,22 @@ async function getRelease(
   return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
 }
 
-function getEnv(name: string): string {
+const getEnv = function getValueFromEnvironmentVariable(name: string): string {
   const value: string | undefined = process.env[name];
   if (!value) {
-    throw new Error(`Envrionment variable ${name} expected to be defined`);
+    throw new Error(`Environment variable ${name} expected to be defined`);
   }
   return value;
-}
+};
 
-function sourceToTarget(source: string, map: Map<string, string>): string {
+const sourceToTarget = function convertSourceValueToTargetValue(
+  source: string,
+  map: Map<string, string>,
+): string {
   const target: string | undefined = map.get(source);
   if (!target) throw new Error(`${source} is not supported`);
   return target;
-}
+};
 
 const cacheDirectory: string = getEnv('RUNNER_TOOL_CACHE');
 const extended: string = getBooleanInput('extended') ? '_extended' : '';
