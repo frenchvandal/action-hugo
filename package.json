@@ -3,8 +3,8 @@
   "description": "GitHub Action for Hugo, the world's fastest framework for building websites",
   "main": "lib/main.js",
   "engines": {
-    "node": ">=16.13.0",
-    "npm": ">=8.17.0"
+    "node": ">=16.16.0",
+    "npm": ">=8.11.0"
   },
   "scripts": {
     "compile": "tsc",
