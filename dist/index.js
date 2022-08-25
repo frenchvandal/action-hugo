@@ -15335,7 +15335,7 @@
     /***/ 8165: /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
       "use strict";
       /*!
-       * Copyright (c) 2015, Salesforce.com, Inc.
+       * Copyright (c) 2015-2020, Salesforce.com, Inc.
        * All rights reserved.
        *
        * Redistribution and use in source and binary forms, with or without
@@ -15365,15 +15365,16 @@
        * POSSIBILITY OF SUCH DAMAGE.
        */
 
-      const punycode = __nccwpck_require__(5477);
-      const urlParse = __nccwpck_require__(7310).parse;
-      const util = __nccwpck_require__(3837);
+      const punycode = __nccwpck_require__(9540);
+      const urlParse = __nccwpck_require__(5682);
       const pubsuffix = __nccwpck_require__(8292);
       const Store = __nccwpck_require__(7707) /* .Store */.y;
       const MemoryCookieStore = __nccwpck_require__(6738) /* .MemoryCookieStore */.m;
       const pathMatch = __nccwpck_require__(807) /* .pathMatch */.U;
+      const validators = __nccwpck_require__(1598);
       const VERSION = __nccwpck_require__(8742);
       const { fromCallback } = __nccwpck_require__(4605);
+      const { getCustomInspectSymbol } = __nccwpck_require__(9375);
 
       // From RFC6265 S4.1.1
       // note that it excludes \x3B ";"
@@ -15415,6 +15416,7 @@
         'Invalid sameSiteContext option for getCookies(); expected one of "strict", "lax", or "none"';
 
       function checkSameSiteContext(value) {
+        validators.validate(validators.isNonEmptyString(value), value);
         const context = String(value).toLowerCase();
         if (context === "none" || context === "lax" || context === "strict") {
           return context;
@@ -15433,8 +15435,24 @@
       // * all capturing groups converted to non-capturing -- "(?:)"
       // * support for IPv6 Scoped Literal ("%eth1") removed
       // * lowercase hexadecimal only
-      var IP_REGEX_LOWERCASE =
+      const IP_REGEX_LOWERCASE =
         /(?:^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$)|(?:^(?:(?:[a-f\d]{1,4}:){7}(?:[a-f\d]{1,4}|:)|(?:[a-f\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-f\d]{1,4}|:)|(?:[a-f\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,2}|:)|(?:[a-f\d]{1,4}:){4}(?:(?::[a-f\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,3}|:)|(?:[a-f\d]{1,4}:){3}(?:(?::[a-f\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,4}|:)|(?:[a-f\d]{1,4}:){2}(?:(?::[a-f\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,5}|:)|(?:[a-f\d]{1,4}:){1}(?:(?::[a-f\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,6}|:)|(?::(?:(?::[a-f\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-f\d]{1,4}){1,7}|:)))$)/;
+      const IP_V6_REGEX = `
+\\[?(?:
+(?:[a-fA-F\\d]{1,4}:){7}(?:[a-fA-F\\d]{1,4}|:)|
+(?:[a-fA-F\\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|:[a-fA-F\\d]{1,4}|:)|
+(?:[a-fA-F\\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|(?::[a-fA-F\\d]{1,4}){1,2}|:)|
+(?:[a-fA-F\\d]{1,4}:){4}(?:(?::[a-fA-F\\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|(?::[a-fA-F\\d]{1,4}){1,3}|:)|
+(?:[a-fA-F\\d]{1,4}:){3}(?:(?::[a-fA-F\\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|(?::[a-fA-F\\d]{1,4}){1,4}|:)|
+(?:[a-fA-F\\d]{1,4}:){2}(?:(?::[a-fA-F\\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|(?::[a-fA-F\\d]{1,4}){1,5}|:)|
+(?:[a-fA-F\\d]{1,4}:){1}(?:(?::[a-fA-F\\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|(?::[a-fA-F\\d]{1,4}){1,6}|:)|
+(?::(?:(?::[a-fA-F\\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]\\d|\\d)){3}|(?::[a-fA-F\\d]{1,4}){1,7}|:))
+)(?:%[0-9a-zA-Z]{1,})?\\]?
+`
+        .replace(/\s*\/\/.*$/gm, "")
+        .replace(/\n/g, "")
+        .trim();
+      const IP_V6_REGEX_OBJECT = new RegExp(`^${IP_V6_REGEX}$`);
 
       /*
        * Parses a Natural number (i.e., non-negative integer) with either the
@@ -15636,6 +15654,7 @@
       }
 
       function formatDate(date) {
+        validators.validate(validators.isDate(date), date);
         return date.toUTCString();
       }
 
@@ -15645,6 +15664,10 @@
           return null;
         }
         str = str.trim().replace(/^\./, ""); // S4.1.2.3 & S5.2.3: ignore leading .
+
+        if (IP_V6_REGEX_OBJECT.test(str)) {
+          str = str.replace("[", "").replace("]", "");
+        }
 
         // convert to IDN if any non-ASCII characters
         if (punycode && /[^\u0001-\u007f]/.test(str)) {
@@ -15680,7 +15703,7 @@
         /* " o All of the following [three] conditions hold:" */
 
         /* "* The domain string is a suffix of the string" */
-        const idx = str.indexOf(domStr);
+        const idx = str.lastIndexOf(domStr);
         if (idx <= 0) {
           return false; // it's a non-match (-1) or prefix (0)
         }
@@ -15738,6 +15761,7 @@
       }
 
       function trimTerminator(str) {
+        if (validators.isEmptyString(str)) return str;
         for (let t = 0; t < TERMINATORS.length; t++) {
           const terminatorIdx = str.indexOf(TERMINATORS[t]);
           if (terminatorIdx !== -1) {
@@ -15750,6 +15774,7 @@
 
       function parseCookiePair(cookiePair, looseMode) {
         cookiePair = trimTerminator(cookiePair);
+        validators.validate(validators.isString(cookiePair), cookiePair);
 
         let firstEq = cookiePair.indexOf("=");
         if (looseMode) {
@@ -15789,6 +15814,11 @@
         if (!options || typeof options !== "object") {
           options = {};
         }
+
+        if (validators.isEmptyString(str) || !validators.isString(str)) {
+          return null;
+        }
+
         str = str.trim();
 
         // We use a regex to parse the "name-value-pair" part of S5.2
@@ -15924,11 +15954,11 @@
                 case "lax":
                   c.sameSite = "lax";
                   break;
+                case "none":
+                  c.sameSite = "none";
+                  break;
                 default:
-                  // RFC6265bis-02 S5.3.7 step 1:
-                  // "If cookie-av's attribute-value is not a case-insensitive match
-                  //  for "Strict" or "Lax", ignore the "cookie-av"."
-                  // This effectively sets it to 'none' from the prototype.
+                  c.sameSite = undefined;
                   break;
               }
               break;
@@ -15951,6 +15981,7 @@
        * @returns boolean
        */
       function isSecurePrefixConditionMet(cookie) {
+        validators.validate(validators.isObject(cookie), cookie);
         return !cookie.key.startsWith("__Secure-") || cookie.secure;
       }
 
@@ -15966,6 +15997,7 @@
        * @returns boolean
        */
       function isHostPrefixConditionMet(cookie) {
+        validators.validate(validators.isObject(cookie));
         return (
           !cookie.key.startsWith("__Host-") ||
           (cookie.secure && cookie.hostOnly && cookie.path != null && cookie.path === "/")
@@ -15984,7 +16016,7 @@
       }
 
       function fromJSON(str) {
-        if (!str) {
+        if (!str || validators.isEmptyString(str)) {
           return null;
         }
 
@@ -16030,6 +16062,8 @@
        */
 
       function cookieCompare(a, b) {
+        validators.validate(validators.isObject(a), a);
+        validators.validate(validators.isObject(b), b);
         let cmp = 0;
 
         // descending for length: b CMP a
@@ -16057,6 +16091,7 @@
       // Gives the permutation of all possible pathMatch()es of a given path. The
       // array is in longest-to-shortest order.  Handy for indexing.
       function permutePath(path) {
+        validators.validate(validators.isString(path));
         if (path === "/") {
           return ["/"];
         }
@@ -16104,13 +16139,14 @@
         pathIsDefault: null,
         creation: null,
         lastAccessed: null,
-        sameSite: "none"
+        sameSite: undefined
       };
 
       class Cookie {
         constructor(options = {}) {
-          if (util.inspect.custom) {
-            this[util.inspect.custom] = this.inspect;
+          const customInspectSymbol = getCustomInspectSymbol();
+          if (customInspectSymbol) {
+            this[customInspectSymbol] = this.inspect;
           }
 
           Object.assign(this, cookieDefaults, options);
@@ -16377,9 +16413,11 @@
           if (typeof options === "boolean") {
             options = { rejectPublicSuffixes: options };
           }
+          validators.validate(validators.isObject(options), options);
           this.rejectPublicSuffixes = options.rejectPublicSuffixes;
           this.enableLooseMode = !!options.looseMode;
-          this.allowSpecialUseDomain = !!options.allowSpecialUseDomain;
+          this.allowSpecialUseDomain =
+            typeof options.allowSpecialUseDomain === "boolean" ? options.allowSpecialUseDomain : true;
           this.store = store || new MemoryCookieStore();
           this.prefixSecurity = getNormalizedPrefixSecurity(options.prefixSecurity);
           this._cloneSync = syncWrap("clone");
@@ -16393,11 +16431,29 @@
         }
 
         setCookie(cookie, url, options, cb) {
+          validators.validate(validators.isNonEmptyString(url), cb, options);
           let err;
+
+          if (validators.isFunction(url)) {
+            cb = url;
+            return cb(new Error("No URL was specified"));
+          }
+
           const context = getCookieContext(url);
-          if (typeof options === "function") {
+          if (validators.isFunction(options)) {
             cb = options;
             options = {};
+          }
+
+          validators.validate(validators.isFunction(cb), cb);
+
+          if (
+            !validators.isNonEmptyString(cookie) &&
+            !validators.isObject(cookie) &&
+            cookie instanceof String &&
+            cookie.length == 0
+          ) {
+            return cb(null);
           }
 
           const host = canonicalDomain(context.hostname);
@@ -16434,8 +16490,11 @@
 
           // S5.3 step 5: public suffixes
           if (this.rejectPublicSuffixes && cookie.domain) {
-            const suffix = pubsuffix.getPublicSuffix(cookie.cdomain());
-            if (suffix == null) {
+            const suffix = pubsuffix.getPublicSuffix(cookie.cdomain(), {
+              allowSpecialUseDomain: this.allowSpecialUseDomain,
+              ignoreError: options.ignoreError
+            });
+            if (suffix == null && !IP_V6_REGEX_OBJECT.test(cookie.domain)) {
               // e.g. "com"
               err = new Error("Cookie has domain set to a public suffix");
               return cb(options.ignoreError ? null : err);
@@ -16476,7 +16535,7 @@
           }
 
           // 6252bis-02 S5.4 Step 13 & 14:
-          if (cookie.sameSite !== "none" && sameSiteContext) {
+          if (cookie.sameSite !== "none" && cookie.sameSite !== undefined && sameSiteContext) {
             // "If the cookie's "same-site-flag" is not "None", and the cookie
             //  is being set from a context whose "site for cookies" is not an
             //  exact match for request-uri's host's registered domain, then
@@ -16554,11 +16613,14 @@
 
         // RFC6365 S5.4
         getCookies(url, options, cb) {
+          validators.validate(validators.isNonEmptyString(url), cb, url);
           const context = getCookieContext(url);
-          if (typeof options === "function") {
+          if (validators.isFunction(options)) {
             cb = options;
             options = {};
           }
+          validators.validate(validators.isObject(options), cb, options);
+          validators.validate(validators.isFunction(cb), cb);
 
           const host = canonicalDomain(context.hostname);
           const path = context.pathname || "/";
@@ -16665,6 +16727,7 @@
 
         getCookieString(...args) {
           const cb = args.pop();
+          validators.validate(validators.isFunction(cb), cb);
           const next = function (err, cookies) {
             if (err) {
               cb(err);
@@ -16684,6 +16747,7 @@
 
         getSetCookieStrings(...args) {
           const cb = args.pop();
+          validators.validate(validators.isFunction(cb), cb);
           const next = function (err, cookies) {
             if (err) {
               cb(err);
@@ -16701,8 +16765,9 @@
         }
 
         serialize(cb) {
+          validators.validate(validators.isFunction(cb), cb);
           let type = this.store.constructor.name;
-          if (type === "Object") {
+          if (validators.isObject(type)) {
             type = null;
           }
 
@@ -16718,6 +16783,9 @@
 
             // CookieJar configuration:
             rejectPublicSuffixes: !!this.rejectPublicSuffixes,
+            enableLooseMode: !!this.enableLooseMode,
+            allowSpecialUseDomain: !!this.allowSpecialUseDomain,
+            prefixSecurity: getNormalizedPrefixSecurity(this.prefixSecurity),
 
             // this gets filled from getAllCookies:
             cookies: []
@@ -16809,6 +16877,7 @@
         }
 
         removeAllCookies(cb) {
+          validators.validate(validators.isFunction(cb), cb);
           const store = this.store;
 
           // Check that the store implements its own removeAllCookies(). The default
@@ -16857,6 +16926,7 @@
             cb = store;
             store = null;
           }
+          validators.validate(validators.isFunction(cb), cb);
 
           let serialized;
           if (typeof strOrObj === "string") {
@@ -16868,7 +16938,12 @@
             serialized = strOrObj;
           }
 
-          const jar = new CookieJar(store, serialized.rejectPublicSuffixes);
+          const jar = new CookieJar(store, {
+            rejectPublicSuffixes: serialized.rejectPublicSuffixes,
+            looseMode: serialized.enableLooseMode,
+            allowSpecialUseDomain: serialized.allowSpecialUseDomain,
+            prefixSecurity: serialized.prefixSecurity
+          });
           jar._importCookies(serialized, (err) => {
             if (err) {
               return cb(err);
@@ -16879,7 +16954,10 @@
 
         static deserializeSync(strOrObj, store) {
           const serialized = typeof strOrObj === "string" ? JSON.parse(strOrObj) : strOrObj;
-          const jar = new CookieJar(store, serialized.rejectPublicSuffixes);
+          const jar = new CookieJar(store, {
+            rejectPublicSuffixes: serialized.rejectPublicSuffixes,
+            looseMode: serialized.enableLooseMode
+          });
 
           // catch this mistake early:
           if (!jar.store.synchronous) {
@@ -16944,12 +17022,14 @@
       exports.permutePath = permutePath;
       exports.canonicalDomain = canonicalDomain;
       exports.PrefixSecurityEnum = PrefixSecurityEnum;
+      exports.ParameterError = validators.ParameterError;
 
       /***/
     },
 
     /***/ 6738: /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
       "use strict";
+      var __webpack_unused_export__;
       /*!
        * Copyright (c) 2015, Salesforce.com, Inc.
        * All rights reserved.
@@ -16985,19 +17065,21 @@
       const Store = __nccwpck_require__(7707) /* .Store */.y;
       const permuteDomain = __nccwpck_require__(5696).permuteDomain;
       const pathMatch = __nccwpck_require__(807) /* .pathMatch */.U;
-      const util = __nccwpck_require__(3837);
+      const { getCustomInspectSymbol, getUtilInspect } = __nccwpck_require__(9375);
 
       class MemoryCookieStore extends Store {
         constructor() {
           super();
           this.synchronous = true;
           this.idx = {};
-          if (util.inspect.custom) {
-            this[util.inspect.custom] = this.inspect;
+          const customInspectSymbol = getCustomInspectSymbol();
+          if (customInspectSymbol) {
+            this[customInspectSymbol] = this.inspect;
           }
         }
 
         inspect() {
+          const util = { inspect: getUtilInspect(inspectFallback) };
           return `{ idx: ${util.inspect(this.idx, false, 2)} }`;
         }
 
@@ -17014,7 +17096,7 @@
           const results = [];
           if (typeof allowSpecialUseDomain === "function") {
             cb = allowSpecialUseDomain;
-            allowSpecialUseDomain = false;
+            allowSpecialUseDomain = true;
           }
           if (!domain) {
             return cb(null, []);
@@ -17132,10 +17214,58 @@
         "removeAllCookies",
         "getAllCookies"
       ].forEach((name) => {
-        MemoryCookieStore[name] = fromCallback(MemoryCookieStore.prototype[name]);
+        MemoryCookieStore.prototype[name] = fromCallback(MemoryCookieStore.prototype[name]);
       });
 
       exports.m = MemoryCookieStore;
+
+      function inspectFallback(val) {
+        const domains = Object.keys(val);
+        if (domains.length === 0) {
+          return "{}";
+        }
+        let result = "{\n";
+        Object.keys(val).forEach((domain, i) => {
+          result += formatDomain(domain, val[domain]);
+          if (i < domains.length - 1) {
+            result += ",";
+          }
+          result += "\n";
+        });
+        result += "}";
+        return result;
+      }
+
+      function formatDomain(domainName, domainValue) {
+        const indent = "  ";
+        let result = `${indent}'${domainName}': {\n`;
+        Object.keys(domainValue).forEach((path, i, paths) => {
+          result += formatPath(path, domainValue[path]);
+          if (i < paths.length - 1) {
+            result += ",";
+          }
+          result += "\n";
+        });
+        result += `${indent}}`;
+        return result;
+      }
+
+      function formatPath(pathName, pathValue) {
+        const indent = "    ";
+        let result = `${indent}'${pathName}': {\n`;
+        Object.keys(pathValue).forEach((cookieName, i, cookieNames) => {
+          const cookie = pathValue[cookieName];
+          result += `      ${cookieName}: ${cookie.inspect()}`;
+          if (i < cookieNames.length - 1) {
+            result += ",";
+          }
+          result += "\n";
+        });
+        result += `${indent}}`;
+        return result;
+      }
+
+      __webpack_unused_export__ = inspectFallback;
 
       /***/
     },
@@ -17244,25 +17374,22 @@
 
       // Gives the permutation of all possible domainMatch()es of a given domain. The
       // array is in shortest-to-longest order.  Handy for indexing.
-      const SPECIAL_USE_DOMAINS = ["local"]; // RFC 6761
+
       function permuteDomain(domain, allowSpecialUseDomain) {
-        let pubSuf = null;
-        if (allowSpecialUseDomain) {
-          const domainParts = domain.split(".");
-          if (SPECIAL_USE_DOMAINS.includes(domainParts[domainParts.length - 1])) {
-            pubSuf = `${domainParts[domainParts.length - 2]}.${domainParts[domainParts.length - 1]}`;
-          } else {
-            pubSuf = pubsuffix.getPublicSuffix(domain);
-          }
-        } else {
-          pubSuf = pubsuffix.getPublicSuffix(domain);
-        }
+        const pubSuf = pubsuffix.getPublicSuffix(domain, {
+          allowSpecialUseDomain: allowSpecialUseDomain
+        });
 
         if (!pubSuf) {
           return null;
         }
         if (pubSuf == domain) {
           return [domain];
+        }
+
+        // Nuke trailing dot
+        if (domain.slice(-1) == ".") {
+          domain = domain.slice(0, -1);
         }
 
         const prefix = domain.slice(0, -(pubSuf.length + 1)); // ".example.com"
@@ -17316,7 +17443,36 @@
 
       const psl = __nccwpck_require__(9975);
 
-      function getPublicSuffix(domain) {
+      // RFC 6761
+      const SPECIAL_USE_DOMAINS = ["local", "example", "invalid", "localhost", "test"];
+
+      const SPECIAL_TREATMENT_DOMAINS = ["localhost", "invalid"];
+
+      function getPublicSuffix(domain, options = {}) {
+        const domainParts = domain.split(".");
+        const topLevelDomain = domainParts[domainParts.length - 1];
+        const allowSpecialUseDomain = !!options.allowSpecialUseDomain;
+        const ignoreError = !!options.ignoreError;
+
+        if (allowSpecialUseDomain && SPECIAL_USE_DOMAINS.includes(topLevelDomain)) {
+          if (domainParts.length > 1) {
+            const secondLevelDomain = domainParts[domainParts.length - 2];
+            // In aforementioned example, the eTLD/pubSuf will be apple.localhost
+            return `${secondLevelDomain}.${topLevelDomain}`;
+          } else if (SPECIAL_TREATMENT_DOMAINS.includes(topLevelDomain)) {
+            // For a single word special use domain, e.g. 'localhost' or 'invalid', per RFC 6761,
+            // "Application software MAY recognize {localhost/invalid} names as special, or
+            // MAY pass them to name resolution APIs as they would for other domain names."
+            return `${topLevelDomain}`;
+          }
+        }
+
+        if (!ignoreError && SPECIAL_USE_DOMAINS.includes(topLevelDomain)) {
+          throw new Error(
+            `Cookie has domain set to the public suffix "${topLevelDomain}" which is a special use domain. To allow this, configure your CookieJar with {allowSpecialUseDomain:true, rejectPublicSuffixes: false}.`
+          );
+        }
+
         return psl.get(domain);
       }
 
@@ -17405,9 +17561,149 @@
       /***/
     },
 
+    /***/ 9375: /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
+      function requireUtil() {
+        try {
+          // eslint-disable-next-line no-restricted-modules
+          return __nccwpck_require__(3837);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // for v10.12.0+
+      function lookupCustomInspectSymbol() {
+        return Symbol.for("nodejs.util.inspect.custom");
+      }
+
+      // for older node environments
+      function tryReadingCustomSymbolFromUtilInspect(options) {
+        const _requireUtil = options.requireUtil || requireUtil;
+        const util = _requireUtil();
+        return util ? util.inspect.custom : null;
+      }
+
+      exports.getUtilInspect = function getUtilInspect(fallback, options = {}) {
+        const _requireUtil = options.requireUtil || requireUtil;
+        const util = _requireUtil();
+        return function inspect(value, showHidden, depth) {
+          return util ? util.inspect(value, showHidden, depth) : fallback(value);
+        };
+      };
+
+      exports.getCustomInspectSymbol = function getCustomInspectSymbol(options = {}) {
+        const _lookupCustomInspectSymbol = options.lookupCustomInspectSymbol || lookupCustomInspectSymbol;
+
+        // get custom inspect symbol for node environments
+        return _lookupCustomInspectSymbol() || tryReadingCustomSymbolFromUtilInspect(options);
+      };
+
+      /***/
+    },
+
+    /***/ 1598: /***/ (__unused_webpack_module, exports) => {
+      "use strict";
+      /* ************************************************************************************
+Extracted from check-types.js
+https://gitlab.com/philbooth/check-types.js
+
+MIT License
+
+Copyright (c) 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019 Phil Booth
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+************************************************************************************ */
+
+      /* Validation functions copied from check-types package - https://www.npmjs.com/package/check-types */
+      function isFunction(data) {
+        return typeof data === "function";
+      }
+
+      function isNonEmptyString(data) {
+        return isString(data) && data !== "";
+      }
+
+      function isDate(data) {
+        return isInstanceStrict(data, Date) && isInteger(data.getTime());
+      }
+
+      function isEmptyString(data) {
+        return data === "" || (data instanceof String && data.toString() === "");
+      }
+
+      function isString(data) {
+        return typeof data === "string" || data instanceof String;
+      }
+
+      function isObject(data) {
+        return toString.call(data) === "[object Object]";
+      }
+      function isInstanceStrict(data, prototype) {
+        try {
+          return data instanceof prototype;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function isInteger(data) {
+        return typeof data === "number" && data % 1 === 0;
+      }
+      /* End validation functions */
+
+      function validate(bool, cb, options) {
+        if (!isFunction(cb)) {
+          options = cb;
+          cb = null;
+        }
+        if (!isObject(options)) options = { Error: "Failed Check" };
+        if (!bool) {
+          if (cb) {
+            cb(new ParameterError(options));
+          } else {
+            throw new ParameterError(options);
+          }
+        }
+      }
+
+      class ParameterError extends Error {
+        constructor(...params) {
+          super(...params);
+        }
+      }
+
+      exports.ParameterError = ParameterError;
+      exports.isFunction = isFunction;
+      exports.isNonEmptyString = isNonEmptyString;
+      exports.isDate = isDate;
+      exports.isEmptyString = isEmptyString;
+      exports.isString = isString;
+      exports.isObject = isObject;
+      exports.validate = validate;
+
+      /***/
+    },
+
     /***/ 8742: /***/ (module) => {
       // generated by genversion
-      module.exports = "4.0.0";
+      module.exports = "4.1.2";
 
       /***/
     },
@@ -17959,7 +18255,11 @@ PERFORMANCE OF THIS SOFTWARE.
           function () {
             const cb = arguments[arguments.length - 1];
             if (typeof cb !== "function") return fn.apply(this, arguments);
-            else fn.apply(this, arguments).then((r) => cb(null, r), cb);
+            else {
+              delete arguments[arguments.length - 1];
+              arguments.length--;
+              fn.apply(this, arguments).then((r) => cb(null, r), cb);
+            }
           },
           "name",
           { value: fn.name }
@@ -54583,6 +54883,606 @@ PERFORMANCE OF THIS SOFTWARE.
       /***/
     },
 
+    /***/ 9540: /***/ (module) => {
+      "use strict";
+
+      /** Highest positive signed 32-bit float value */
+      const maxInt = 2147483647; // aka. 0x7FFFFFFF or 2^31-1
+
+      /** Bootstring parameters */
+      const base = 36;
+      const tMin = 1;
+      const tMax = 26;
+      const skew = 38;
+      const damp = 700;
+      const initialBias = 72;
+      const initialN = 128; // 0x80
+      const delimiter = "-"; // '\x2D'
+
+      /** Regular expressions */
+      const regexPunycode = /^xn--/;
+      const regexNonASCII = /[^\0-\x7E]/; // non-ASCII chars
+      const regexSeparators = /[\x2E\u3002\uFF0E\uFF61]/g; // RFC 3490 separators
+
+      /** Error messages */
+      const errors = {
+        overflow: "Overflow: input needs wider integers to process",
+        "not-basic": "Illegal input >= 0x80 (not a basic code point)",
+        "invalid-input": "Invalid input"
+      };
+
+      /** Convenience shortcuts */
+      const baseMinusTMin = base - tMin;
+      const floor = Math.floor;
+      const stringFromCharCode = String.fromCharCode;
+
+      /*--------------------------------------------------------------------------*/
+
+      /**
+       * A generic error utility function.
+       * @private
+       * @param {String} type The error type.
+       * @returns {Error} Throws a `RangeError` with the applicable error message.
+       */
+      function error(type) {
+        throw new RangeError(errors[type]);
+      }
+
+      /**
+       * A generic `Array#map` utility function.
+       * @private
+       * @param {Array} array The array to iterate over.
+       * @param {Function} callback The function that gets called for every array
+       * item.
+       * @returns {Array} A new array of values returned by the callback function.
+       */
+      function map(array, fn) {
+        const result = [];
+        let length = array.length;
+        while (length--) {
+          result[length] = fn(array[length]);
+        }
+        return result;
+      }
+
+      /**
+       * A simple `Array#map`-like wrapper to work with domain name strings or email
+       * addresses.
+       * @private
+       * @param {String} domain The domain name or email address.
+       * @param {Function} callback The function that gets called for every
+       * character.
+       * @returns {Array} A new string of characters returned by the callback
+       * function.
+       */
+      function mapDomain(string, fn) {
+        const parts = string.split("@");
+        let result = "";
+        if (parts.length > 1) {
+          // In email addresses, only the domain name should be punycoded. Leave
+          // the local part (i.e. everything up to `@`) intact.
+          result = parts[0] + "@";
+          string = parts[1];
+        }
+        // Avoid `split(regex)` for IE8 compatibility. See #17.
+        string = string.replace(regexSeparators, "\x2E");
+        const labels = string.split(".");
+        const encoded = map(labels, fn).join(".");
+        return result + encoded;
+      }
+
+      /**
+       * Creates an array containing the numeric code points of each Unicode
+       * character in the string. While JavaScript uses UCS-2 internally,
+       * this function will convert a pair of surrogate halves (each of which
+       * UCS-2 exposes as separate characters) into a single code point,
+       * matching UTF-16.
+       * @see `punycode.ucs2.encode`
+       * @see <https://mathiasbynens.be/notes/javascript-encoding>
+       * @memberOf punycode.ucs2
+       * @name decode
+       * @param {String} string The Unicode input string (UCS-2).
+       * @returns {Array} The new array of code points.
+       */
+      function ucs2decode(string) {
+        const output = [];
+        let counter = 0;
+        const length = string.length;
+        while (counter < length) {
+          const value = string.charCodeAt(counter++);
+          if (value >= 0xd800 && value <= 0xdbff && counter < length) {
+            // It's a high surrogate, and there is a next character.
+            const extra = string.charCodeAt(counter++);
+            if ((extra & 0xfc00) == 0xdc00) {
+              // Low surrogate.
+              output.push(((value & 0x3ff) << 10) + (extra & 0x3ff) + 0x10000);
+            } else {
+              // It's an unmatched surrogate; only append this code unit, in case the
+              // next code unit is the high surrogate of a surrogate pair.
+              output.push(value);
+              counter--;
+            }
+          } else {
+            output.push(value);
+          }
+        }
+        return output;
+      }
+
+      /**
+       * Creates a string based on an array of numeric code points.
+       * @see `punycode.ucs2.decode`
+       * @memberOf punycode.ucs2
+       * @name encode
+       * @param {Array} codePoints The array of numeric code points.
+       * @returns {String} The new Unicode string (UCS-2).
+       */
+      const ucs2encode = (array) => String.fromCodePoint(...array);
+
+      /**
+       * Converts a basic code point into a digit/integer.
+       * @see `digitToBasic()`
+       * @private
+       * @param {Number} codePoint The basic numeric code point value.
+       * @returns {Number} The numeric value of a basic code point (for use in
+       * representing integers) in the range `0` to `base - 1`, or `base` if
+       * the code point does not represent a value.
+       */
+      const basicToDigit = function (codePoint) {
+        if (codePoint - 0x30 < 0x0a) {
+          return codePoint - 0x16;
+        }
+        if (codePoint - 0x41 < 0x1a) {
+          return codePoint - 0x41;
+        }
+        if (codePoint - 0x61 < 0x1a) {
+          return codePoint - 0x61;
+        }
+        return base;
+      };
+
+      /**
+       * Converts a digit/integer into a basic code point.
+       * @see `basicToDigit()`
+       * @private
+       * @param {Number} digit The numeric value of a basic code point.
+       * @returns {Number} The basic code point whose value (when used for
+       * representing integers) is `digit`, which needs to be in the range
+       * `0` to `base - 1`. If `flag` is non-zero, the uppercase form is
+       * used; else, the lowercase form is used. The behavior is undefined
+       * if `flag` is non-zero and `digit` has no uppercase form.
+       */
+      const digitToBasic = function (digit, flag) {
+        //  0..25 map to ASCII a..z or A..Z
+        // 26..35 map to ASCII 0..9
+        return digit + 22 + 75 * (digit < 26) - ((flag != 0) << 5);
+      };
+
+      /**
+       * Bias adaptation function as per section 3.4 of RFC 3492.
+       * https://tools.ietf.org/html/rfc3492#section-3.4
+       * @private
+       */
+      const adapt = function (delta, numPoints, firstTime) {
+        let k = 0;
+        delta = firstTime ? floor(delta / damp) : delta >> 1;
+        delta += floor(delta / numPoints);
+        for (; /* no initialization */ delta > (baseMinusTMin * tMax) >> 1; k += base) {
+          delta = floor(delta / baseMinusTMin);
+        }
+        return floor(k + ((baseMinusTMin + 1) * delta) / (delta + skew));
+      };
+
+      /**
+       * Converts a Punycode string of ASCII-only symbols to a string of Unicode
+       * symbols.
+       * @memberOf punycode
+       * @param {String} input The Punycode string of ASCII-only symbols.
+       * @returns {String} The resulting string of Unicode symbols.
+       */
+      const decode = function (input) {
+        // Don't use UCS-2.
+        const output = [];
+        const inputLength = input.length;
+        let i = 0;
+        let n = initialN;
+        let bias = initialBias;
+
+        // Handle the basic code points: let `basic` be the number of input code
+        // points before the last delimiter, or `0` if there is none, then copy
+        // the first basic code points to the output.
+
+        let basic = input.lastIndexOf(delimiter);
+        if (basic < 0) {
+          basic = 0;
+        }
+
+        for (let j = 0; j < basic; ++j) {
+          // if it's not a basic code point
+          if (input.charCodeAt(j) >= 0x80) {
+            error("not-basic");
+          }
+          output.push(input.charCodeAt(j));
+        }
+
+        // Main decoding loop: start just after the last delimiter if any basic code
+        // points were copied; start at the beginning otherwise.
+
+        for (let index = basic > 0 ? basic + 1 : 0; index < inputLength /* no final expression */; ) {
+          // `index` is the index of the next character to be consumed.
+          // Decode a generalized variable-length integer into `delta`,
+          // which gets added to `i`. The overflow checking is easier
+          // if we increase `i` as we go, then subtract off its starting
+          // value at the end to obtain `delta`.
+          let oldi = i;
+          for (let w = 1, k = base /* no condition */; ; k += base) {
+            if (index >= inputLength) {
+              error("invalid-input");
+            }
+
+            const digit = basicToDigit(input.charCodeAt(index++));
+
+            if (digit >= base || digit > floor((maxInt - i) / w)) {
+              error("overflow");
+            }
+
+            i += digit * w;
+            const t = k <= bias ? tMin : k >= bias + tMax ? tMax : k - bias;
+
+            if (digit < t) {
+              break;
+            }
+
+            const baseMinusT = base - t;
+            if (w > floor(maxInt / baseMinusT)) {
+              error("overflow");
+            }
+
+            w *= baseMinusT;
+          }
+
+          const out = output.length + 1;
+          bias = adapt(i - oldi, out, oldi == 0);
+
+          // `i` was supposed to wrap around from `out` to `0`,
+          // incrementing `n` each time, so we'll fix that now:
+          if (floor(i / out) > maxInt - n) {
+            error("overflow");
+          }
+
+          n += floor(i / out);
+          i %= out;
+
+          // Insert `n` at position `i` of the output.
+          output.splice(i++, 0, n);
+        }
+
+        return String.fromCodePoint(...output);
+      };
+
+      /**
+       * Converts a string of Unicode symbols (e.g. a domain name label) to a
+       * Punycode string of ASCII-only symbols.
+       * @memberOf punycode
+       * @param {String} input The string of Unicode symbols.
+       * @returns {String} The resulting Punycode string of ASCII-only symbols.
+       */
+      const encode = function (input) {
+        const output = [];
+
+        // Convert the input in UCS-2 to an array of Unicode code points.
+        input = ucs2decode(input);
+
+        // Cache the length.
+        let inputLength = input.length;
+
+        // Initialize the state.
+        let n = initialN;
+        let delta = 0;
+        let bias = initialBias;
+
+        // Handle the basic code points.
+        for (const currentValue of input) {
+          if (currentValue < 0x80) {
+            output.push(stringFromCharCode(currentValue));
+          }
+        }
+
+        let basicLength = output.length;
+        let handledCPCount = basicLength;
+
+        // `handledCPCount` is the number of code points that have been handled;
+        // `basicLength` is the number of basic code points.
+
+        // Finish the basic string with a delimiter unless it's empty.
+        if (basicLength) {
+          output.push(delimiter);
+        }
+
+        // Main encoding loop:
+        while (handledCPCount < inputLength) {
+          // All non-basic code points < n have been handled already. Find the next
+          // larger one:
+          let m = maxInt;
+          for (const currentValue of input) {
+            if (currentValue >= n && currentValue < m) {
+              m = currentValue;
+            }
+          }
+
+          // Increase `delta` enough to advance the decoder's <n,i> state to <m,0>,
+          // but guard against overflow.
+          const handledCPCountPlusOne = handledCPCount + 1;
+          if (m - n > floor((maxInt - delta) / handledCPCountPlusOne)) {
+            error("overflow");
+          }
+
+          delta += (m - n) * handledCPCountPlusOne;
+          n = m;
+
+          for (const currentValue of input) {
+            if (currentValue < n && ++delta > maxInt) {
+              error("overflow");
+            }
+            if (currentValue == n) {
+              // Represent delta as a generalized variable-length integer.
+              let q = delta;
+              for (let k = base /* no condition */; ; k += base) {
+                const t = k <= bias ? tMin : k >= bias + tMax ? tMax : k - bias;
+                if (q < t) {
+                  break;
+                }
+                const qMinusT = q - t;
+                const baseMinusT = base - t;
+                output.push(stringFromCharCode(digitToBasic(t + (qMinusT % baseMinusT), 0)));
+                q = floor(qMinusT / baseMinusT);
+              }
+
+              output.push(stringFromCharCode(digitToBasic(q, 0)));
+              bias = adapt(delta, handledCPCountPlusOne, handledCPCount == basicLength);
+              delta = 0;
+              ++handledCPCount;
+            }
+          }
+
+          ++delta;
+          ++n;
+        }
+        return output.join("");
+      };
+
+      /**
+       * Converts a Punycode string representing a domain name or an email address
+       * to Unicode. Only the Punycoded parts of the input will be converted, i.e.
+       * it doesn't matter if you call it on a string that has already been
+       * converted to Unicode.
+       * @memberOf punycode
+       * @param {String} input The Punycoded domain name or email address to
+       * convert to Unicode.
+       * @returns {String} The Unicode representation of the given Punycode
+       * string.
+       */
+      const toUnicode = function (input) {
+        return mapDomain(input, function (string) {
+          return regexPunycode.test(string) ? decode(string.slice(4).toLowerCase()) : string;
+        });
+      };
+
+      /**
+       * Converts a Unicode string representing a domain name or an email address to
+       * Punycode. Only the non-ASCII parts of the domain name will be converted,
+       * i.e. it doesn't matter if you call it with a domain that's already in
+       * ASCII.
+       * @memberOf punycode
+       * @param {String} input The domain name or email address to convert, as a
+       * Unicode string.
+       * @returns {String} The Punycode representation of the given domain name or
+       * email address.
+       */
+      const toASCII = function (input) {
+        return mapDomain(input, function (string) {
+          return regexNonASCII.test(string) ? "xn--" + encode(string) : string;
+        });
+      };
+
+      /*--------------------------------------------------------------------------*/
+
+      /** Define the public API */
+      const punycode = {
+        /**
+         * A string representing the current Punycode.js version number.
+         * @memberOf punycode
+         * @type String
+         */
+        version: "2.1.0",
+        /**
+         * An object of methods to convert from JavaScript's internal character
+         * representation (UCS-2) to Unicode code points, and back.
+         * @see <https://mathiasbynens.be/notes/javascript-encoding>
+         * @memberOf punycode
+         * @type Object
+         */
+        ucs2: {
+          decode: ucs2decode,
+          encode: ucs2encode
+        },
+        decode: decode,
+        encode: encode,
+        toASCII: toASCII,
+        toUnicode: toUnicode
+      };
+
+      module.exports = punycode;
+
+      /***/
+    },
+
+    /***/ 3319: /***/ (__unused_webpack_module, exports) => {
+      "use strict";
+
+      var has = Object.prototype.hasOwnProperty,
+        undef;
+
+      /**
+       * Decode a URI encoded string.
+       *
+       * @param {String} input The URI encoded string.
+       * @returns {String|Null} The decoded string.
+       * @api private
+       */
+      function decode(input) {
+        try {
+          return decodeURIComponent(input.replace(/\+/g, " "));
+        } catch (e) {
+          return null;
+        }
+      }
+
+      /**
+       * Attempts to encode a given input.
+       *
+       * @param {String} input The string that needs to be encoded.
+       * @returns {String|Null} The encoded string.
+       * @api private
+       */
+      function encode(input) {
+        try {
+          return encodeURIComponent(input);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      /**
+       * Simple query string parser.
+       *
+       * @param {String} query The query string that needs to be parsed.
+       * @returns {Object}
+       * @api public
+       */
+      function querystring(query) {
+        var parser = /([^=?#&]+)=?([^&]*)/g,
+          result = {},
+          part;
+
+        while ((part = parser.exec(query))) {
+          var key = decode(part[1]),
+            value = decode(part[2]);
+
+          //
+          // Prevent overriding of existing properties. This ensures that build-in
+          // methods like `toString` or __proto__ are not overriden by malicious
+          // querystrings.
+          //
+          // In the case if failed decoding, we want to omit the key/value pairs
+          // from the result.
+          //
+          if (key === null || value === null || key in result) continue;
+          result[key] = value;
+        }
+
+        return result;
+      }
+
+      /**
+       * Transform a query string to an object.
+       *
+       * @param {Object} obj Object that should be transformed.
+       * @param {String} prefix Optional prefix.
+       * @returns {String}
+       * @api public
+       */
+      function querystringify(obj, prefix) {
+        prefix = prefix || "";
+
+        var pairs = [],
+          value,
+          key;
+
+        //
+        // Optionally prefix with a '?' if needed
+        //
+        if ("string" !== typeof prefix) prefix = "?";
+
+        for (key in obj) {
+          if (has.call(obj, key)) {
+            value = obj[key];
+
+            //
+            // Edge cases where we actually want to encode the value to an empty
+            // string instead of the stringified value.
+            //
+            if (!value && (value === null || value === undef || isNaN(value))) {
+              value = "";
+            }
+
+            key = encode(key);
+            value = encode(value);
+
+            //
+            // If we failed to encode the strings, we should bail out as we don't
+            // want to add invalid strings to the query.
+            //
+            if (key === null || value === null) continue;
+            pairs.push(key + "=" + value);
+          }
+        }
+
+        return pairs.length ? prefix + pairs.join("&") : "";
+      }
+
+      //
+      // Expose the module.
+      //
+      exports.stringify = querystringify;
+      exports.parse = querystring;
+
+      /***/
+    },
+
+    /***/ 4742: /***/ (module) => {
+      "use strict";
+
+      /**
+       * Check if we're required to add a port number.
+       *
+       * @see https://url.spec.whatwg.org/#default-port
+       * @param {Number|String} port Port number we need to check
+       * @param {String} protocol Protocol we need to check against.
+       * @returns {Boolean} Is it a default port for the given protocol
+       * @api private
+       */
+      module.exports = function required(port, protocol) {
+        protocol = protocol.split(":")[0];
+        port = +port;
+
+        if (!port) return false;
+
+        switch (protocol) {
+          case "http":
+          case "ws":
+            return port !== 80;
+
+          case "https":
+          case "wss":
+            return port !== 443;
+
+          case "ftp":
+            return port !== 21;
+
+          case "gopher":
+            return port !== 70;
+
+          case "file":
+            return false;
+        }
+
+        return port !== 0;
+      };
+
+      /***/
+    },
+
     /***/ 2043: /***/ (__unused_webpack_module, exports, __nccwpck_require__) => {
       (function (sax) {
         // wrapper for non-node envs
@@ -58853,6 +59753,589 @@ PERFORMANCE OF THIS SOFTWARE.
         debug = function () {};
       }
       exports.debug = debug; // for test
+
+      /***/
+    },
+
+    /***/ 5682: /***/ (module, __unused_webpack_exports, __nccwpck_require__) => {
+      "use strict";
+
+      var required = __nccwpck_require__(4742),
+        qs = __nccwpck_require__(3319),
+        controlOrWhitespace = /^[\x00-\x20\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+/,
+        CRHTLF = /[\n\r\t]/g,
+        slashes = /^[A-Za-z][A-Za-z0-9+-.]*:\/\//,
+        port = /:\d+$/,
+        protocolre = /^([a-z][a-z0-9.+-]*:)?(\/\/)?([\\/]+)?([\S\s]*)/i,
+        windowsDriveLetter = /^[a-zA-Z]:/;
+
+      /**
+       * Remove control characters and whitespace from the beginning of a string.
+       *
+       * @param {Object|String} str String to trim.
+       * @returns {String} A new string representing `str` stripped of control
+       *     characters and whitespace from its beginning.
+       * @public
+       */
+      function trimLeft(str) {
+        return (str ? str : "").toString().replace(controlOrWhitespace, "");
+      }
+
+      /**
+       * These are the parse rules for the URL parser, it informs the parser
+       * about:
+       *
+       * 0. The char it Needs to parse, if it's a string it should be done using
+       *    indexOf, RegExp using exec and NaN means set as current value.
+       * 1. The property we should set when parsing this value.
+       * 2. Indication if it's backwards or forward parsing, when set as number it's
+       *    the value of extra chars that should be split off.
+       * 3. Inherit from location if non existing in the parser.
+       * 4. `toLowerCase` the resulting value.
+       */
+      var rules = [
+        ["#", "hash"], // Extract from the back.
+        ["?", "query"], // Extract from the back.
+        function sanitize(address, url) {
+          // Sanitize what is left of the address
+          return isSpecial(url.protocol) ? address.replace(/\\/g, "/") : address;
+        },
+        ["/", "pathname"], // Extract from the back.
+        ["@", "auth", 1], // Extract from the front.
+        [NaN, "host", undefined, 1, 1], // Set left over value.
+        [/:(\d*)$/, "port", undefined, 1], // RegExp the back.
+        [NaN, "hostname", undefined, 1, 1] // Set left over.
+      ];
+
+      /**
+       * These properties should not be copied or inherited from. This is only needed
+       * for all non blob URL's as a blob URL does not include a hash, only the
+       * origin.
+       *
+       * @type {Object}
+       * @private
+       */
+      var ignore = { hash: 1, query: 1 };
+
+      /**
+       * The location object differs when your code is loaded through a normal page,
+       * Worker or through a worker using a blob. And with the blobble begins the
+       * trouble as the location object will contain the URL of the blob, not the
+       * location of the page where our code is loaded in. The actual origin is
+       * encoded in the `pathname` so we can thankfully generate a good "default"
+       * location from it so we can generate proper relative URL's again.
+       *
+       * @param {Object|String} loc Optional default location object.
+       * @returns {Object} lolcation object.
+       * @public
+       */
+      function lolcation(loc) {
+        var globalVar;
+
+        if (typeof window !== "undefined") globalVar = window;
+        else if (typeof global !== "undefined") globalVar = global;
+        else if (typeof self !== "undefined") globalVar = self;
+        else globalVar = {};
+
+        var location = globalVar.location || {};
+        loc = loc || location;
+
+        var finaldestination = {},
+          type = typeof loc,
+          key;
+
+        if ("blob:" === loc.protocol) {
+          finaldestination = new Url(unescape(loc.pathname), {});
+        } else if ("string" === type) {
+          finaldestination = new Url(loc, {});
+          for (key in ignore) delete finaldestination[key];
+        } else if ("object" === type) {
+          for (key in loc) {
+            if (key in ignore) continue;
+            finaldestination[key] = loc[key];
+          }
+
+          if (finaldestination.slashes === undefined) {
+            finaldestination.slashes = slashes.test(loc.href);
+          }
+        }
+
+        return finaldestination;
+      }
+
+      /**
+       * Check whether a protocol scheme is special.
+       *
+       * @param {String} The protocol scheme of the URL
+       * @return {Boolean} `true` if the protocol scheme is special, else `false`
+       * @private
+       */
+      function isSpecial(scheme) {
+        return (
+          scheme === "file:" ||
+          scheme === "ftp:" ||
+          scheme === "http:" ||
+          scheme === "https:" ||
+          scheme === "ws:" ||
+          scheme === "wss:"
+        );
+      }
+
+      /**
+       * @typedef ProtocolExtract
+       * @type Object
+       * @property {String} protocol Protocol matched in the URL, in lowercase.
+       * @property {Boolean} slashes `true` if protocol is followed by "//", else `false`.
+       * @property {String} rest Rest of the URL that is not part of the protocol.
+       */
+
+      /**
+       * Extract protocol information from a URL with/without double slash ("//").
+       *
+       * @param {String} address URL we want to extract from.
+       * @param {Object} location
+       * @return {ProtocolExtract} Extracted information.
+       * @private
+       */
+      function extractProtocol(address, location) {
+        address = trimLeft(address);
+        address = address.replace(CRHTLF, "");
+        location = location || {};
+
+        var match = protocolre.exec(address);
+        var protocol = match[1] ? match[1].toLowerCase() : "";
+        var forwardSlashes = !!match[2];
+        var otherSlashes = !!match[3];
+        var slashesCount = 0;
+        var rest;
+
+        if (forwardSlashes) {
+          if (otherSlashes) {
+            rest = match[2] + match[3] + match[4];
+            slashesCount = match[2].length + match[3].length;
+          } else {
+            rest = match[2] + match[4];
+            slashesCount = match[2].length;
+          }
+        } else {
+          if (otherSlashes) {
+            rest = match[3] + match[4];
+            slashesCount = match[3].length;
+          } else {
+            rest = match[4];
+          }
+        }
+
+        if (protocol === "file:") {
+          if (slashesCount >= 2) {
+            rest = rest.slice(2);
+          }
+        } else if (isSpecial(protocol)) {
+          rest = match[4];
+        } else if (protocol) {
+          if (forwardSlashes) {
+            rest = rest.slice(2);
+          }
+        } else if (slashesCount >= 2 && isSpecial(location.protocol)) {
+          rest = match[4];
+        }
+
+        return {
+          protocol: protocol,
+          slashes: forwardSlashes || isSpecial(protocol),
+          slashesCount: slashesCount,
+          rest: rest
+        };
+      }
+
+      /**
+       * Resolve a relative URL pathname against a base URL pathname.
+       *
+       * @param {String} relative Pathname of the relative URL.
+       * @param {String} base Pathname of the base URL.
+       * @return {String} Resolved pathname.
+       * @private
+       */
+      function resolve(relative, base) {
+        if (relative === "") return base;
+
+        var path = (base || "/").split("/").slice(0, -1).concat(relative.split("/")),
+          i = path.length,
+          last = path[i - 1],
+          unshift = false,
+          up = 0;
+
+        while (i--) {
+          if (path[i] === ".") {
+            path.splice(i, 1);
+          } else if (path[i] === "..") {
+            path.splice(i, 1);
+            up++;
+          } else if (up) {
+            if (i === 0) unshift = true;
+            path.splice(i, 1);
+            up--;
+          }
+        }
+
+        if (unshift) path.unshift("");
+        if (last === "." || last === "..") path.push("");
+
+        return path.join("/");
+      }
+
+      /**
+       * The actual URL instance. Instead of returning an object we've opted-in to
+       * create an actual constructor as it's much more memory efficient and
+       * faster and it pleases my OCD.
+       *
+       * It is worth noting that we should not use `URL` as class name to prevent
+       * clashes with the global URL instance that got introduced in browsers.
+       *
+       * @constructor
+       * @param {String} address URL we want to parse.
+       * @param {Object|String} [location] Location defaults for relative paths.
+       * @param {Boolean|Function} [parser] Parser for the query string.
+       * @private
+       */
+      function Url(address, location, parser) {
+        address = trimLeft(address);
+        address = address.replace(CRHTLF, "");
+
+        if (!(this instanceof Url)) {
+          return new Url(address, location, parser);
+        }
+
+        var relative,
+          extracted,
+          parse,
+          instruction,
+          index,
+          key,
+          instructions = rules.slice(),
+          type = typeof location,
+          url = this,
+          i = 0;
+
+        //
+        // The following if statements allows this module two have compatibility with
+        // 2 different API:
+        //
+        // 1. Node.js's `url.parse` api which accepts a URL, boolean as arguments
+        //    where the boolean indicates that the query string should also be parsed.
+        //
+        // 2. The `URL` interface of the browser which accepts a URL, object as
+        //    arguments. The supplied object will be used as default values / fall-back
+        //    for relative paths.
+        //
+        if ("object" !== type && "string" !== type) {
+          parser = location;
+          location = null;
+        }
+
+        if (parser && "function" !== typeof parser) parser = qs.parse;
+
+        location = lolcation(location);
+
+        //
+        // Extract protocol information before running the instructions.
+        //
+        extracted = extractProtocol(address || "", location);
+        relative = !extracted.protocol && !extracted.slashes;
+        url.slashes = extracted.slashes || (relative && location.slashes);
+        url.protocol = extracted.protocol || location.protocol || "";
+        address = extracted.rest;
+
+        //
+        // When the authority component is absent the URL starts with a path
+        // component.
+        //
+        if (
+          (extracted.protocol === "file:" && (extracted.slashesCount !== 2 || windowsDriveLetter.test(address))) ||
+          (!extracted.slashes && (extracted.protocol || extracted.slashesCount < 2 || !isSpecial(url.protocol)))
+        ) {
+          instructions[3] = [/(.*)/, "pathname"];
+        }
+
+        for (; i < instructions.length; i++) {
+          instruction = instructions[i];
+
+          if (typeof instruction === "function") {
+            address = instruction(address, url);
+            continue;
+          }
+
+          parse = instruction[0];
+          key = instruction[1];
+
+          if (parse !== parse) {
+            url[key] = address;
+          } else if ("string" === typeof parse) {
+            index = parse === "@" ? address.lastIndexOf(parse) : address.indexOf(parse);
+
+            if (~index) {
+              if ("number" === typeof instruction[2]) {
+                url[key] = address.slice(0, index);
+                address = address.slice(index + instruction[2]);
+              } else {
+                url[key] = address.slice(index);
+                address = address.slice(0, index);
+              }
+            }
+          } else if ((index = parse.exec(address))) {
+            url[key] = index[1];
+            address = address.slice(0, index.index);
+          }
+
+          url[key] = url[key] || (relative && instruction[3] ? location[key] || "" : "");
+
+          //
+          // Hostname, host and protocol should be lowercased so they can be used to
+          // create a proper `origin`.
+          //
+          if (instruction[4]) url[key] = url[key].toLowerCase();
+        }
+
+        //
+        // Also parse the supplied query string in to an object. If we're supplied
+        // with a custom parser as function use that instead of the default build-in
+        // parser.
+        //
+        if (parser) url.query = parser(url.query);
+
+        //
+        // If the URL is relative, resolve the pathname against the base URL.
+        //
+        if (
+          relative &&
+          location.slashes &&
+          url.pathname.charAt(0) !== "/" &&
+          (url.pathname !== "" || location.pathname !== "")
+        ) {
+          url.pathname = resolve(url.pathname, location.pathname);
+        }
+
+        //
+        // Default to a / for pathname if none exists. This normalizes the URL
+        // to always have a /
+        //
+        if (url.pathname.charAt(0) !== "/" && isSpecial(url.protocol)) {
+          url.pathname = "/" + url.pathname;
+        }
+
+        //
+        // We should not add port numbers if they are already the default port number
+        // for a given protocol. As the host also contains the port number we're going
+        // override it with the hostname which contains no port number.
+        //
+        if (!required(url.port, url.protocol)) {
+          url.host = url.hostname;
+          url.port = "";
+        }
+
+        //
+        // Parse down the `auth` for the username and password.
+        //
+        url.username = url.password = "";
+
+        if (url.auth) {
+          index = url.auth.indexOf(":");
+
+          if (~index) {
+            url.username = url.auth.slice(0, index);
+            url.username = encodeURIComponent(decodeURIComponent(url.username));
+
+            url.password = url.auth.slice(index + 1);
+            url.password = encodeURIComponent(decodeURIComponent(url.password));
+          } else {
+            url.username = encodeURIComponent(decodeURIComponent(url.auth));
+          }
+
+          url.auth = url.password ? url.username + ":" + url.password : url.username;
+        }
+
+        url.origin =
+          url.protocol !== "file:" && isSpecial(url.protocol) && url.host ? url.protocol + "//" + url.host : "null";
+
+        //
+        // The href is just the compiled result.
+        //
+        url.href = url.toString();
+      }
+
+      /**
+       * This is convenience method for changing properties in the URL instance to
+       * insure that they all propagate correctly.
+       *
+       * @param {String} part          Property we need to adjust.
+       * @param {Mixed} value          The newly assigned value.
+       * @param {Boolean|Function} fn  When setting the query, it will be the function
+       *                               used to parse the query.
+       *                               When setting the protocol, double slash will be
+       *                               removed from the final url if it is true.
+       * @returns {URL} URL instance for chaining.
+       * @public
+       */
+      function set(part, value, fn) {
+        var url = this;
+
+        switch (part) {
+          case "query":
+            if ("string" === typeof value && value.length) {
+              value = (fn || qs.parse)(value);
+            }
+
+            url[part] = value;
+            break;
+
+          case "port":
+            url[part] = value;
+
+            if (!required(value, url.protocol)) {
+              url.host = url.hostname;
+              url[part] = "";
+            } else if (value) {
+              url.host = url.hostname + ":" + value;
+            }
+
+            break;
+
+          case "hostname":
+            url[part] = value;
+
+            if (url.port) value += ":" + url.port;
+            url.host = value;
+            break;
+
+          case "host":
+            url[part] = value;
+
+            if (port.test(value)) {
+              value = value.split(":");
+              url.port = value.pop();
+              url.hostname = value.join(":");
+            } else {
+              url.hostname = value;
+              url.port = "";
+            }
+
+            break;
+
+          case "protocol":
+            url.protocol = value.toLowerCase();
+            url.slashes = !fn;
+            break;
+
+          case "pathname":
+          case "hash":
+            if (value) {
+              var char = part === "pathname" ? "/" : "#";
+              url[part] = value.charAt(0) !== char ? char + value : value;
+            } else {
+              url[part] = value;
+            }
+            break;
+
+          case "username":
+          case "password":
+            url[part] = encodeURIComponent(value);
+            break;
+
+          case "auth":
+            var index = value.indexOf(":");
+
+            if (~index) {
+              url.username = value.slice(0, index);
+              url.username = encodeURIComponent(decodeURIComponent(url.username));
+
+              url.password = value.slice(index + 1);
+              url.password = encodeURIComponent(decodeURIComponent(url.password));
+            } else {
+              url.username = encodeURIComponent(decodeURIComponent(value));
+            }
+        }
+
+        for (var i = 0; i < rules.length; i++) {
+          var ins = rules[i];
+
+          if (ins[4]) url[ins[1]] = url[ins[1]].toLowerCase();
+        }
+
+        url.auth = url.password ? url.username + ":" + url.password : url.username;
+
+        url.origin =
+          url.protocol !== "file:" && isSpecial(url.protocol) && url.host ? url.protocol + "//" + url.host : "null";
+
+        url.href = url.toString();
+
+        return url;
+      }
+
+      /**
+       * Transform the properties back in to a valid and full URL string.
+       *
+       * @param {Function} stringify Optional query stringify function.
+       * @returns {String} Compiled version of the URL.
+       * @public
+       */
+      function toString(stringify) {
+        if (!stringify || "function" !== typeof stringify) stringify = qs.stringify;
+
+        var query,
+          url = this,
+          host = url.host,
+          protocol = url.protocol;
+
+        if (protocol && protocol.charAt(protocol.length - 1) !== ":") protocol += ":";
+
+        var result = protocol + ((url.protocol && url.slashes) || isSpecial(url.protocol) ? "//" : "");
+
+        if (url.username) {
+          result += url.username;
+          if (url.password) result += ":" + url.password;
+          result += "@";
+        } else if (url.password) {
+          result += ":" + url.password;
+          result += "@";
+        } else if (url.protocol !== "file:" && isSpecial(url.protocol) && !host && url.pathname !== "/") {
+          //
+          // Add back the empty userinfo, otherwise the original invalid URL
+          // might be transformed into a valid one with `url.pathname` as host.
+          //
+          result += "@";
+        }
+
+        //
+        // Trailing colon is removed from `url.host` when it is parsed. If it still
+        // ends with a colon, then add back the trailing colon that was removed. This
+        // prevents an invalid URL from being transformed into a valid one.
+        //
+        if (host[host.length - 1] === ":" || (port.test(url.hostname) && !url.port)) {
+          host += ":";
+        }
+
+        result += host + url.pathname;
+
+        query = "object" === typeof url.query ? stringify(url.query) : url.query;
+        if (query) result += "?" !== query.charAt(0) ? "?" + query : query;
+
+        if (url.hash) result += url.hash;
+
+        return result;
+      }
+
+      Url.prototype = { set: set, toString: toString };
+
+      //
+      // Expose the URL parser and some additional properties that might be useful for
+      // others or testing.
+      //
+      Url.extractProtocol = extractProtocol;
+      Url.location = lolcation;
+      Url.trimLeft = trimLeft;
+      Url.qs = qs;
+
+      module.exports = Url;
 
       /***/
     },

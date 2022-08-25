@@ -18,7 +18,7 @@
     "prebuild": "npm run compile",
     "postbuild": "prettier --write dist/**/*.js",
     "update": "npx -y typesync && npx -y npm-check-updates -u",
-    "postupdate": "npm install && npm update && npm run format"
+    "postupdate": "npm install && npm update && npm run format && npm run build"
   },
   "repository": "github:frenchvandal/action-hugo",
   "keywords": [
@@ -50,8 +50,8 @@
     "@types/prettier": "^2.7.0",
     "@types/semver": "^7.3.12",
     "@types/standard-version": "^7.0.1",
-    "@typescript-eslint/eslint-plugin": "^5.33.1",
-    "@typescript-eslint/parser": "^5.33.1",
+    "@typescript-eslint/eslint-plugin": "^5.35.1",
+    "@typescript-eslint/parser": "^5.35.1",
     "@vercel/ncc": "^0.34.0",
     "eslint": "^8.22.0",
     "eslint-config-prettier": "^8.5.0",
