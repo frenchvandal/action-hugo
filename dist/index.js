@@ -65489,7 +65489,13 @@ PERFORMANCE OF THIS SOFTWARE.
       ["arm64", "ARM64"]
     ]);
     async function getRelease(version) {
-      const request = await fetch(`${releaseUrl}/${version}`);
+      (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(`${releaseUrl}/${version}`);
+      const request = await fetch(`${releaseUrl}/${version}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json"
+        }
+      });
       const response = await request.json();
       (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("response:");
       console.log(response);
