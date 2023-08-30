@@ -18,7 +18,11 @@ const archMap = new Map<string, string>([
 ]);
 
 async function getRelease(version: string) {
-  const request = await fetch(`${releaseUrl}/${version}`);
+  const request = await fetch(`${releaseUrl}/${version}`, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
   const response = await request.json();
   info('response:');
   console.log(response);
