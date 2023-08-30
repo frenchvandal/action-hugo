@@ -65491,6 +65491,10 @@ PERFORMANCE OF THIS SOFTWARE.
     async function getRelease(version) {
       const request = await fetch(`${releaseUrl}/${version}`);
       const response = await request.json();
+      (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("response:");
+      console.log(response);
+      (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("OK?");
+      console.log(response.ok);
       return response;
     }
     const getEnv = function getValueFromEnvironmentVariable(name) {

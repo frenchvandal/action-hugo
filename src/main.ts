@@ -20,6 +20,10 @@ const archMap = new Map<string, string>([
 async function getRelease(version: string) {
   const request = await fetch(`${releaseUrl}/${version}`);
   const response = await request.json();
+  info('response:');
+  console.log(response);
+  info('OK?');
+  console.log(response.ok);
   return response;
 }
 
