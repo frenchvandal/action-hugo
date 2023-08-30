@@ -1,7 +1,6 @@
 import { restoreCache } from '@actions/cache';
 import { addPath, getBooleanInput, getInput, info } from '@actions/core';
 import { exec } from '@actions/exec';
-import { HttpClient } from '@actions/http-client';
 import { join } from 'path';
 import { clean } from 'semver';
 
@@ -18,12 +17,10 @@ const archMap = new Map<string, string>([
   ['arm64', 'ARM64'],
 ]);
 
-async function getRelease(
-  userAgent: string,
-  version: string,
-): Promise<ReleaseJson | null> {
-  const http: HttpClient = new HttpClient(userAgent);
-  return (await http.getJson<ReleaseJson>(`${releaseUrl}/${version}`)).result;
+async function getRelease(version: string) {
+  const request = await fetch(`${releaseUrl}/${version}`);
+  const response = await request.json();
+  return response;
 }
 
 const getEnv = function getValueFromEnvironmentVariable(name: string): string {
@@ -50,9 +47,6 @@ const args: string = getInput('args') || 'version';
 const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnv('RUNNER_OS');
 const osArch = sourceToTarget(process.arch, archMap);
-const userAgent = `Node.js/${process.version.substring(
-  1,
-)} (${osPlatform}; ${osArch})`;
 const executable: string = isWindows === true ? `${repo}.exe` : repo;
 const extension: string = isWindows === true ? '.zip' : '.tar.gz';
 
@@ -89,10 +83,7 @@ async function getHugoExec(
 
 (async (): Promise<void> => {
   try {
-    const hugoRelease: ReleaseJson | null = await getRelease(
-      userAgent,
-      version,
-    );
+    const hugoRelease: ReleaseJson | null = await getRelease(version);
     if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
 
     const tagName: string = hugoRelease.tag_name;
@@ -100,11 +91,17 @@ async function getHugoExec(
 
     const path: string[] = [];
     path.push(join(cacheDirectory, `${repo}${extended}`, semver, osArch));
+    info('path:');
+    info(path[0]);
     const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
+    info('key:');
+    info(key);
 
     const cacheKey: string | undefined = await restoreCache(path, key);
 
     if (cacheKey) {
+      info('cacheKey:');
+      info(cacheKey);
       addPath(path[0]);
       await exec(`${executable} ${args}`);
     } else {

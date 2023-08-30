@@ -65471,16 +65471,13 @@ PERFORMANCE OF THIS SOFTWARE.
     /* harmony import */ var _actions_exec__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/ __nccwpck_require__.n(
       _actions_exec__WEBPACK_IMPORTED_MODULE_2__
     );
-    /* harmony import */ var _actions_http_client__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(6255);
-    /* harmony import */ var _actions_http_client__WEBPACK_IMPORTED_MODULE_3___default =
-      /*#__PURE__*/ __nccwpck_require__.n(_actions_http_client__WEBPACK_IMPORTED_MODULE_3__);
-    /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(1017);
-    /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/ __nccwpck_require__.n(
-      path__WEBPACK_IMPORTED_MODULE_4__
+    /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(1017);
+    /* harmony import */ var path__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/ __nccwpck_require__.n(
+      path__WEBPACK_IMPORTED_MODULE_3__
     );
-    /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(1383);
-    /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/ __nccwpck_require__.n(
-      semver__WEBPACK_IMPORTED_MODULE_5__
+    /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(1383);
+    /* harmony import */ var semver__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/ __nccwpck_require__.n(
+      semver__WEBPACK_IMPORTED_MODULE_4__
     );
 
     const owner = "gohugoio";
@@ -65491,9 +65488,10 @@ PERFORMANCE OF THIS SOFTWARE.
       ["arm", "ARM"],
       ["arm64", "ARM64"]
     ]);
-    async function getRelease(userAgent, version) {
-      const http = new _actions_http_client__WEBPACK_IMPORTED_MODULE_3__.HttpClient(userAgent);
-      return (await http.getJson(`${releaseUrl}/${version}`)).result;
+    async function getRelease(version) {
+      const request = await fetch(`${releaseUrl}/${version}`);
+      const response = await request.json();
+      return response;
     }
     const getEnv = function getValueFromEnvironmentVariable(name) {
       const value = process.env[name];
@@ -65514,7 +65512,6 @@ PERFORMANCE OF THIS SOFTWARE.
     const isWindows = process.platform === "win32";
     const osPlatform = getEnv("RUNNER_OS");
     const osArch = sourceToTarget(process.arch, archMap);
-    const userAgent = `Node.js/${process.version.substring(1)} (${osPlatform}; ${osArch})`;
     const executable = isWindows === true ? `${repo}.exe` : repo;
     const extension = isWindows === true ? ".zip" : ".tar.gz";
     async function getHugoExec(semver, downloadUrl) {
@@ -65544,15 +65541,21 @@ PERFORMANCE OF THIS SOFTWARE.
     }
     (async () => {
       try {
-        const hugoRelease = await getRelease(userAgent, version);
+        const hugoRelease = await getRelease(version);
         if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
         const tagName = hugoRelease.tag_name;
-        const semver = (0, semver__WEBPACK_IMPORTED_MODULE_5__.clean)(tagName) || tagName.replace(/^v/, "");
+        const semver = (0, semver__WEBPACK_IMPORTED_MODULE_4__.clean)(tagName) || tagName.replace(/^v/, "");
         const path = [];
-        path.push((0, path__WEBPACK_IMPORTED_MODULE_4__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
+        path.push((0, path__WEBPACK_IMPORTED_MODULE_3__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
+        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("path:");
+        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(path[0]);
         const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
+        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("key:");
+        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(key);
         const cacheKey = await (0, _actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
+          (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("cacheKey:");
+          (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(cacheKey);
           (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
           await (0, _actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);
         } else {
