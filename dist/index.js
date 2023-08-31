@@ -65554,14 +65554,9 @@ PERFORMANCE OF THIS SOFTWARE.
         const semver = (0, semver__WEBPACK_IMPORTED_MODULE_4__.clean)(tagName) || tagName.replace(/^v/, "");
         const path = [];
         path.push((0, path__WEBPACK_IMPORTED_MODULE_3__.join)(cacheDirectory, `${repo}${extended}`, semver, osArch));
-        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("path:");
-        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(path[0]);
         const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
-        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("key:");
-        (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(key);
         const cacheKey = await (0, _actions_cache__WEBPACK_IMPORTED_MODULE_0__.restoreCache)(path, key);
         if (cacheKey) {
-          (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("cacheKey:");
           (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)(cacheKey);
           (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.addPath)(path[0]);
           await (0, _actions_exec__WEBPACK_IMPORTED_MODULE_2__.exec)(`${executable} ${args}`);

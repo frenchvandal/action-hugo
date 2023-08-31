@@ -98,16 +98,11 @@ async function getHugoExec(
 
     const path: string[] = [];
     path.push(join(cacheDirectory, `${repo}${extended}`, semver, osArch));
-    info('path:');
-    info(path[0]);
     const key = `${osPlatform}-${osArch}-${repo}${extended}-${semver}`;
-    info('key:');
-    info(key);
 
     const cacheKey: string | undefined = await restoreCache(path, key);
 
     if (cacheKey) {
-      info('cacheKey:');
       info(cacheKey);
       addPath(path[0]);
       await exec(`${executable} ${args}`);
