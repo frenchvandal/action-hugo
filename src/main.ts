@@ -27,11 +27,6 @@ async function getRelease(version: string) {
   });
   const response = await request.json();
   info('response:');
-  console.log(response);
-  info('OK?');
-  console.log(request.ok);
-  console.log(request.status);
-  console.log(request.statusText);
   return response;
 }
 
