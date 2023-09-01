@@ -4,8 +4,15 @@ import { exec } from '@actions/exec';
 import { join } from 'path';
 import { clean } from 'semver';
 
-interface ReleaseJson {
-  tag_name: string;
+interface GithubRelease {
+  id?: bigint;
+  tag_name?: string;
+  update_url?: string;
+  update_authenticity_token?: string;
+  delete_url?: string;
+  delete_authenticity_token?: string;
+  edit_url?: string;
+  error?: string;
 }
 
 const owner = 'gohugoio';
@@ -25,7 +32,7 @@ async function getRelease(version: string) {
       Accept: 'application/json',
     },
   });
-  const response = await request.json();
+  const response: GithubRelease = await request.json();
   info('response:');
   return response;
 }
@@ -90,9 +97,9 @@ async function getHugoExec(
 
 (async (): Promise<void> => {
   try {
-    const hugoRelease: ReleaseJson | null = await getRelease(version);
-    if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
-
+    const hugoRelease: GithubRelease = await getRelease(version);
+    if (!hugoRelease.tag_name)
+      throw Error(`Hugo version ${version} ${hugoRelease.error}`);
     const tagName: string = hugoRelease.tag_name;
     const semver: string = clean(tagName) || tagName.replace(/^v/, '');
 

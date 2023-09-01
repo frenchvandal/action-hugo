@@ -9918,7 +9918,7 @@
         /**
          * The core-http version
          */
-        coreHttpVersion: "3.0.2",
+        coreHttpVersion: "3.0.3",
         /**
          * Specifies HTTP.
          */
@@ -65549,7 +65549,7 @@ PERFORMANCE OF THIS SOFTWARE.
     (async () => {
       try {
         const hugoRelease = await getRelease(version);
-        if (!hugoRelease) throw Error(`Hugo version ${version} not found`);
+        if (!hugoRelease.tag_name) throw Error(`Hugo version ${version} ${hugoRelease.error}`);
         const tagName = hugoRelease.tag_name;
         const semver = (0, semver__WEBPACK_IMPORTED_MODULE_4__.clean)(tagName) || tagName.replace(/^v/, "");
         const path = [];
