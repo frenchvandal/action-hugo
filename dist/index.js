@@ -65497,7 +65497,6 @@ PERFORMANCE OF THIS SOFTWARE.
         }
       });
       const response = await request.json();
-      (0, _actions_core__WEBPACK_IMPORTED_MODULE_1__.info)("response:");
       return response;
     }
     const getEnv = function getValueFromEnvironmentVariable(name) {

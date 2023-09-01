@@ -33,7 +33,6 @@ async function getRelease(version: string) {
     },
   });
   const response: GithubRelease = await request.json();
-  info('response:');
   return response;
 }
 
