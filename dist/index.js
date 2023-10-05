@@ -18264,6 +18264,29 @@
       }
 
       // Copyright (c) Microsoft Corporation.
+      /**
+       * promise.race() wrapper that aborts rest of promises as soon as the first promise settles.
+       */
+      async function cancelablePromiseRace(abortablePromiseBuilders, options) {
+        var _a, _b;
+        const aborter = new abortController.AbortController();
+        function abortHandler() {
+          aborter.abort();
+        }
+        (_a = options === null || options === void 0 ? void 0 : options.abortSignal) === null || _a === void 0
+          ? void 0
+          : _a.addEventListener("abort", abortHandler);
+        try {
+          return await Promise.race(abortablePromiseBuilders.map((p) => p({ abortSignal: aborter.signal })));
+        } finally {
+          aborter.abort();
+          (_b = options === null || options === void 0 ? void 0 : options.abortSignal) === null || _b === void 0
+            ? void 0
+            : _b.removeEventListener("abort", abortHandler);
+        }
+      }
+
+      // Copyright (c) Microsoft Corporation.
       // Licensed under the MIT license.
       /**
        * Returns a random integer value between a lower and upper bound,
@@ -18566,6 +18589,7 @@
         return Buffer.from(value, "base64url");
       }
 
+      exports.cancelablePromiseRace = cancelablePromiseRace;
       exports.computeSha256Hash = computeSha256Hash;
       exports.computeSha256Hmac = computeSha256Hmac;
       exports.createAbortablePromise = createAbortablePromise;
@@ -52220,6 +52244,7 @@
         } catch (ex) {
           Stream = function () {};
         }
+        if (!Stream) Stream = function () {};
 
         var streamWraps = sax.EVENTS.filter(function (ev) {
           return ev !== "error" && ev !== "end";
@@ -53536,9 +53561,16 @@
                 }
 
                 if (c === ";") {
-                  parser[buffer] += parseEntity(parser);
-                  parser.entity = "";
-                  parser.state = returnState;
+                  if (parser.opt.unparsedEntities) {
+                    var parsedEntity = parseEntity(parser);
+                    parser.entity = "";
+                    parser.state = returnState;
+                    parser.write(parsedEntity);
+                  } else {
+                    parser[buffer] += parseEntity(parser);
+                    parser.entity = "";
+                    parser.state = returnState;
+                  }
                 } else if (isMatch(parser.entity.length ? entityBody : entityStart, c)) {
                   parser.entity += c;
                 } else {
@@ -53550,8 +53582,9 @@
 
                 continue;
 
-              default:
+              default: /* istanbul ignore next */ {
                 throw new Error(parser, "Unknown state: " + parser.state);
+              }
             }
           } // while
 
