@@ -235,9 +235,7 @@
             // For GHES, this check will take place in ReserveCache API with enterprise file size limit
             if (archiveFileSize > fileSizeLimit && !utils.isGhes()) {
               throw new Error(
-                `Cache size of ~${Math.round(
-                  archiveFileSize / (1024 * 1024)
-                )} MB (${archiveFileSize} B) is over the 10GB limit, not saving cache.`
+                `Cache size of ~${Math.round(archiveFileSize / (1024 * 1024))} MB (${archiveFileSize} B) is over the 10GB limit, not saving cache.`
               );
             }
             core.debug("Reserving Cache");
@@ -275,20 +273,11 @@
                     ? void 0
                     : _c.message) !== null && _d !== void 0
                   ? _d
-                  : `Cache size of ~${Math.round(
-                      archiveFileSize / (1024 * 1024)
-                    )} MB (${archiveFileSize} B) is over the data cap limit, not saving cache.`
+                  : `Cache size of ~${Math.round(archiveFileSize / (1024 * 1024))} MB (${archiveFileSize} B) is over the data cap limit, not saving cache.`
               );
             } else {
               throw new ReserveCacheError(
-                `Unable to reserve cache with key ${key}, another job may be creating this cache. More details: ${
-                  (_e =
-                    reserveCacheResponse === null || reserveCacheResponse === void 0
-                      ? void 0
-                      : reserveCacheResponse.error) === null || _e === void 0
-                    ? void 0
-                    : _e.message
-                }`
+                `Unable to reserve cache with key ${key}, another job may be creating this cache. More details: ${(_e = reserveCacheResponse === null || reserveCacheResponse === void 0 ? void 0 : reserveCacheResponse.error) === null || _e === void 0 ? void 0 : _e.message}`
               );
             }
             core.debug(`Saving Cache (ID: ${cacheId})`);
@@ -437,7 +426,8 @@
         return new http_client_1.HttpClient("actions/cache", [bearerCredentialHandler], getRequestOptions());
       }
       function getCacheVersion(paths, compressionMethod, enableCrossOsArchive = false) {
-        const components = paths;
+        // don't pass changes upstream
+        const components = paths.slice();
         // Add compression method to cache version to restore
         // compressed cache as per compression method
         if (compressionMethod) {
@@ -511,13 +501,7 @@
                 ? void 0
                 : cacheListResult.artifactCaches) || []) {
                 core.debug(
-                  `Cache Key: ${
-                    cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.cacheKey
-                  }, Cache Version: ${
-                    cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.cacheVersion
-                  }, Cache Scope: ${
-                    cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.scope
-                  }, Cache Created: ${cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.creationTime}`
+                  `Cache Key: ${cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.cacheKey}, Cache Version: ${cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.cacheVersion}, Cache Scope: ${cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.scope}, Cache Created: ${cacheEntry === null || cacheEntry === void 0 ? void 0 : cacheEntry.creationTime}`
                 );
               }
             }
@@ -583,10 +567,7 @@
       function uploadChunk(httpClient, resourceUrl, openStream, start, end) {
         return __awaiter(this, void 0, void 0, function* () {
           core.debug(
-            `Uploading chunk of size ${end - start + 1} bytes at offset ${start} with content range: ${getContentRange(
-              start,
-              end
-            )}`
+            `Uploading chunk of size ${end - start + 1} bytes at offset ${start} with content range: ${getContentRange(start, end)}`
           );
           const additionalHeaders = {
             "Content-Type": "application/octet-stream",
@@ -855,23 +836,19 @@
             for (
               var _e = true, _f = __asyncValues(globber.globGenerator()), _g;
               (_g = yield _f.next()), (_a = _g.done), !_a;
-
+              _e = true
             ) {
               _c = _g.value;
               _e = false;
-              try {
-                const file = _c;
-                const relativeFile = path.relative(workspace, file).replace(new RegExp(`\\${path.sep}`, "g"), "/");
-                core.debug(`Matched: ${relativeFile}`);
-                // Paths are made relative so the tar entries are all relative to the root of the workspace.
-                if (relativeFile === "") {
-                  // path.relative returns empty string if workspace and file are equal
-                  paths.push(".");
-                } else {
-                  paths.push(`${relativeFile}`);
-                }
-              } finally {
-                _e = true;
+              const file = _c;
+              const relativeFile = path.relative(workspace, file).replace(new RegExp(`\\${path.sep}`, "g"), "/");
+              core.debug(`Matched: ${relativeFile}`);
+              // Paths are made relative so the tar entries are all relative to the root of the workspace.
+              if (relativeFile === "") {
+                // path.relative returns empty string if workspace and file are equal
+                paths.push(".");
+              } else {
+                paths.push(`${relativeFile}`);
               }
             }
           } catch (e_1_1) {
@@ -981,7 +958,7 @@
       (function (CacheFilename) {
         CacheFilename["Gzip"] = "cache.tgz";
         CacheFilename["Zstd"] = "cache.tzst";
-      })((CacheFilename = exports.CacheFilename || (exports.CacheFilename = {})));
+      })(CacheFilename || (exports.CacheFilename = CacheFilename = {}));
       var CompressionMethod;
       (function (CompressionMethod) {
         CompressionMethod["Gzip"] = "gzip";
@@ -989,12 +966,12 @@
         // This enum is for earlier version of zstd that does not have --long support
         CompressionMethod["ZstdWithoutLong"] = "zstd-without-long";
         CompressionMethod["Zstd"] = "zstd";
-      })((CompressionMethod = exports.CompressionMethod || (exports.CompressionMethod = {})));
+      })(CompressionMethod || (exports.CompressionMethod = CompressionMethod = {}));
       var ArchiveToolType;
       (function (ArchiveToolType) {
         ArchiveToolType["GNU"] = "gnu";
         ArchiveToolType["BSD"] = "bsd";
-      })((ArchiveToolType = exports.ArchiveToolType || (exports.ArchiveToolType = {})));
+      })(ArchiveToolType || (exports.ArchiveToolType = ArchiveToolType = {}));
       // The default number of retry attempts.
       exports.DefaultRetryAttempts = 2;
       // The default delay in milliseconds between retry attempts.
@@ -1950,9 +1927,7 @@
               });
             } catch (error) {
               throw new Error(
-                `${command.split(" ")[0]} failed with error: ${
-                  error === null || error === void 0 ? void 0 : error.message
-                }`
+                `${command.split(" ")[0]} failed with error: ${error === null || error === void 0 ? void 0 : error.message}`
               );
             }
           }
@@ -6433,9 +6408,7 @@
           if (!state.processClosed && state.processExited) {
             const message = `The STDIO streams did not close within ${
               state.delay / 1000
-            } seconds of the exit event from process '${
-              state.toolPath
-            }'. This may indicate a child process inherited the STDIO streams and has not yet exited.`;
+            } seconds of the exit event from process '${state.toolPath}'. This may indicate a child process inherited the STDIO streams and has not yet exited.`;
             state._debug(message);
           }
           state._setResult();
@@ -7788,9 +7761,8 @@
           if (!options.headers) {
             throw Error("The request has no headers");
           }
-          options.headers["Authorization"] = `Basic ${Buffer.from(`${this.username}:${this.password}`).toString(
-            "base64"
-          )}`;
+          options.headers["Authorization"] =
+            `Basic ${Buffer.from(`${this.username}:${this.password}`).toString("base64")}`;
         }
         // This handler cannot handle 401
         canHandleAuthentication() {
@@ -10727,11 +10699,7 @@
         const className = mapper.type.className;
         if (!className) {
           throw new Error(
-            `Class name for model "${objectName}" is not provided in the mapper "${JSON.stringify(
-              mapper,
-              undefined,
-              2
-            )}".`
+            `Class name for model "${objectName}" is not provided in the mapper "${JSON.stringify(mapper, undefined, 2)}".`
           );
         }
         return serializer.modelMappers[className];
@@ -14821,11 +14789,7 @@
             }
           } catch (error) {
             throw new Error(
-              `Error "${error.message}" occurred in serializing the payload - ${JSON.stringify(
-                serializedName,
-                undefined,
-                "  "
-              )}.`
+              `Error "${error.message}" occurred in serializing the payload - ${JSON.stringify(serializedName, undefined, "  ")}.`
             );
           }
         } else if (operationSpec.formDataParameters && operationSpec.formDataParameters.length > 0) {
@@ -16748,11 +16712,7 @@
         );
         const status = getOperationStatus(response, state);
         logger.verbose(
-          `LRO: Status:\n\tPolling from: ${
-            state.config.operationLocation
-          }\n\tOperation status: ${status}\n\tPolling status: ${
-            terminalStates.includes(status) ? "Stopped" : "Running"
-          }`
+          `LRO: Status:\n\tPolling from: ${state.config.operationLocation}\n\tOperation status: ${status}\n\tPolling status: ${terminalStates.includes(status) ? "Stopped" : "Running"}`
         );
         if (status === "succeeded") {
           const resourceLocation = getResourceLocation(response, state);
@@ -18740,9 +18700,7 @@
           setLogLevel(logLevelFromEnv);
         } else {
           console.error(
-            `AZURE_LOG_LEVEL set to unknown log level '${logLevelFromEnv}'; logging is not enabled. Acceptable values: ${AZURE_LOG_LEVELS.join(
-              ", "
-            )}.`
+            `AZURE_LOG_LEVEL set to unknown log level '${logLevelFromEnv}'; logging is not enabled. Acceptable values: ${AZURE_LOG_LEVELS.join(", ")}.`
           );
         }
       }
@@ -35544,18 +35502,14 @@
               } else {
                 this.destroy(
                   new Error(
-                    `Data corruption failure: received less data than required and reached maxRetires limitation. Received data offset: ${
-                      this.offset - 1
-                    }, data needed offset: ${this.end}, retries: ${this.retries}, max retries: ${this.maxRetryRequests}`
+                    `Data corruption failure: received less data than required and reached maxRetires limitation. Received data offset: ${this.offset - 1}, data needed offset: ${this.end}, retries: ${this.retries}, max retries: ${this.maxRetryRequests}`
                   )
                 );
               }
             } else {
               this.destroy(
                 new Error(
-                  `Data corruption failure: Received more data than original request, data needed offset is ${
-                    this.end
-                  }, received offset: ${this.offset - 1}`
+                  `Data corruption failure: Received more data than original request, data needed offset is ${this.end}, received offset: ${this.offset - 1}`
                 )
               );
             }
@@ -75658,9 +75612,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         matchedMockDispatches = matchedMockDispatches.filter((mockDispatch) => matchHeaders(mockDispatch, key.headers));
         if (matchedMockDispatches.length === 0) {
           throw new MockNotMatchedError(
-            `Mock dispatch not matched for headers '${
-              typeof key.headers === "object" ? JSON.stringify(key.headers) : key.headers
-            }'`
+            `Mock dispatch not matched for headers '${typeof key.headers === "object" ? JSON.stringify(key.headers) : key.headers}'`
           );
         }
 
@@ -76481,9 +76433,8 @@ ${pendingInterceptorsFormatter.format(pending)}
           } else if (opts.token) {
             this[kProxyHeaders]["proxy-authorization"] = opts.token;
           } else if (username && password) {
-            this[kProxyHeaders]["proxy-authorization"] = `Basic ${Buffer.from(
-              `${decodeURIComponent(username)}:${decodeURIComponent(password)}`
-            ).toString("base64")}`;
+            this[kProxyHeaders]["proxy-authorization"] =
+              `Basic ${Buffer.from(`${decodeURIComponent(username)}:${decodeURIComponent(password)}`).toString("base64")}`;
           }
 
           const connect = buildConnector({ ...opts.proxyTls });
