@@ -24,7 +24,7 @@ const archMap = new Map<string, string>([
   ['arm64', 'ARM64'],
 ]);
 
-async function getRelease(version: string) {
+const getRelease = async function getDetailsFromSpecificRelease(version: string) {
   info(`${releaseUrl}/${version}`);
   const request = await fetch(`${releaseUrl}/${version}`, {
     method: 'GET',
@@ -63,7 +63,7 @@ const osArch = sourceToTarget(process.arch, archMap);
 const executable: string = IS_WINDOWS === true ? `${repo}.exe` : repo;
 const extension: string = IS_WINDOWS === true ? '.zip' : '.tar.gz';
 
-async function getHugoExec(
+const getHugoExec = async function getExecutableFromHugoSpecificVersion(
   semver: string,
   downloadUrl: string,
 ): Promise<string> {
