@@ -53,15 +53,15 @@ const sourceToTarget = function convertSourceValueToTargetValue(
   return target;
 };
 
+const IS_WINDOWS: boolean = process.platform === 'win32';
 const cacheDirectory: string = getEnv('RUNNER_TOOL_CACHE');
 const extended: string = getBooleanInput('extended') ? '_extended' : '';
 const version: string = getInput('version') || 'latest';
 const args: string = getInput('args') || 'version';
-const isWindows: boolean = process.platform === 'win32';
 const osPlatform: string = getEnv('RUNNER_OS');
 const osArch = sourceToTarget(process.arch, archMap);
-const executable: string = isWindows === true ? `${repo}.exe` : repo;
-const extension: string = isWindows === true ? '.zip' : '.tar.gz';
+const executable: string = IS_WINDOWS === true ? `${repo}.exe` : repo;
+const extension: string = IS_WINDOWS === true ? '.zip' : '.tar.gz';
 
 async function getHugoExec(
   semver: string,
@@ -71,7 +71,7 @@ async function getHugoExec(
   const downloadPath: string = await downloadTool(downloadUrl);
 
   let extractedFolder: string;
-  if (isWindows) {
+  if (IS_WINDOWS) {
     const { extractZip } = await import('@actions/tool-cache');
     extractedFolder = await extractZip(downloadPath);
   } else {
