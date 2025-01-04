@@ -1,3 +1,4 @@
+// main.ts
 import { restoreCache, saveCache } from '@actions/cache';
 import {
   addPath,
@@ -83,6 +84,12 @@ const mapArchitecture = (source: string): string => {
   return target;
 };
 
+// Fonction pour capitaliser la première lettre
+const capitalizeFirstLetter = (str: string): string => {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 // Configuration initiale de l'action
 const initializeConfig = (): ActionConfig => {
   const isWindows = platform.isWindows;
@@ -121,6 +128,7 @@ async function fetchRelease(
       : `${GITHUB_API.releaseApiUrl}/tags/${version}`;
 
   info(`Fetching release information from: ${url}`);
+  summary.addRaw(`Fetching release information from: [${url}](${url})\n`);
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
@@ -143,22 +151,18 @@ async function handleCache(
     const cachedPath = await restoreCache([cachePath], key);
     if (cachedPath) {
       info(`Cache restored from key: ${key}`);
+      summary.addRaw(`Cache restored from key: **${key}**\n`);
       addPath(cachedPath);
-      // Ajouter au résumé
-      summary.addHeading('Cache', 2);
-      summary.addRaw(`Hugo was restored from cache using key: **${key}**\n`);
       return cachedPath;
     }
 
     info(`No cache found for key: ${key}`);
-    summary.addHeading('Cache', 2);
     summary.addRaw(`No cache found for key: **${key}**\n`);
     return undefined;
   } catch (error) {
     warning(
       `Cache restoration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );
-    summary.addHeading('Cache', 2);
     summary.addRaw(
       `Cache restoration failed: ${error instanceof Error ? error.message : 'Unknown error'}\n`,
     );
@@ -181,7 +185,7 @@ async function saveToCache(
   try {
     await saveCache([cachePath], key);
     info(`Cache saved successfully with key: ${key}`);
-    summary.addRaw(`Hugo was cached successfully with key: **${key}**\n`);
+    summary.addRaw(`Cache saved successfully with key: **${key}**\n`);
   } catch (error) {
     warning(
       `Failed to save cache: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -302,7 +306,7 @@ async function installHugo(
 }
 
 // Fonction principale
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   try {
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
@@ -328,8 +332,24 @@ async function main(): Promise<void> {
 
     if (!cachedPath) {
       // Sélection du bon asset à télécharger
-      const assetName = `${GITHUB_API.repo}${config.extended ? '_extended' : ''}_${semver}_${config.osPlatform}-${config.osArch}${config.extension}`;
-      const asset = release.assets?.find((a) => a.name === assetName);
+      let assetName = `${GITHUB_API.repo}${config.extended ? '_extended' : ''}_${semver}_${config.osPlatform}-${config.osArch}${config.extension}`;
+      let asset = release.assets?.find((a) => a.name === assetName);
+
+      if (!asset && config.osPlatform) {
+        // Tenter avec la première lettre de la plateforme en majuscule
+        const capitalizedPlatform = capitalizeFirstLetter(config.osPlatform);
+        assetName = `${GITHUB_API.repo}${config.extended ? '_extended' : ''}_${semver}_${capitalizedPlatform}-${config.osArch}${config.extension}`;
+        asset = release.assets?.find((a) => a.name === assetName);
+
+        if (asset) {
+          info(
+            `Asset not found with platform '${config.osPlatform}', retrying with capitalized platform '${capitalizedPlatform}'`,
+          );
+          summary.addRaw(
+            `Asset not found with platform '**${config.osPlatform}**', retrying with '**${capitalizedPlatform}**'\n`,
+          );
+        }
+      }
 
       if (!asset) {
         throw new ActionError(

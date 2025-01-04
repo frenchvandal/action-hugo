@@ -90632,6 +90632,42 @@ ${pendingInterceptorsFormatter.format(pending)}
   }
   /******/
   /************************************************************************/
+  /******/ /* webpack/runtime/define property getters */
+  /******/ (() => {
+    /******/ // define getter functions for harmony exports
+    /******/ __nccwpck_require__.d = (exports, definition) => {
+      /******/ for (var key in definition) {
+        /******/ if (__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
+          /******/ Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+          /******/
+        }
+        /******/
+      }
+      /******/
+    };
+    /******/
+  })();
+  /******/
+  /******/ /* webpack/runtime/hasOwnProperty shorthand */
+  /******/ (() => {
+    /******/ __nccwpck_require__.o = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
+    /******/
+  })();
+  /******/
+  /******/ /* webpack/runtime/make namespace object */
+  /******/ (() => {
+    /******/ // define __esModule on exports
+    /******/ __nccwpck_require__.r = (exports) => {
+      /******/ if (typeof Symbol !== "undefined" && Symbol.toStringTag) {
+        /******/ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+        /******/
+      }
+      /******/ Object.defineProperty(exports, "__esModule", { value: true });
+      /******/
+    };
+    /******/
+  })();
+  /******/
   /******/ /* webpack/runtime/compat */
   /******/
   /******/ if (typeof __nccwpck_require__ !== "undefined") __nccwpck_require__.ab = __dirname + "/";
@@ -90641,6 +90677,13 @@ ${pendingInterceptorsFormatter.format(pending)}
   // This entry need to be wrapped in an IIFE because it need to be in strict mode.
   (() => {
     "use strict";
+    // ESM COMPAT FLAG
+    __nccwpck_require__.r(__webpack_exports__);
+
+    // EXPORTS
+    __nccwpck_require__.d(__webpack_exports__, {
+      main: () => /* binding */ main
+    });
 
     // EXTERNAL MODULE: ./node_modules/@actions/cache/lib/cache.js
     var cache = __nccwpck_require__(5116);
@@ -90690,6 +90733,10 @@ ${pendingInterceptorsFormatter.format(pending)}
       }
       return target;
     };
+    const capitalizeFirstLetter = (str) => {
+      if (!str) return str;
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    };
     const initializeConfig = () => {
       const isWindows = core.platform.isWindows;
       const extended = (0, core.getBooleanInput)("extended");
@@ -90717,6 +90764,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       const url =
         version === "latest" ? `${GITHUB_API.releaseApiUrl}/latest` : `${GITHUB_API.releaseApiUrl}/tags/${version}`;
       (0, core.info)(`Fetching release information from: ${url}`);
+      core.summary.addRaw(`Fetching release information from: [${url}](${url})\n`);
       const response = await fetch(url, { headers });
       if (!response.ok) {
         throw new ActionError(`Failed to fetch release: ${response.statusText}`);
@@ -90732,18 +90780,15 @@ ${pendingInterceptorsFormatter.format(pending)}
         const cachedPath = await (0, cache.restoreCache)([cachePath], key);
         if (cachedPath) {
           (0, core.info)(`Cache restored from key: ${key}`);
+          core.summary.addRaw(`Cache restored from key: **${key}**\n`);
           (0, core.addPath)(cachedPath);
-          core.summary.addHeading("Cache", 2);
-          core.summary.addRaw(`Hugo was restored from cache using key: **${key}**\n`);
           return cachedPath;
         }
         (0, core.info)(`No cache found for key: ${key}`);
-        core.summary.addHeading("Cache", 2);
         core.summary.addRaw(`No cache found for key: **${key}**\n`);
         return undefined;
       } catch (error) {
         (0, core.warning)(`Cache restoration failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-        core.summary.addHeading("Cache", 2);
         core.summary.addRaw(`Cache restoration failed: ${error instanceof Error ? error.message : "Unknown error"}\n`);
         return undefined;
       }
@@ -90758,7 +90803,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       try {
         await (0, cache.saveCache)([cachePath], key);
         (0, core.info)(`Cache saved successfully with key: ${key}`);
-        core.summary.addRaw(`Hugo was cached successfully with key: **${key}**\n`);
+        core.summary.addRaw(`Cache saved successfully with key: **${key}**\n`);
       } catch (error) {
         (0, core.warning)(`Failed to save cache: ${error instanceof Error ? error.message : "Unknown error"}`);
         core.summary.addRaw(`Failed to save cache: ${error instanceof Error ? error.message : "Unknown error"}\n`);
@@ -90851,8 +90896,21 @@ ${pendingInterceptorsFormatter.format(pending)}
         const cacheKey = `${config.osPlatform}-${config.osArch}-${GITHUB_API.repo}${config.extended ? "_extended" : ""}-${semver}`;
         const cachedPath = await handleCache(config, cacheKey);
         if (!cachedPath) {
-          const assetName = `${GITHUB_API.repo}${config.extended ? "_extended" : ""}_${semver}_${config.osPlatform}-${config.osArch}${config.extension}`;
-          const asset = release.assets?.find((a) => a.name === assetName);
+          let assetName = `${GITHUB_API.repo}${config.extended ? "_extended" : ""}_${semver}_${config.osPlatform}-${config.osArch}${config.extension}`;
+          let asset = release.assets?.find((a) => a.name === assetName);
+          if (!asset && config.osPlatform) {
+            const capitalizedPlatform = capitalizeFirstLetter(config.osPlatform);
+            assetName = `${GITHUB_API.repo}${config.extended ? "_extended" : ""}_${semver}_${capitalizedPlatform}-${config.osArch}${config.extension}`;
+            asset = release.assets?.find((a) => a.name === assetName);
+            if (asset) {
+              (0, core.info)(
+                `Asset not found with platform '${config.osPlatform}', retrying with capitalized platform '${capitalizedPlatform}'`
+              );
+              core.summary.addRaw(
+                `Asset not found with platform '**${config.osPlatform}**', retrying with '**${capitalizedPlatform}**'\n`
+              );
+            }
+          }
           if (!asset) {
             throw new ActionError(`Asset ${assetName} not found in release ${release.tag_name}`);
           }
