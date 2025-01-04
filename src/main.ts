@@ -47,7 +47,7 @@ const GITHUB_API = {
   owner: 'gohugoio',
   repo: 'hugo',
   baseUrl: 'https://api.github.com',
-  get releaseApiUrl() {
+  get releaseApiUrl(): string {
     return `${this.baseUrl}/repos/${this.owner}/${this.repo}/releases`;
   },
 } as const;
@@ -87,7 +87,7 @@ const mapArchitecture = (source: string): string => {
 // Fonction pour capitaliser la première lettre
 const capitalizeFirstLetter = (str: string): string => {
   if (!str) return str;
-  return str.charAt(0).toUpperCase() + str.slice(1);
+  return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
 };
 
 // Configuration initiale de l'action
@@ -110,16 +110,16 @@ const initializeConfig = (): ActionConfig => {
 };
 
 // Gestion des releases GitHub
-async function fetchRelease(
+const fetchRelease = async (
   version: string,
   config: ActionConfig,
-): Promise<GithubRelease> {
+): Promise<GithubRelease> => {
   const headers: HeadersInit = {
     Accept: 'application/vnd.github.v3+json',
   };
 
   if (config.githubToken) {
-    headers['Authorization'] = `token ${config.githubToken}`;
+    headers.Authorization = `token ${config.githubToken}`;
   }
 
   const url =
@@ -135,14 +135,14 @@ async function fetchRelease(
     throw new ActionError(`Failed to fetch release: ${response.statusText}`);
   }
 
-  return await response.json();
-}
+  return response.json();
+};
 
 // Gestion du cache
-async function handleCache(
+const handleCache = async (
   config: ActionConfig,
   key: string,
-): Promise<string | undefined> {
+): Promise<string | undefined> => {
   try {
     const cachePath = join(
       config.cacheDirectory,
@@ -160,21 +160,19 @@ async function handleCache(
     summary.addRaw(`No cache found for key: **${key}**\n`);
     return undefined;
   } catch (error) {
-    warning(
-      `Cache restoration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    );
-    summary.addRaw(
-      `Cache restoration failed: ${error instanceof Error ? error.message : 'Unknown error'}\n`,
-    );
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    warning(`Cache restoration failed: ${errorMessage}`);
+    summary.addRaw(`Cache restoration failed: ${errorMessage}\n`);
     return undefined;
   }
-}
+};
 
-async function saveToCache(
+const saveToCache = async (
   config: ActionConfig,
   semver: string,
   key: string,
-): Promise<void> {
+): Promise<void> => {
   const cachePath = join(
     config.cacheDirectory,
     `${GITHUB_API.repo}${config.extended ? '_extended' : ''}`,
@@ -187,22 +185,20 @@ async function saveToCache(
     info(`Cache saved successfully with key: ${key}`);
     summary.addRaw(`Cache saved successfully with key: **${key}**\n`);
   } catch (error) {
-    warning(
-      `Failed to save cache: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    );
-    summary.addRaw(
-      `Failed to save cache: ${error instanceof Error ? error.message : 'Unknown error'}\n`,
-    );
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    warning(`Failed to save cache: ${errorMessage}`);
+    summary.addRaw(`Failed to save cache: ${errorMessage}\n`);
   }
-}
+};
 
 // Fonction de vérification des checksums
-async function verifyChecksum(
+const verifyChecksum = async (
   downloadPath: string,
   release: GithubRelease,
   assetName: string,
   config: ActionConfig,
-): Promise<void> {
+): Promise<void> => {
   const checksumAsset = release.assets?.find((a) => a.name === 'checksums.txt');
   if (!checksumAsset) {
     warning('No checksum file found in release');
@@ -214,7 +210,7 @@ async function verifyChecksum(
     Accept: 'application/vnd.github.v3.raw',
   };
   if (config.githubToken) {
-    headers['Authorization'] = `token ${config.githubToken}`;
+    headers.Authorization = `token ${config.githubToken}`;
   }
 
   info(`Fetching checksum file from: ${checksumAsset.browser_download_url}`);
@@ -237,12 +233,12 @@ async function verifyChecksum(
   // Parse le fichier de checksums
   const checksumLines = checksumContent.split('\n');
   const checksumMap = new Map<string, string>();
-  for (const line of checksumLines) {
+  checksumLines.forEach((line) => {
     const [checksum, file] = line.trim().split(/\s+/);
     if (checksum && file) {
       checksumMap.set(file, checksum);
     }
-  }
+  });
 
   const expectedChecksum = checksumMap.get(assetName);
   if (!expectedChecksum) {
@@ -265,16 +261,16 @@ async function verifyChecksum(
 
   info(`Checksum verification passed for ${assetName}`);
   summary.addRaw(`Checksum verification passed for **${assetName}**.\n`);
-}
+};
 
 // Gestion de l'installation de Hugo
-async function installHugo(
+const installHugo = async (
   semver: string,
   downloadUrl: string,
   assetName: string,
   config: ActionConfig,
   release: GithubRelease,
-): Promise<string> {
+): Promise<string> => {
   info(`Downloading Hugo from: ${downloadUrl}`);
   summary.addRaw(`Downloading Hugo from: [${downloadUrl}](${downloadUrl})\n`);
   const downloadPath = await downloadTool(downloadUrl);
@@ -303,10 +299,10 @@ async function installHugo(
   summary.addRaw(`Hugo executable cached at: **${cachedPath}**\n`);
 
   return cachedPath;
-}
+};
 
 // Fonction principale
-export async function main(): Promise<void> {
+export const main = async (): Promise<void> => {
   try {
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
@@ -332,13 +328,17 @@ export async function main(): Promise<void> {
 
     if (!cachedPath) {
       // Sélection du bon asset à télécharger
-      let assetName = `${GITHUB_API.repo}${config.extended ? '_extended' : ''}_${semver}_${config.osPlatform}-${config.osArch}${config.extension}`;
+      let assetName = `${GITHUB_API.repo}${
+        config.extended ? '_extended' : ''
+      }_${semver}_${config.osPlatform}-${config.osArch}${config.extension}`;
       let asset = release.assets?.find((a) => a.name === assetName);
 
       if (!asset && config.osPlatform) {
         // Tenter avec la première lettre de la plateforme en majuscule
         const capitalizedPlatform = capitalizeFirstLetter(config.osPlatform);
-        assetName = `${GITHUB_API.repo}${config.extended ? '_extended' : ''}_${semver}_${capitalizedPlatform}-${config.osArch}${config.extension}`;
+        assetName = `${GITHUB_API.repo}${
+          config.extended ? '_extended' : ''
+        }_${semver}_${capitalizedPlatform}-${config.osArch}${config.extension}`;
         asset = release.assets?.find((a) => a.name === assetName);
 
         if (asset) {
@@ -382,14 +382,16 @@ export async function main(): Promise<void> {
       summary.addRaw(`${error.message}\n`);
     } else {
       summary.addHeading('Error', 2);
-      summary.addRaw(`Unknown error occurred.\n`);
+      summary.addRaw('Unknown error occurred.\n');
     }
     summary.write(); // Écrire le résumé même en cas d'erreur
     setFailed(
-      `Action failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `Action failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
     );
   }
-}
+};
 
 // Exécution
 main();

@@ -90735,7 +90735,7 @@ ${pendingInterceptorsFormatter.format(pending)}
     };
     const capitalizeFirstLetter = (str) => {
       if (!str) return str;
-      return str.charAt(0).toUpperCase() + str.slice(1);
+      return `${str.charAt(0).toUpperCase()}${str.slice(1)}`;
     };
     const initializeConfig = () => {
       const isWindows = core.platform.isWindows;
@@ -90754,12 +90754,12 @@ ${pendingInterceptorsFormatter.format(pending)}
         githubToken: githubToken || undefined
       };
     };
-    async function fetchRelease(version, config) {
+    const fetchRelease = async (version, config) => {
       const headers = {
         Accept: "application/vnd.github.v3+json"
       };
       if (config.githubToken) {
-        headers["Authorization"] = `token ${config.githubToken}`;
+        headers.Authorization = `token ${config.githubToken}`;
       }
       const url =
         version === "latest" ? `${GITHUB_API.releaseApiUrl}/latest` : `${GITHUB_API.releaseApiUrl}/tags/${version}`;
@@ -90769,9 +90769,9 @@ ${pendingInterceptorsFormatter.format(pending)}
       if (!response.ok) {
         throw new ActionError(`Failed to fetch release: ${response.statusText}`);
       }
-      return await response.json();
-    }
-    async function handleCache(config, key) {
+      return response.json();
+    };
+    const handleCache = async (config, key) => {
       try {
         const cachePath = (0, external_path_.join)(
           config.cacheDirectory,
@@ -90788,12 +90788,13 @@ ${pendingInterceptorsFormatter.format(pending)}
         core.summary.addRaw(`No cache found for key: **${key}**\n`);
         return undefined;
       } catch (error) {
-        (0, core.warning)(`Cache restoration failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-        core.summary.addRaw(`Cache restoration failed: ${error instanceof Error ? error.message : "Unknown error"}\n`);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        (0, core.warning)(`Cache restoration failed: ${errorMessage}`);
+        core.summary.addRaw(`Cache restoration failed: ${errorMessage}\n`);
         return undefined;
       }
-    }
-    async function saveToCache(config, semver, key) {
+    };
+    const saveToCache = async (config, semver, key) => {
       const cachePath = (0, external_path_.join)(
         config.cacheDirectory,
         `${GITHUB_API.repo}${config.extended ? "_extended" : ""}`,
@@ -90805,11 +90806,12 @@ ${pendingInterceptorsFormatter.format(pending)}
         (0, core.info)(`Cache saved successfully with key: ${key}`);
         core.summary.addRaw(`Cache saved successfully with key: **${key}**\n`);
       } catch (error) {
-        (0, core.warning)(`Failed to save cache: ${error instanceof Error ? error.message : "Unknown error"}`);
-        core.summary.addRaw(`Failed to save cache: ${error instanceof Error ? error.message : "Unknown error"}\n`);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        (0, core.warning)(`Failed to save cache: ${errorMessage}`);
+        core.summary.addRaw(`Failed to save cache: ${errorMessage}\n`);
       }
-    }
-    async function verifyChecksum(downloadPath, release, assetName, config) {
+    };
+    const verifyChecksum = async (downloadPath, release, assetName, config) => {
       const checksumAsset = release.assets?.find((a) => a.name === "checksums.txt");
       if (!checksumAsset) {
         (0, core.warning)("No checksum file found in release");
@@ -90820,7 +90822,7 @@ ${pendingInterceptorsFormatter.format(pending)}
         Accept: "application/vnd.github.v3.raw"
       };
       if (config.githubToken) {
-        headers["Authorization"] = `token ${config.githubToken}`;
+        headers.Authorization = `token ${config.githubToken}`;
       }
       (0, core.info)(`Fetching checksum file from: ${checksumAsset.browser_download_url}`);
       core.summary.addRaw(`Fetching checksum file from: [checksums.txt](${checksumAsset.browser_download_url})\n`);
@@ -90835,12 +90837,12 @@ ${pendingInterceptorsFormatter.format(pending)}
       const checksumContent = await checksumResponse.text();
       const checksumLines = checksumContent.split("\n");
       const checksumMap = new Map();
-      for (const line of checksumLines) {
+      checksumLines.forEach((line) => {
         const [checksum, file] = line.trim().split(/\s+/);
         if (checksum && file) {
           checksumMap.set(file, checksum);
         }
-      }
+      });
       const expectedChecksum = checksumMap.get(assetName);
       if (!expectedChecksum) {
         (0, core.warning)(`No checksum found for asset ${assetName}`);
@@ -90858,8 +90860,8 @@ ${pendingInterceptorsFormatter.format(pending)}
       }
       (0, core.info)(`Checksum verification passed for ${assetName}`);
       core.summary.addRaw(`Checksum verification passed for **${assetName}**.\n`);
-    }
-    async function installHugo(semver, downloadUrl, assetName, config, release) {
+    };
+    const installHugo = async (semver, downloadUrl, assetName, config, release) => {
       (0, core.info)(`Downloading Hugo from: ${downloadUrl}`);
       core.summary.addRaw(`Downloading Hugo from: [${downloadUrl}](${downloadUrl})\n`);
       const downloadPath = await (0, tool_cache.downloadTool)(downloadUrl);
@@ -90882,8 +90884,8 @@ ${pendingInterceptorsFormatter.format(pending)}
       (0, core.info)(`Hugo executable cached at: ${cachedPath}`);
       core.summary.addRaw(`Hugo executable cached at: **${cachedPath}**\n`);
       return cachedPath;
-    }
-    async function main() {
+    };
+    const main = async () => {
       try {
         core.summary.addHeading("Job Summary", 1);
         core.summary.addSeparator();
@@ -90932,12 +90934,12 @@ ${pendingInterceptorsFormatter.format(pending)}
           core.summary.addRaw(`${error.message}\n`);
         } else {
           core.summary.addHeading("Error", 2);
-          core.summary.addRaw(`Unknown error occurred.\n`);
+          core.summary.addRaw("Unknown error occurred.\n");
         }
         core.summary.write();
         (0, core.setFailed)(`Action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
-    }
+    };
     main();
     //# sourceMappingURL=main.js.map
   })();
