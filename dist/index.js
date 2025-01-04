@@ -90663,9 +90663,6 @@ ${pendingInterceptorsFormatter.format(pending)}
       baseUrl: "https://api.github.com",
       get releaseApiUrl() {
         return `${this.baseUrl}/repos/${this.owner}/${this.repo}/releases`;
-      },
-      get rateLimitUrl() {
-        return `${this.baseUrl}/rate_limit`;
       }
     };
     const ARCH_MAP = new Map([
@@ -90694,7 +90691,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       return target;
     };
     const initializeConfig = () => {
-      const isWindows = process.platform === "win32";
+      const isWindows = core.platform.isWindows;
       const extended = (0, core.getBooleanInput)("extended");
       const githubToken = (0, core.getInput)("github-token");
       return {
@@ -90703,8 +90700,8 @@ ${pendingInterceptorsFormatter.format(pending)}
         extended,
         version: (0, core.getInput)("version") || "latest",
         args: (0, core.getInput)("args") || "version",
-        osPlatform: getEnv("RUNNER_OS"),
-        osArch: mapArchitecture(process.arch),
+        osPlatform: core.platform.platform,
+        osArch: mapArchitecture(core.platform.arch),
         executable: isWindows ? `${GITHUB_API.repo}.exe` : GITHUB_API.repo,
         extension: isWindows ? ".zip" : ".tar.gz",
         githubToken: githubToken || undefined
@@ -90736,12 +90733,18 @@ ${pendingInterceptorsFormatter.format(pending)}
         if (cachedPath) {
           (0, core.info)(`Cache restored from key: ${key}`);
           (0, core.addPath)(cachedPath);
+          core.summary.addHeading("Cache", 2);
+          core.summary.addRaw(`Hugo was restored from cache using key: **${key}**\n`);
           return cachedPath;
         }
         (0, core.info)(`No cache found for key: ${key}`);
+        core.summary.addHeading("Cache", 2);
+        core.summary.addRaw(`No cache found for key: **${key}**\n`);
         return undefined;
       } catch (error) {
         (0, core.warning)(`Cache restoration failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+        core.summary.addHeading("Cache", 2);
+        core.summary.addRaw(`Cache restoration failed: ${error instanceof Error ? error.message : "Unknown error"}\n`);
         return undefined;
       }
     }
@@ -90755,14 +90758,17 @@ ${pendingInterceptorsFormatter.format(pending)}
       try {
         await (0, cache.saveCache)([cachePath], key);
         (0, core.info)(`Cache saved successfully with key: ${key}`);
+        core.summary.addRaw(`Hugo was cached successfully with key: **${key}**\n`);
       } catch (error) {
         (0, core.warning)(`Failed to save cache: ${error instanceof Error ? error.message : "Unknown error"}`);
+        core.summary.addRaw(`Failed to save cache: ${error instanceof Error ? error.message : "Unknown error"}\n`);
       }
     }
     async function verifyChecksum(downloadPath, release, assetName, config) {
       const checksumAsset = release.assets?.find((a) => a.name === "checksums.txt");
       if (!checksumAsset) {
         (0, core.warning)("No checksum file found in release");
+        core.summary.addRaw(`No checksum file found in release.\n`);
         return;
       }
       const headers = {
@@ -90772,11 +90778,13 @@ ${pendingInterceptorsFormatter.format(pending)}
         headers["Authorization"] = `token ${config.githubToken}`;
       }
       (0, core.info)(`Fetching checksum file from: ${checksumAsset.browser_download_url}`);
+      core.summary.addRaw(`Fetching checksum file from: [checksums.txt](${checksumAsset.browser_download_url})\n`);
       const checksumResponse = await fetch(checksumAsset.browser_download_url, {
         headers
       });
       if (!checksumResponse.ok) {
         (0, core.warning)("Failed to download checksum file");
+        core.summary.addRaw(`Failed to download checksum file.\n`);
         return;
       }
       const checksumContent = await checksumResponse.text();
@@ -90791,6 +90799,7 @@ ${pendingInterceptorsFormatter.format(pending)}
       const expectedChecksum = checksumMap.get(assetName);
       if (!expectedChecksum) {
         (0, core.warning)(`No checksum found for asset ${assetName}`);
+        core.summary.addRaw(`No checksum found for asset **${assetName}**.\n`);
         return;
       }
       const fileBuffer = await promises_namespaceObject.readFile(downloadPath);
@@ -90803,16 +90812,20 @@ ${pendingInterceptorsFormatter.format(pending)}
         );
       }
       (0, core.info)(`Checksum verification passed for ${assetName}`);
+      core.summary.addRaw(`Checksum verification passed for **${assetName}**.\n`);
     }
     async function installHugo(semver, downloadUrl, assetName, config, release) {
       (0, core.info)(`Downloading Hugo from: ${downloadUrl}`);
+      core.summary.addRaw(`Downloading Hugo from: [${downloadUrl}](${downloadUrl})\n`);
       const downloadPath = await (0, tool_cache.downloadTool)(downloadUrl);
       await verifyChecksum(downloadPath, release, assetName, config);
       let extractedFolder;
       if (config.isWindows) {
         extractedFolder = await (0, tool_cache.extractZip)(downloadPath);
+        core.summary.addRaw(`Extracted **${assetName}** as a ZIP archive.\n`);
       } else {
         extractedFolder = await (0, tool_cache.extractTar)(downloadPath);
+        core.summary.addRaw(`Extracted **${assetName}** as a TAR archive.\n`);
       }
       const cachedPath = await (0, tool_cache.cacheDir)(
         extractedFolder,
@@ -90822,10 +90835,13 @@ ${pendingInterceptorsFormatter.format(pending)}
       );
       (0, core.addPath)(cachedPath);
       (0, core.info)(`Hugo executable cached at: ${cachedPath}`);
+      core.summary.addRaw(`Hugo executable cached at: **${cachedPath}**\n`);
       return cachedPath;
     }
     async function main() {
       try {
+        core.summary.addHeading("Job Summary", 1);
+        core.summary.addSeparator();
         const config = initializeConfig();
         const release = await fetchRelease(config.version, config);
         if (!release.tag_name) {
@@ -90846,9 +90862,21 @@ ${pendingInterceptorsFormatter.format(pending)}
         }
         const argsArray = config.args.split(" ").filter((arg) => arg.length > 0);
         (0, core.info)(`Executing command: ${config.executable} ${argsArray.join(" ")}`);
+        core.summary.addRaw(`Executing command: **${config.executable} ${argsArray.join(" ")}**\n`);
         await (0, exec.exec)(config.executable, argsArray);
         (0, core.info)("Hugo execution completed successfully.");
+        core.summary.addRaw(`Hugo execution completed successfully.\n`);
+        core.summary.addSeparator();
+        core.summary.write();
       } catch (error) {
+        if (error instanceof Error) {
+          core.summary.addHeading("Error", 2);
+          core.summary.addRaw(`${error.message}\n`);
+        } else {
+          core.summary.addHeading("Error", 2);
+          core.summary.addRaw(`Unknown error occurred.\n`);
+        }
+        core.summary.write();
         (0, core.setFailed)(`Action failed: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     }

@@ -6,6 +6,8 @@ import {
   info,
   warning,
   setFailed,
+  platform,
+  summary,
 } from '@actions/core';
 import { exec } from '@actions/exec';
 import {
@@ -47,9 +49,6 @@ const GITHUB_API = {
   get releaseApiUrl() {
     return `${this.baseUrl}/repos/${this.owner}/${this.repo}/releases`;
   },
-  get rateLimitUrl() {
-    return `${this.baseUrl}/rate_limit`;
-  },
 } as const;
 
 const ARCH_MAP = new Map<string, string>([
@@ -86,7 +85,7 @@ const mapArchitecture = (source: string): string => {
 
 // Configuration initiale de l'action
 const initializeConfig = (): ActionConfig => {
-  const isWindows = process.platform === 'win32';
+  const isWindows = platform.isWindows;
   const extended = getBooleanInput('extended');
   const githubToken = getInput('github-token');
   return {
@@ -95,8 +94,8 @@ const initializeConfig = (): ActionConfig => {
     extended,
     version: getInput('version') || 'latest',
     args: getInput('args') || 'version',
-    osPlatform: getEnv('RUNNER_OS'),
-    osArch: mapArchitecture(process.arch),
+    osPlatform: platform.platform, // 'win32' | 'darwin' | 'linux' | etc.
+    osArch: mapArchitecture(platform.arch), // '64bit' | 'ARM' | 'ARM64'
     executable: isWindows ? `${GITHUB_API.repo}.exe` : GITHUB_API.repo,
     extension: isWindows ? '.zip' : '.tar.gz',
     githubToken: githubToken || undefined,
@@ -145,14 +144,23 @@ async function handleCache(
     if (cachedPath) {
       info(`Cache restored from key: ${key}`);
       addPath(cachedPath);
+      // Ajouter au résumé
+      summary.addHeading('Cache', 2);
+      summary.addRaw(`Hugo was restored from cache using key: **${key}**\n`);
       return cachedPath;
     }
 
     info(`No cache found for key: ${key}`);
+    summary.addHeading('Cache', 2);
+    summary.addRaw(`No cache found for key: **${key}**\n`);
     return undefined;
   } catch (error) {
     warning(
       `Cache restoration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
+    summary.addHeading('Cache', 2);
+    summary.addRaw(
+      `Cache restoration failed: ${error instanceof Error ? error.message : 'Unknown error'}\n`,
     );
     return undefined;
   }
@@ -173,9 +181,13 @@ async function saveToCache(
   try {
     await saveCache([cachePath], key);
     info(`Cache saved successfully with key: ${key}`);
+    summary.addRaw(`Hugo was cached successfully with key: **${key}**\n`);
   } catch (error) {
     warning(
       `Failed to save cache: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
+    summary.addRaw(
+      `Failed to save cache: ${error instanceof Error ? error.message : 'Unknown error'}\n`,
     );
   }
 }
@@ -190,6 +202,7 @@ async function verifyChecksum(
   const checksumAsset = release.assets?.find((a) => a.name === 'checksums.txt');
   if (!checksumAsset) {
     warning('No checksum file found in release');
+    summary.addRaw(`No checksum file found in release.\n`);
     return;
   }
 
@@ -201,12 +214,17 @@ async function verifyChecksum(
   }
 
   info(`Fetching checksum file from: ${checksumAsset.browser_download_url}`);
+  summary.addRaw(
+    `Fetching checksum file from: [checksums.txt](${checksumAsset.browser_download_url})\n`,
+  );
+
   const checksumResponse = await fetch(checksumAsset.browser_download_url, {
     headers,
   });
 
   if (!checksumResponse.ok) {
     warning('Failed to download checksum file');
+    summary.addRaw(`Failed to download checksum file.\n`);
     return;
   }
 
@@ -225,6 +243,7 @@ async function verifyChecksum(
   const expectedChecksum = checksumMap.get(assetName);
   if (!expectedChecksum) {
     warning(`No checksum found for asset ${assetName}`);
+    summary.addRaw(`No checksum found for asset **${assetName}**.\n`);
     return;
   }
 
@@ -241,6 +260,7 @@ async function verifyChecksum(
   }
 
   info(`Checksum verification passed for ${assetName}`);
+  summary.addRaw(`Checksum verification passed for **${assetName}**.\n`);
 }
 
 // Gestion de l'installation de Hugo
@@ -252,6 +272,7 @@ async function installHugo(
   release: GithubRelease,
 ): Promise<string> {
   info(`Downloading Hugo from: ${downloadUrl}`);
+  summary.addRaw(`Downloading Hugo from: [${downloadUrl}](${downloadUrl})\n`);
   const downloadPath = await downloadTool(downloadUrl);
 
   // Vérification des checksums
@@ -260,8 +281,10 @@ async function installHugo(
   let extractedFolder: string;
   if (config.isWindows) {
     extractedFolder = await extractZip(downloadPath);
+    summary.addRaw(`Extracted **${assetName}** as a ZIP archive.\n`);
   } else {
     extractedFolder = await extractTar(downloadPath);
+    summary.addRaw(`Extracted **${assetName}** as a TAR archive.\n`);
   }
 
   const cachedPath = await cacheDir(
@@ -273,6 +296,7 @@ async function installHugo(
 
   addPath(cachedPath);
   info(`Hugo executable cached at: ${cachedPath}`);
+  summary.addRaw(`Hugo executable cached at: **${cachedPath}**\n`);
 
   return cachedPath;
 }
@@ -280,6 +304,10 @@ async function installHugo(
 // Fonction principale
 async function main(): Promise<void> {
   try {
+    // Initialisation du résumé
+    summary.addHeading('Job Summary', 1);
+    summary.addSeparator();
+
     const config = initializeConfig();
     const release = await fetchRelease(config.version, config);
 
@@ -317,9 +345,26 @@ async function main(): Promise<void> {
     // Exécution de Hugo
     const argsArray = config.args.split(' ').filter((arg) => arg.length > 0);
     info(`Executing command: ${config.executable} ${argsArray.join(' ')}`);
+    summary.addRaw(
+      `Executing command: **${config.executable} ${argsArray.join(' ')}**\n`,
+    );
     await exec(config.executable, argsArray);
     info('Hugo execution completed successfully.');
+    summary.addRaw(`Hugo execution completed successfully.\n`);
+
+    // Finalisation du résumé
+    summary.addSeparator();
+    summary.write(); // Écrire le résumé
   } catch (error) {
+    // Ajout de l'erreur au résumé avant d'échouer
+    if (error instanceof Error) {
+      summary.addHeading('Error', 2);
+      summary.addRaw(`${error.message}\n`);
+    } else {
+      summary.addHeading('Error', 2);
+      summary.addRaw(`Unknown error occurred.\n`);
+    }
+    summary.write(); // Écrire le résumé même en cas d'erreur
     setFailed(
       `Action failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );
