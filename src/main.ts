@@ -372,6 +372,10 @@ export const main = async (): Promise<void> => {
     info('Hugo execution completed successfully.');
     summary.addRaw(`Hugo execution completed successfully.\n`);
 
+    // Variables
+    info(`GITHUB_ACTOR: ${getEnv('GITHUB_ACTOR')}`);
+    info(`GITHUB_ACTOR_ID: ${getEnv('GITHUB_ACTOR_ID')}`);
+
     // Finalisation du résumé
     summary.addSeparator();
     summary.write(); // Écrire le résumé

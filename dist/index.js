@@ -90926,6 +90926,8 @@ ${pendingInterceptorsFormatter.format(pending)}
         await (0, exec.exec)(config.executable, argsArray);
         (0, core.info)("Hugo execution completed successfully.");
         core.summary.addRaw(`Hugo execution completed successfully.\n`);
+        (0, core.info)(`GITHUB_ACTOR: ${getEnv("GITHUB_ACTOR")}`);
+        (0, core.info)(`GITHUB_ACTOR_ID: ${getEnv("GITHUB_ACTOR_ID")}`);
         core.summary.addSeparator();
         core.summary.write();
       } catch (error) {
