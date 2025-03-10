@@ -55,7 +55,7 @@
     "@typescript-eslint/parser": "^8.20.0",
     "@vercel/ncc": "^0.38.3",
     "eslint": "^9.18.0",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.2",
     "husky": "^9.1.7",
     "lint-staged": "^15.3.0",
