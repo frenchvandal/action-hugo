@@ -3,6 +3,7 @@ import { restoreCache, saveCache } from '@actions/cache';
 import {
   addPath,
   getBooleanInput,
+  getIDToken,
   getInput,
   info,
   warning,
@@ -21,6 +22,8 @@ import { join } from 'path';
 import { clean } from 'semver';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
+import Credential, { Config } from '@alicloud/credentials';
+import { env, cwd } from 'process';
 
 // Types et interfaces
 interface GithubRelease {
@@ -304,6 +307,26 @@ const installHugo = async (
 // Fonction principale
 export const main = async (): Promise<void> => {
   try {
+    const id_token = await getIDToken();
+
+    env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = join(cwd(), crypto.randomUUID());
+
+    await fs.writeFile(env.ALIBABA_CLOUD_OIDC_TOKEN_FILE, id_token);
+
+    const defaultConfig: Config = new Config({
+      type: 'oidc_role_arn',
+      roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
+      oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
+      oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
+      roleSessionName: env.GITHUB_RUN_ID,
+    });
+
+    const cred = new Credential(defaultConfig);
+
+    const stsToken = await cred.getCredential();
+
+    console.log('stsToken:', stsToken);
+
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
     summary.addSeparator();
