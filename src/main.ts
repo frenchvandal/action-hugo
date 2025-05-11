@@ -309,7 +309,14 @@ export const main = async (): Promise<void> => {
   try {
     const id_token = await getIDToken();
 
+    console.log('id_token:', id_token);
+
     env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = join(cwd(), crypto.randomUUID());
+
+    console.log(
+      'ALIBABA_CLOUD_OIDC_TOKEN_FILE:',
+      env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
+    );
 
     await fs.writeFile(env.ALIBABA_CLOUD_OIDC_TOKEN_FILE, id_token);
 
@@ -321,7 +328,11 @@ export const main = async (): Promise<void> => {
       roleSessionName: env.GITHUB_RUN_ID,
     });
 
+    console.log('defaultConfig:', defaultConfig);
+
     const cred = new Credential(defaultConfig);
+
+    console.log('cred:', cred);
 
     const stsToken = await cred.getCredential();
 

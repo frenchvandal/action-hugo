@@ -93904,9 +93904,14 @@ ${pendingInterceptorsFormatter.format(pending)}
     const main = async () => {
       try {
         const id_token = await (0, core.getIDToken)();
+        console.log("id_token:", id_token);
         external_process_namespaceObject.env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = (0, external_path_.join)(
           (0, external_process_namespaceObject.cwd)(),
           external_crypto_.randomUUID()
+        );
+        console.log(
+          "ALIBABA_CLOUD_OIDC_TOKEN_FILE:",
+          external_process_namespaceObject.env.ALIBABA_CLOUD_OIDC_TOKEN_FILE
         );
         await promises_namespaceObject.writeFile(
           external_process_namespaceObject.env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
@@ -93919,7 +93924,9 @@ ${pendingInterceptorsFormatter.format(pending)}
           oidcTokenFilePath: external_process_namespaceObject.env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
           roleSessionName: external_process_namespaceObject.env.GITHUB_RUN_ID
         });
+        console.log("defaultConfig:", defaultConfig);
         const cred = new (client_default())(defaultConfig);
+        console.log("cred:", cred);
         const stsToken = await cred.getCredential();
         console.log("stsToken:", stsToken);
         core.summary.addHeading("Job Summary", 1);
