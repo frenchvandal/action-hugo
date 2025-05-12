@@ -386,12 +386,12 @@ export const main = async (): Promise<void> => {
 
     console.log('OSS:', OSS);
 
-    const res = await OSS.listObjectsV2(
-      'normcore-dev',
-      new $Util.RuntimeOptions({ autoretry: true, maxAttempts: 3 }),
-    );
+    const request: $oss20190517.ListObjectsV2Request =
+      new $oss20190517.ListObjectsV2Request({});
 
-    console.log('res:', res);
+    const res = await OSS.listObjectsV2('normcore-dev', request);
+
+    console.log('res:', res.statusCode);
 
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
