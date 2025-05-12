@@ -328,6 +328,12 @@ export const main = async (): Promise<void> => {
       roleSessionName: env.GITHUB_RUN_ID,
     });
 
+    console.log('GITHUB_RUN_ID:', env.GITHUB_RUN_ID);
+    info('GITHUB_RUN_ID:');
+    if (env.GITHUB_RUN_ID) {
+      info(env.GITHUB_RUN_ID);
+    }
+
     console.log('defaultConfig:', defaultConfig);
 
     const cred = new Credential(defaultConfig);
