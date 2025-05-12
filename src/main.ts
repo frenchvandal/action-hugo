@@ -346,17 +346,17 @@ export const main = async (): Promise<void> => {
 
     console.log('stsToken:', stsToken);
 
-    if (
-      stsToken.accessKeyId &&
-      stsToken.accessKeySecret &&
-      stsToken.securityToken
-    ) {
-      setSecret(stsToken.accessKeyId);
-      setSecret(stsToken.accessKeySecret);
-      setSecret(stsToken.securityToken);
-    }
+    //if (
+    //  stsToken.accessKeyId &&
+    //  stsToken.accessKeySecret &&
+    //  stsToken.securityToken
+    //) {
+    //  setSecret(stsToken.accessKeyId);
+    //  setSecret(stsToken.accessKeySecret);
+    //  setSecret(stsToken.securityToken);
+    //}
 
-    console.log('stsToken:', stsToken);
+    // console.log('stsToken:', stsToken);
 
     // Variables standard
     exportVariable('ALIBABA_CLOUD_ACCESS_KEY_ID', stsToken.accessKeyId);

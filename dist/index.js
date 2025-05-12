@@ -93931,12 +93931,6 @@ ${pendingInterceptorsFormatter.format(pending)}
         console.log("cred:", cred);
         const stsToken = await cred.getCredential();
         console.log("stsToken:", stsToken);
-        if (stsToken.accessKeyId && stsToken.accessKeySecret && stsToken.securityToken) {
-          (0, core.setSecret)(stsToken.accessKeyId);
-          (0, core.setSecret)(stsToken.accessKeySecret);
-          (0, core.setSecret)(stsToken.securityToken);
-        }
-        console.log("stsToken:", stsToken);
         (0, core.exportVariable)("ALIBABA_CLOUD_ACCESS_KEY_ID", stsToken.accessKeyId);
         (0, core.exportVariable)("ALIBABA_CLOUD_ACCESS_KEY_SECRET", stsToken.accessKeySecret);
         (0, core.exportVariable)("ALIBABA_CLOUD_SECURITY_TOKEN", stsToken.securityToken);
