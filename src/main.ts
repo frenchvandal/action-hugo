@@ -386,12 +386,27 @@ export const main = async (): Promise<void> => {
 
     console.log('OSS:', OSS);
 
-    const request = new $oss20190517.ListObjectsV2Request();
+    const request = new $oss20190517.ListObjectsV2Request({
+      prefix: '',
+      delimiter: '/',
+      maxKeys: 100,
+    });
+
+    const headers = { 'User-Agent': 'AlibabaCloud API Workbench' };
 
     let res;
     try {
-      res = await OSS.listObjectsV2('normcore-dev', request);
-      console.log('Objets listés avec succès:', res.body);
+      console.log('Requête:', JSON.stringify(request, null, 2));
+      res = await OSS.listObjectsV2WithOptions(
+        'normcore-dev',
+        request,
+        headers,
+        new $Util.RuntimeOptions({}),
+      );
+      console.log(
+        'Structure complète de la réponse:',
+        JSON.stringify(res, null, 2),
+      );
     } catch (error) {
       console.error(
         'Erreur lors de la récupération des objets du bucket:',
