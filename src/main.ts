@@ -318,6 +318,7 @@ export const main = async (): Promise<void> => {
 
     const tokenFile = crypto.randomUUID();
     setSecret(tokenFile);
+    console.log('tokenFile:', tokenFile);
 
     env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = join(cwd(), tokenFile);
     env.ALIBABA_CLOUD_ROLE_SESSION_NAME = env.GITHUB_RUN_ID;
@@ -334,10 +335,10 @@ export const main = async (): Promise<void> => {
     //roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
     //oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
     //oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
-    roleSessionName: env.GITHUB_RUN_ID,
-      //});
+    //roleSessionName: env.GITHUB_RUN_ID,
+    //});
 
-      console.log('GITHUB_RUN_ID:', env.GITHUB_RUN_ID);
+    console.log('GITHUB_RUN_ID:', env.GITHUB_RUN_ID);
     info('GITHUB_RUN_ID:');
     if (env.GITHUB_RUN_ID) {
       info(env.GITHUB_RUN_ID);
@@ -372,18 +373,22 @@ export const main = async (): Promise<void> => {
     console.log('stsToken:', stsToken);
 
     // Variables standard
-    exportVariable('ALIBABA_CLOUD_ACCESS_KEY_ID', stsToken.accessKeyId);
-    exportVariable('ALIBABA_CLOUD_ACCESS_KEY_SECRET', stsToken.accessKeySecret);
-    exportVariable('ALIBABA_CLOUD_SECURITY_TOKEN', stsToken.securityToken);
+    //exportVariable('ALIBABA_CLOUD_ACCESS_KEY_ID', stsToken.accessKeyId);
+    //exportVariable('ALIBABA_CLOUD_ACCESS_KEY_SECRET', stsToken.accessKeySecret);
+    //exportVariable('ALIBABA_CLOUD_SECURITY_TOKEN', stsToken.securityToken);
 
     // Compatibilité anciens noms
-    exportVariable('ALICLOUD_ACCESS_KEY', stsToken.accessKeyId);
-    exportVariable('ALICLOUD_SECRET_KEY', stsToken.accessKeySecret);
-    exportVariable('ALICLOUD_SECURITY_TOKEN', stsToken.securityToken);
+    //exportVariable('ALICLOUD_ACCESS_KEY', stsToken.accessKeyId);
+    //exportVariable('ALICLOUD_SECRET_KEY', stsToken.accessKeySecret);
+    //exportVariable('ALICLOUD_SECURITY_TOKEN', stsToken.securityToken);
 
     const OSS = new oss20190517(defaultConfig);
 
+    console.log('OSS:', OSS);
+
     const res = OSS.listObjects('normcore-dev', new $Util.RuntimeOptions({}));
+
+    console.log('res:', res);
 
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
