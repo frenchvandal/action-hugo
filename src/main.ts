@@ -26,6 +26,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 import Credential, { Config } from '@alicloud/credentials';
 import { env, cwd } from 'process';
+import OSS from '@alicloud/oss20190517';
 
 // Types et interfaces
 interface GithubRelease {
@@ -344,19 +345,17 @@ export const main = async (): Promise<void> => {
 
     const stsToken = await cred.getCredential();
 
+    if (
+      stsToken.accessKeyId &&
+      stsToken.accessKeySecret &&
+      stsToken.securityToken
+    ) {
+      setSecret(stsToken.accessKeyId);
+      setSecret(stsToken.accessKeySecret);
+      setSecret(stsToken.securityToken);
+    }
+
     console.log('stsToken:', stsToken);
-
-    //if (
-    //  stsToken.accessKeyId &&
-    //  stsToken.accessKeySecret &&
-    //  stsToken.securityToken
-    //) {
-    //  setSecret(stsToken.accessKeyId);
-    //  setSecret(stsToken.accessKeySecret);
-    //  setSecret(stsToken.securityToken);
-    //}
-
-    // console.log('stsToken:', stsToken);
 
     // Variables standard
     exportVariable('ALIBABA_CLOUD_ACCESS_KEY_ID', stsToken.accessKeyId);
@@ -439,6 +438,19 @@ export const main = async (): Promise<void> => {
     // Variables
     info(`GITHUB_ACTOR: ${getEnv('GITHUB_ACTOR')}`);
     info(`GITHUB_ACTOR_ID: ${getEnv('GITHUB_ACTOR_ID')}`);
+
+    const client = new OSS(
+      new Config({
+        accessKeyId: stsToken.accessKeyId,
+        accessKeySecret: stsToken.accessKeySecret,
+        securityToken: stsToken.securityToken,
+      }),
+    );
+    console.log('OSS Client:', client);
+
+    const res = client.listObjects;
+
+    console.log(res);
 
     // Finalisation du résumé
     summary.addSeparator();
