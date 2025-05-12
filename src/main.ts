@@ -27,6 +27,7 @@ import * as fs from 'fs/promises';
 import Credential, { Config } from '@alicloud/credentials';
 import { env, cwd } from 'process';
 import OSS from '@alicloud/oss20190517';
+import * as Util from '@alicloud/tea-util';
 
 // Types et interfaces
 interface GithubRelease {
@@ -441,14 +442,15 @@ export const main = async (): Promise<void> => {
 
     const client = new OSS(
       new Config({
-        accessKeyId: stsToken.accessKeyId,
-        accessKeySecret: stsToken.accessKeySecret,
-        securityToken: stsToken.securityToken,
+        type: 'oidc_role_arn',
+        regionId: 'eu-central-1',
       }),
     );
     console.log('OSS Client:', client);
 
-    const res = client.listObjects;
+    const runtimeObject = new Util.RuntimeOptions({});
+
+    const res = await client.listObjects('normcore', runtimeObject);
 
     console.log(res);
 
