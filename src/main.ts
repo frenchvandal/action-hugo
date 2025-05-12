@@ -442,8 +442,11 @@ export const main = async (): Promise<void> => {
 
     const client = new OSS(
       new Config({
-        type: 'oidc_role_arn',
-        regionId: 'eu-central-1',
+        Type: 'oidc_role_arn',
+        RegionId: 'eu-central-1',
+        AccessKeyId: env.ALIBABA_CLOUD_ACCESS_KEY_ID,
+        AccessKeySecret: env.ALIBABA_CLOUD_ACCESS_KEY_SECRET,
+        SecurityToken: env.ALIBABA_CLOUD_SECURITY_TOKEN,
       }),
     );
     console.log('OSS Client:', client);
