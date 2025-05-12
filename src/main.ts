@@ -322,9 +322,9 @@ export const main = async (): Promise<void> => {
 
     const defaultConfig: Config = new Config({
       type: 'oidc_role_arn',
-      roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
-      oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
-      oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
+      //roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
+      //oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
+      //oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
       roleSessionName: env.GITHUB_RUN_ID,
     });
 

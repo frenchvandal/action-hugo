@@ -93919,9 +93919,6 @@ ${pendingInterceptorsFormatter.format(pending)}
         );
         const defaultConfig = new client.Config({
           type: "oidc_role_arn",
-          roleArn: external_process_namespaceObject.env.ALIBABA_CLOUD_ROLE_ARN,
-          oidcProviderArn: external_process_namespaceObject.env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
-          oidcTokenFilePath: external_process_namespaceObject.env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
           roleSessionName: external_process_namespaceObject.env.GITHUB_RUN_ID
         });
         console.log("defaultConfig:", defaultConfig);
