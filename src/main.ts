@@ -388,9 +388,33 @@ export const main = async (): Promise<void> => {
 
     const request = new $oss20190517.ListObjectsV2Request();
 
-    const res = await OSS.listObjectsV2('normcore-dev', request);
+    let res;
+    try {
+      res = await OSS.listObjectsV2('normcore-dev', request);
+      console.log('Objets listés avec succès:', res.body);
+    } catch (error) {
+      console.error(
+        'Erreur lors de la récupération des objets du bucket:',
+        error,
+      );
 
-    console.log('res:', res.statusCode);
+      // Affichage détaillé de l'erreur
+      if (error instanceof Error) {
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+      }
+
+      // Vous pouvez également ajouter des logs pour le résumé si nécessaire
+      warning(
+        `Échec de la liste des objets dans le bucket normcore-dev: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+      );
+      summary.addRaw(
+        `⚠️ Échec de la liste des objets dans le bucket **normcore-dev**\n`,
+      );
+
+      // Optionnel: lancer à nouveau l'erreur ou la gérer d'une autre façon
+      // throw error; // Si vous voulez que l'erreur soit propagée plus haut
+    }
 
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
