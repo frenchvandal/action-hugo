@@ -24,10 +24,11 @@ import { join } from 'path';
 import { clean } from 'semver';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
-import Credential, { Config } from '@alicloud/credentials';
+import Credential from '@alicloud/credentials';
 import { env, cwd } from 'process';
-import OSS from '@alicloud/oss20190517';
-import * as Util from '@alicloud/tea-util';
+import oss20190517, * as $oss20190517 from '@alicloud/oss20190517';
+import * as $Util from '@alicloud/tea-util';
+import * as $OpenApi from '@alicloud/openapi-client';
 
 // Types et interfaces
 interface GithubRelease {
@@ -319,6 +320,7 @@ export const main = async (): Promise<void> => {
     setSecret(tokenFile);
 
     env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = join(cwd(), tokenFile);
+    env.ALIBABA_CLOUD_ROLE_SESSION_NAME = env.GITHUB_RUN_ID;
 
     console.log(
       'ALIBABA_CLOUD_OIDC_TOKEN_FILE:',
@@ -327,23 +329,31 @@ export const main = async (): Promise<void> => {
 
     await fs.writeFile(env.ALIBABA_CLOUD_OIDC_TOKEN_FILE, id_token);
 
-    const defaultConfig: Config = new Config({
-      //type: 'oidc_role_arn',
-      //roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
-      //oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
-      //oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
-      roleSessionName: env.GITHUB_RUN_ID,
-    });
+    //const defaultConfig: Config = new Config({
+    //type: 'oidc_role_arn',
+    //roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
+    //oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
+    //oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
+    roleSessionName: env.GITHUB_RUN_ID,
+      //});
 
-    console.log('GITHUB_RUN_ID:', env.GITHUB_RUN_ID);
+      console.log('GITHUB_RUN_ID:', env.GITHUB_RUN_ID);
     info('GITHUB_RUN_ID:');
     if (env.GITHUB_RUN_ID) {
       info(env.GITHUB_RUN_ID);
     }
 
-    console.log('defaultConfig:', defaultConfig);
+    //console.log('defaultConfig:', defaultConfig);
 
-    const cred = new Credential(defaultConfig);
+    //const cred = new Credential(defaultConfig);
+
+    const cred = new Credential();
+
+    const defaultConfig = new $OpenApi.Config({
+      credential: cred,
+    });
+
+    defaultConfig.endpoint = 'oss-eu-central-1.aliyuncs.com';
 
     console.log('cred:', cred);
 
@@ -370,6 +380,10 @@ export const main = async (): Promise<void> => {
     exportVariable('ALICLOUD_ACCESS_KEY', stsToken.accessKeyId);
     exportVariable('ALICLOUD_SECRET_KEY', stsToken.accessKeySecret);
     exportVariable('ALICLOUD_SECURITY_TOKEN', stsToken.securityToken);
+
+    const OSS = new oss20190517(defaultConfig);
+
+    const res = OSS.listObjects('normcore-dev', new $Util.RuntimeOptions({}));
 
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
@@ -442,23 +456,6 @@ export const main = async (): Promise<void> => {
     // Variables
     info(`GITHUB_ACTOR: ${getEnv('GITHUB_ACTOR')}`);
     info(`GITHUB_ACTOR_ID: ${getEnv('GITHUB_ACTOR_ID')}`);
-
-    const client = new OSS(
-      new Config({
-        type: 'oidc_role_arn',
-        regionId: 'eu-central-1',
-        accessKeyId: env.ALIBABA_CLOUD_ACCESS_KEY_ID,
-        accessKeySecret: env.ALIBABA_CLOUD_ACCESS_KEY_SECRET,
-        securityToken: env.ALIBABA_CLOUD_SECURITY_TOKEN,
-      }),
-    );
-    console.log('OSS Client:', client);
-
-    const runtimeObject = new Util.RuntimeOptions({});
-
-    const res = await client.listObjects('normcore', runtimeObject);
-
-    console.log(res);
 
     // Finalisation du résumé
     summary.addSeparator();

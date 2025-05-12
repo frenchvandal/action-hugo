@@ -41,6 +41,7 @@
     "@actions/http-client": "^2.2.3",
     "@actions/tool-cache": "^2.0.2",
     "@alicloud/credentials": "^2.4.3",
+    "@alicloud/openapi-client": "^0.4.14",
     "@alicloud/oss20190517": "^1.0.6",
     "@alicloud/tea-util": "^1.4.10",
     "semver": "^7.7.1"
