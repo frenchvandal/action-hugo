@@ -386,7 +386,10 @@ export const main = async (): Promise<void> => {
 
     console.log('OSS:', OSS);
 
-    const res = OSS.listObjects('normcore-dev', new $Util.RuntimeOptions({}));
+    const res = await OSS.listObjects(
+      'normcore-dev',
+      new $Util.RuntimeOptions({}),
+    );
 
     console.log('res:', res);
 
