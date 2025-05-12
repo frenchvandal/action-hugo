@@ -93936,6 +93936,7 @@ ${pendingInterceptorsFormatter.format(pending)}
           (0, core.setSecret)(stsToken.accessKeySecret);
           (0, core.setSecret)(stsToken.securityToken);
         }
+        console.log("stsToken:", stsToken);
         (0, core.exportVariable)("ALIBABA_CLOUD_ACCESS_KEY_ID", stsToken.accessKeyId);
         (0, core.exportVariable)("ALIBABA_CLOUD_ACCESS_KEY_SECRET", stsToken.accessKeySecret);
         (0, core.exportVariable)("ALIBABA_CLOUD_SECURITY_TOKEN", stsToken.securityToken);

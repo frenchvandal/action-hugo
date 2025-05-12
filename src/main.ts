@@ -356,6 +356,8 @@ export const main = async (): Promise<void> => {
       setSecret(stsToken.securityToken);
     }
 
+    console.log('stsToken:', stsToken);
+
     // Variables standard
     exportVariable('ALIBABA_CLOUD_ACCESS_KEY_ID', stsToken.accessKeyId);
     exportVariable('ALIBABA_CLOUD_ACCESS_KEY_SECRET', stsToken.accessKeySecret);
