@@ -387,7 +387,7 @@ export const main = async (): Promise<void> => {
     console.log('OSS:', OSS);
 
     const request: $oss20190517.ListObjectsV2Request =
-      new $oss20190517.ListObjectsV2Request({});
+      new $oss20190517.ListObjectsV2Request({ bucket: 'normcore-dev' });
 
     const res = await OSS.listObjectsV2('normcore-dev', request);
 
