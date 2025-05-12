@@ -315,7 +315,10 @@ export const main = async (): Promise<void> => {
 
     console.log('id_token:', id_token);
 
-    env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = join(cwd(), crypto.randomUUID());
+    const tokenFile = crypto.randomUUID();
+    setSecret(tokenFile);
+
+    env.ALIBABA_CLOUD_OIDC_TOKEN_FILE = join(cwd(), tokenFile);
 
     console.log(
       'ALIBABA_CLOUD_OIDC_TOKEN_FILE:',
@@ -325,7 +328,7 @@ export const main = async (): Promise<void> => {
     await fs.writeFile(env.ALIBABA_CLOUD_OIDC_TOKEN_FILE, id_token);
 
     const defaultConfig: Config = new Config({
-      type: 'oidc_role_arn',
+      //type: 'oidc_role_arn',
       //roleArn: env.ALIBABA_CLOUD_ROLE_ARN,
       //oidcProviderArn: env.ALIBABA_CLOUD_OIDC_PROVIDER_ARN,
       //oidcTokenFilePath: env.ALIBABA_CLOUD_OIDC_TOKEN_FILE,
