@@ -93921,11 +93921,27 @@ ${pendingInterceptorsFormatter.format(pending)}
           type: "oidc_role_arn",
           roleSessionName: external_process_namespaceObject.env.GITHUB_RUN_ID
         });
+        console.log("GITHUB_RUN_ID:", external_process_namespaceObject.env.GITHUB_RUN_ID);
+        (0, core.info)("GITHUB_RUN_ID:");
+        if (external_process_namespaceObject.env.GITHUB_RUN_ID) {
+          (0, core.info)(external_process_namespaceObject.env.GITHUB_RUN_ID);
+        }
         console.log("defaultConfig:", defaultConfig);
         const cred = new (client_default())(defaultConfig);
         console.log("cred:", cred);
         const stsToken = await cred.getCredential();
         console.log("stsToken:", stsToken);
+        if (stsToken.accessKeyId && stsToken.accessKeySecret && stsToken.securityToken) {
+          (0, core.setSecret)(stsToken.accessKeyId);
+          (0, core.setSecret)(stsToken.accessKeySecret);
+          (0, core.setSecret)(stsToken.securityToken);
+        }
+        (0, core.exportVariable)("ALIBABA_CLOUD_ACCESS_KEY_ID", stsToken.accessKeyId);
+        (0, core.exportVariable)("ALIBABA_CLOUD_ACCESS_KEY_SECRET", stsToken.accessKeySecret);
+        (0, core.exportVariable)("ALIBABA_CLOUD_SECURITY_TOKEN", stsToken.securityToken);
+        (0, core.exportVariable)("ALICLOUD_ACCESS_KEY", stsToken.accessKeyId);
+        (0, core.exportVariable)("ALICLOUD_SECRET_KEY", stsToken.accessKeySecret);
+        (0, core.exportVariable)("ALICLOUD_SECURITY_TOKEN", stsToken.securityToken);
         core.summary.addHeading("Job Summary", 1);
         core.summary.addSeparator();
         const config = initializeConfig();

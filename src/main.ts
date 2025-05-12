@@ -2,6 +2,7 @@
 import { restoreCache, saveCache } from '@actions/cache';
 import {
   addPath,
+  exportVariable,
   getBooleanInput,
   getIDToken,
   getInput,
@@ -9,6 +10,7 @@ import {
   warning,
   setFailed,
   platform,
+  setSecret,
   summary,
 } from '@actions/core';
 import { exec } from '@actions/exec';
@@ -343,6 +345,26 @@ export const main = async (): Promise<void> => {
     const stsToken = await cred.getCredential();
 
     console.log('stsToken:', stsToken);
+
+    if (
+      stsToken.accessKeyId &&
+      stsToken.accessKeySecret &&
+      stsToken.securityToken
+    ) {
+      setSecret(stsToken.accessKeyId);
+      setSecret(stsToken.accessKeySecret);
+      setSecret(stsToken.securityToken);
+    }
+
+    // Variables standard
+    exportVariable('ALIBABA_CLOUD_ACCESS_KEY_ID', stsToken.accessKeyId);
+    exportVariable('ALIBABA_CLOUD_ACCESS_KEY_SECRET', stsToken.accessKeySecret);
+    exportVariable('ALIBABA_CLOUD_SECURITY_TOKEN', stsToken.securityToken);
+
+    // Compatibilité anciens noms
+    exportVariable('ALICLOUD_ACCESS_KEY', stsToken.accessKeyId);
+    exportVariable('ALICLOUD_SECRET_KEY', stsToken.accessKeySecret);
+    exportVariable('ALICLOUD_SECURITY_TOKEN', stsToken.securityToken);
 
     // Initialisation du résumé
     summary.addHeading('Job Summary', 1);
