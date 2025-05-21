@@ -2,7 +2,8 @@
 
 ## About
 
-GitHub Action for [Hugo](https://gohugo.io/), the world's fastest framework for building websites.
+GitHub Action for [Hugo](https://gohugo.io/), the world's fastest framework for
+building websites.
 
 ---
 
@@ -58,9 +59,12 @@ Following inputs can be used as `step.with` keys
 
 ## Keep up-to-date with GitHub Dependabot
 
-Since [Dependabot](https://docs.github.com/en/github/administering-a-repository/keeping-your-actions-up-to-date-with-github-dependabot)
-has [native GitHub Actions support](https://docs.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates#package-ecosystem),
-to enable it on your GitHub repo all you need to do is add the `.github/dependabot.yml` file:
+Since
+[Dependabot](https://docs.github.com/en/github/administering-a-repository/keeping-your-actions-up-to-date-with-github-dependabot)
+has
+[native GitHub Actions support](https://docs.github.com/en/github/administering-a-repository/configuration-options-for-dependency-updates#package-ecosystem),
+to enable it on your GitHub repo all you need to do is add the
+`.github/dependabot.yml` file:
 
 ```yaml
 version: 2

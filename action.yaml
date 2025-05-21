@@ -1,5 +1,6 @@
 name: 'Yet another Hugo setup action'
-description: "GitHub Action for Hugo, the world's fastest framework for building websites"
+description:
+  "GitHub Action for Hugo, the world's fastest framework for building websites"
 author: 'frenchvandal'
 branding:
   color: 'orange'
