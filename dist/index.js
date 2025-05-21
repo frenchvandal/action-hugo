@@ -91,7 +91,7 @@ const fetchRelease = async (version, config) => {
     if (!response.ok) {
         throw new ActionError(`Failed to fetch release: ${response.statusText}`);
     }
-    return response.json();
+    return (await response.json());
 };
 // Gestion du cache
 const handleCache = async (config, key) => {

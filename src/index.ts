@@ -2,7 +2,6 @@
 import { restoreCache, saveCache } from '@actions/cache'
 import {
   addPath,
-  exportVariable,
   getBooleanInput,
   getIDToken,
   getInput,
@@ -122,7 +121,7 @@ const fetchRelease = async (
   version: string,
   config: ActionConfig
 ): Promise<GithubRelease> => {
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json'
   }
 
@@ -143,7 +142,7 @@ const fetchRelease = async (
     throw new ActionError(`Failed to fetch release: ${response.statusText}`)
   }
 
-  return response.json()
+  return (await response.json()) as GithubRelease
 }
 
 // Gestion du cache
@@ -214,7 +213,7 @@ const verifyChecksum = async (
     return
   }
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3.raw'
   }
   if (config.githubToken) {
